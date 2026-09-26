@@ -1,0 +1,34 @@
+# Flexee Reader — app + PostgreSQL. Standalone; no LMS or email server required.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flexee
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: flexee
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flexee"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://flexee:${POSTGRES_PASSWORD:-changeme}@db:5432/flexee
+      CONTENT_DIR: /content
+      NODE_ENV: production
+    volumes:
+      - ./content:/content:ro        # the book content trees (sad/, mis3000/)
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 2,
+  "id": "ch02",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 2,
+  "label": "2",
+  "title": "Where advantage lives, and how you find it",
+  "version": 1,
+  "contentHash": "sha256:b7289c413ebe0e17",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c2s1",
+      "title": "A fence falls down"
+    },
+    {
+      "id": "c2s2",
+      "title": "The question underneath the technology"
+    },
+    {
+      "id": "c2s3",
+      "title": "Start with what the customer experienced"
+    },
+    {
+      "id": "c2s4",
+      "title": "Build a map that can be challenged"
+    },
+    {
+      "id": "c2s5",
+      "title": "Diagnose the failure before changing the process"
+    },
+    {
+      "id": "c2s6",
+      "title": "Draw a should-be process"
+    },
+    {
+      "id": "c2s7",
+      "title": "Test the proposed experience"
+    },
+    {
+      "id": "c2s8",
+      "title": "Decide whether the redesign deserves to survive"
+    },
+    {
+      "id": "c2s9",
+      "title": "Naming what you just did"
+    },
+    {
+      "id": "c2s10",
+      "title": "Your turn"
+    },
+    {
+      "id": "c2s11",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c02-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 2.1",
+      "caption": "The claim as experienced. Lane crossings expose handoffs; dashed steps are hypotheses to check, not established internal facts.",
+      "number": "2.1"
+    },
+    {
+      "id": "fig-mis3000-c02-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 2.2",
+      "caption": "The claim with an owner. Earlier explanation changes the experience; inspections remain available when evidence is insufficient.",
+      "number": "2.2"
+    }
+  ]
+}

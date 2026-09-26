@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 2,
+  "id": "ch06",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 6,
+  "label": "6",
+  "title": "Numbers, and the decisions people make because of them",
+  "version": 1,
+  "contentHash": "sha256:b6a80cbdbae56b69",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c6s1",
+      "title": "What counts as a hit?"
+    },
+    {
+      "id": "c6s2",
+      "title": "Three answers to one question"
+    },
+    {
+      "id": "c6s3",
+      "title": "Which number belongs in the presentation?"
+    },
+    {
+      "id": "c6s4",
+      "title": "A precise answer to the wrong question"
+    },
+    {
+      "id": "c6s5",
+      "title": "The measure becomes the target"
+    },
+    {
+      "id": "c6s6",
+      "title": "When the spreadsheet and the experienced manager disagree"
+    },
+    {
+      "id": "c6s7",
+      "title": "Three debts, briefly paid"
+    },
+    {
+      "id": "c6s8",
+      "title": "Optional: what a price tells you"
+    },
+    {
+      "id": "c6s9",
+      "title": "Your turn"
+    },
+    {
+      "id": "c6s10",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c06-01",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "One file, several valid counts. Count the entity the decision concerns, using a stated period and rule.",
+      "number": "6.1"
+    },
+    {
+      "id": "fig-mis3000-c06-02",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "The target improved. Did service? More closed tickets can conceal more unresolved work.",
+      "number": "6.2"
+    }
+  ]
+}

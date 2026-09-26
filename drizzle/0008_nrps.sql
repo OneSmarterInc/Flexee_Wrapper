@@ -1,0 +1,1 @@
+ALTER TABLE "lti_links" ADD COLUMN "nrps_url" text;

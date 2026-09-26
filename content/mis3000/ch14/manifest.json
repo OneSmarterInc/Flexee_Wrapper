@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 2,
+  "id": "ch14",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 14,
+  "label": "14",
+  "title": "What are you being built for?",
+  "version": 1,
+  "contentHash": "sha256:479df848d51f518c",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c14s1",
+      "title": "The question you have been carrying"
+    },
+    {
+      "id": "c14s2",
+      "title": "The handoff, one more time"
+    },
+    {
+      "id": "c14s3",
+      "title": "What to practise when the future is uncertain"
+    },
+    {
+      "id": "c14s4",
+      "title": "Get close to a decision"
+    },
+    {
+      "id": "c14s5",
+      "title": "Use a tool without borrowing its confidence"
+    },
+    {
+      "id": "c14s6",
+      "title": "Build the part that accumulates"
+    },
+    {
+      "id": "c14s7",
+      "title": "What this book was arguing"
+    },
+    {
+      "id": "c14s8",
+      "title": "Your turn, last time"
+    },
+    {
+      "id": "c14s9",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c14-01",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "Keep a record of your reasoning. Judge the quality of the decision using what you knew then and what you learned later.",
+      "number": "14.1"
+    }
+  ]
+}

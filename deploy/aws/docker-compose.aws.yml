@@ -1,0 +1,32 @@
+# Flexee Wrapper on AWS: the app behind Caddy (automatic HTTPS). The database is Amazon RDS,
+# so there is no db service here. Values come from deploy/aws/.env (see .env.example).
+services:
+  app:
+    build: ../..
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CONTENT_DIR: /content
+      NODE_ENV: production
+    volumes:
+      - ../../content:/content:ro      # book trees written by the intake (sad/, mis3000/)
+    expose:
+      - "3000"                         # reachable only through Caddy, never directly
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data               # certificates; keep this volume
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

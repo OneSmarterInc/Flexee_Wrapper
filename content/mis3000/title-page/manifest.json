@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "id": "title-page",
+  "book": "mis3000",
+  "kind": "front",
+  "number": null,
+  "label": null,
+  "title": "Flexee-3000",
+  "version": 1,
+  "contentHash": "sha256:6011fd7365552e21",
+  "content": "content.md",
+  "sections": [],
+  "figures": []
+}

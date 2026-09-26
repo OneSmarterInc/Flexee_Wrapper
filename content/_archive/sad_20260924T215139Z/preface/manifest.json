@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "preface",
+  "book": "sad",
+  "kind": "front",
+  "number": null,
+  "label": "Preface",
+  "title": "Preface",
+  "version": 1,
+  "contentHash": "sha256:fe7fb6f0c730c52b",
+  "content": "content.md",
+  "sourceHtml": "content.html",
+  "sections": [],
+  "figures": []
+}

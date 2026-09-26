@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "sad",
+  "title": "Analysis and Design of Information Systems",
+  "subtitle": "MIS 3250",
+  "meta": "Vikram Sethi · Flexee Publishers · First edition",
+  "copyright": "Flexee",
+  "license": "read-only",
+  "defaultEntry": "preface",
+  "spine": [
+    {
+      "ref": "dedication",
+      "kind": "front"
+    },
+    {
+      "ref": "copyright",
+      "kind": "front"
+    },
+    {
+      "ref": "preface",
+      "kind": "front"
+    },
+    {
+      "ref": "acknowledgements",
+      "kind": "front"
+    },
+    {
+      "ref": "how-to-use-this-book",
+      "kind": "front"
+    },
+    {
+      "ref": "a-note-for-instructors",
+      "kind": "front"
+    },
+    {
+      "ref": "figures",
+      "kind": "front"
+    },
+    {
+      "ref": "ch01",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch02",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch03",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch04",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch05",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch06",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch07",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch08",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch09",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch10",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch11",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch12",
+      "kind": "chapter"
+    }
+  ]
+}

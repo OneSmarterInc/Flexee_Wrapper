@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 2,
+  "id": "ch11",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 11,
+  "label": "11",
+  "title": "What is a company allowed to know about you?",
+  "version": 1,
+  "contentHash": "sha256:756ae8cadfe7df2f",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c11s1",
+      "title": "A father walks into a store"
+    },
+    {
+      "id": "c11s2",
+      "title": "Ask the three questions about the story itself"
+    },
+    {
+      "id": "c11s3",
+      "title": "Inference is the whole subject"
+    },
+    {
+      "id": "c11s4",
+      "title": "The same mechanism, at a much larger scale"
+    },
+    {
+      "id": "c11s5",
+      "title": "Regulation as a design constraint"
+    },
+    {
+      "id": "c11s6",
+      "title": "From discomfort to a decision"
+    },
+    {
+      "id": "c11s7",
+      "title": "The hard version, which has no tidy answer"
+    },
+    {
+      "id": "c11s8",
+      "title": "Naming it"
+    },
+    {
+      "id": "c11s9",
+      "title": "Your turn"
+    },
+    {
+      "id": "c11s10",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c11-01",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "Collected, inferred, used. The ethical and legal questions change when a recorded event becomes an estimate and then an action. An inference may be wrong; assess purpose, permission and harm.",
+      "number": "11.1"
+    }
+  ]
+}

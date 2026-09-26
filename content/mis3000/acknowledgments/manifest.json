@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "id": "acknowledgments",
+  "book": "mis3000",
+  "kind": "front",
+  "number": null,
+  "label": null,
+  "title": "Acknowledgments",
+  "version": 1,
+  "contentHash": "sha256:5e7b8db014fd7006",
+  "content": "content.md",
+  "sections": [],
+  "figures": []
+}

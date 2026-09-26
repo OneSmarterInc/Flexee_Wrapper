@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "id": "title-page",
+  "book": "sad",
+  "kind": "front",
+  "number": null,
+  "label": null,
+  "title": "Analysis and Design of Information Systems",
+  "version": 1,
+  "sourceVersion": "v1.4",
+  "contentHash": "sha256:6a1bae023655769e",
+  "content": "content.md",
+  "sections": [],
+  "figures": []
+}

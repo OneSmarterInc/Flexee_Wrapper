@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 2,
+  "id": "ch04",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 4,
+  "label": "4",
+  "title": "Is anyone actually getting an advantage from this?",
+  "version": 1,
+  "contentHash": "sha256:cd5e801016d83590",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c4s1",
+      "title": "A very good month"
+    },
+    {
+      "id": "c4s2",
+      "title": "Fifteen months later"
+    },
+    {
+      "id": "c4s3",
+      "title": "What kind of claim is it?"
+    },
+    {
+      "id": "c4s4",
+      "title": "The other number"
+    },
+    {
+      "id": "c4s5",
+      "title": "Hammer walks back in"
+    },
+    {
+      "id": "c4s6",
+      "title": "What the system is being asked to do"
+    },
+    {
+      "id": "c4s7",
+      "title": "Change the handoff deliberately"
+    },
+    {
+      "id": "c4s8",
+      "title": "Put a number on a complete outcome"
+    },
+    {
+      "id": "c4s9",
+      "title": "Decide what the saved time becomes"
+    },
+    {
+      "id": "c4s10",
+      "title": "Both instruments, on one case"
+    },
+    {
+      "id": "c4s11",
+      "title": "Your turn"
+    },
+    {
+      "id": "c4s12",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c04-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 4.1",
+      "caption": "Change the handoff deliberately. Shared information may reduce coordination work; expertise and escalation still need an owner.",
+      "number": "4.1"
+    },
+    {
+      "id": "fig-mis3000-c04-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 4.2",
+      "caption": "What would count as success? Fix the definitions and comparison period before judging a pilot.",
+      "number": "4.2"
+    }
+  ]
+}

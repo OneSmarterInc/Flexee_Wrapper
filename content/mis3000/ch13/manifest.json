@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 2,
+  "id": "ch13",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 13,
+  "label": "13",
+  "title": "How do you buy something you don't understand?",
+  "version": 1,
+  "contentHash": "sha256:74d1c588e96eea00",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c13s1",
+      "title": "Halloween, 1999"
+    },
+    {
+      "id": "c13s2",
+      "title": "Why the demo works"
+    },
+    {
+      "id": "c13s3",
+      "title": "The quote is the first item"
+    },
+    {
+      "id": "c13s4",
+      "title": "Compare the work, not just the subscriptions"
+    },
+    {
+      "id": "c13s5",
+      "title": "Buy evidence before buying the rollout"
+    },
+    {
+      "id": "c13s6",
+      "title": "Go-live is the middle, not the end"
+    },
+    {
+      "id": "c13s7",
+      "title": "Listen to the person who objects"
+    },
+    {
+      "id": "c13s8",
+      "title": "The cost of leaving starts before arrival"
+    },
+    {
+      "id": "c13s9",
+      "title": "Ask the adviser for a recommendation—and its limits"
+    },
+    {
+      "id": "c13s10",
+      "title": "Your turn"
+    },
+    {
+      "id": "c13s11",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c13-01",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "Beyond the annual quote. A $10,000 annual subscription can accompany a much larger five-year commitment. Fictional estimates; constant prices, separate costs and no discounting.",
+      "number": "13.1"
+    },
+    {
+      "id": "fig-mis3000-c13-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 13.2",
+      "caption": "What would justify proceeding? Define the evidence and responsibilities before committing to rollout.",
+      "number": "13.2"
+    }
+  ]
+}

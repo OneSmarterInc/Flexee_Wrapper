@@ -1,0 +1,17 @@
+{
+  "program": "wsu-mis-bsb",
+  "institution": "Wright State University, Raj Soin College of Business",
+  "degree": "B.S.B., Management Information Systems",
+  "framework": "ABET student outcome",
+  "sourceUrl": "https://business.wright.edu/finance-accountancy-management-information-systems-and-economics/bachelor-of-science-in-business-management-information-systems-major",
+  "capturedAt": "2026-09-25",
+  "note": "Labels are short summaries. Replace each with the program's official wording before an accreditation submission.",
+  "outcomes": [
+    { "code": "SO1", "label": "Analyze a complex computing problem and identify solutions" },
+    { "code": "SO2", "label": "Design, implement and evaluate a computing solution to meet requirements" },
+    { "code": "SO3", "label": "Communicate effectively in professional contexts" },
+    { "code": "SO4", "label": "Make informed professional judgments on legal and ethical principles" },
+    { "code": "SO5", "label": "Function effectively as a member or leader of a team" },
+    { "code": "SO6", "label": "Support the delivery, use and management of information in an IS environment" }
+  ]
+}

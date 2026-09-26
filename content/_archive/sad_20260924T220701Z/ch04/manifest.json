@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "id": "ch04",
+  "book": "sad",
+  "kind": "chapter",
+  "number": 4,
+  "label": "4",
+  "title": "Data Flow Diagrams & Process Specification",
+  "version": 1,
+  "sourceVersion": "v1.1",
+  "contentHash": "sha256:afbeaa475fa7c2c1",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c4s1",
+      "title": "Four Symbols, Used Precisely"
+    },
+    {
+      "id": "c4s2",
+      "title": "Leveling: The Context Diagram"
+    },
+    {
+      "id": "c4s3",
+      "title": "Leveling: Level-0 and Below"
+    },
+    {
+      "id": "c4s4",
+      "title": "Physical and Logical Models"
+    },
+    {
+      "id": "c4s5",
+      "title": "Four Ways to Break a DFD"
+    },
+    {
+      "id": "c4s6",
+      "title": "Specifying the Logic Inside a Process"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-sad-c04-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig4_1_context.png",
+      "alt": "Figure 4.1: Context diagram for the course registration system",
+      "caption": "Figure 4.1: Context diagram for the course registration system",
+      "number": "4.1"
+    },
+    {
+      "id": "fig-sad-c04-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig4_2_level0.png",
+      "alt": "Figure 4.2: Level-0 diagram for the course registration system",
+      "caption": "Figure 4.2: Level-0 diagram for the course registration system",
+      "number": "4.2"
+    },
+    {
+      "id": "fig-sad-c04-03",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig4_3_errors.png",
+      "alt": "Figure 4.3: A fragment containing an illegal flow and a black hole",
+      "caption": "Figure 4.3: A fragment containing an illegal flow and a black hole",
+      "number": "4.3"
+    },
+    {
+      "id": "fig-sad-c04-04",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig4_4_decision_tree.png",
+      "alt": "Figure 4.4: The enrollment rule as a decision tree",
+      "caption": "Figure 4.4: The enrollment rule as a decision tree",
+      "number": "4.4"
+    },
+    {
+      "id": "fig-sad-c04-05",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig4_5_decision_table.png",
+      "alt": "Figure 4.5: The enrollment rule as a checked decision table",
+      "caption": "Figure 4.5: The enrollment rule as a checked decision table",
+      "number": "4.5"
+    }
+  ]
+}

@@ -1,0 +1,674 @@
+[
+  {
+    "id": "mis3000-c01-o1",
+    "book": "mis3000",
+    "chapter": 1,
+    "code": "C1.1",
+    "label": "Distinguish organisational, industry and societal changes when examining a business technology",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c01-o2",
+    "book": "mis3000",
+    "chapter": 1,
+    "code": "C1.2",
+    "label": "Explain how changing a business rule or delivery model changes work, revenue and transition responsibilities",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c01-o3",
+    "book": "mis3000",
+    "chapter": 1,
+    "code": "C1.3",
+    "label": "Judge what a business story supports, separating evidence from assumptions and overclaims",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c01-o4",
+    "book": "mis3000",
+    "chapter": 1,
+    "code": "C1.4",
+    "label": "Diagnose a service problem by connecting people, processes, data and technology",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c01-o5",
+    "book": "mis3000",
+    "chapter": 1,
+    "code": "C1.5",
+    "label": "Distinguish value creation, value capture and sustainable competitive advantage",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c01-o6",
+    "book": "mis3000",
+    "chapter": 1,
+    "code": "C1.6",
+    "label": "Evaluate a proposed technology change using capacity, responsibility, outcomes and full cost",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c02-o1",
+    "book": "mis3000",
+    "chapter": 2,
+    "code": "C2.1",
+    "label": "Diagnose gaps between internal process performance and the customer’s complete experience",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c02-o2",
+    "book": "mis3000",
+    "chapter": 2,
+    "code": "C2.2",
+    "label": "Apply the Hammer test to distinguish useful improvement from removing the reason for work",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c02-o3",
+    "book": "mis3000",
+    "chapter": 2,
+    "code": "C2.3",
+    "label": "Separate observations from inferences and choose evidence that can test a process explanation",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c02-o4",
+    "book": "mis3000",
+    "chapter": 2,
+    "code": "C2.4",
+    "label": "Construct and interpret process maps with clear boundaries, responsibilities, handoffs and exceptions",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c02-o5",
+    "book": "mis3000",
+    "chapter": 2,
+    "code": "C2.5",
+    "label": "Design process changes that preserve necessary controls and provide decision authority for exceptions",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c02-o6",
+    "book": "mis3000",
+    "chapter": 2,
+    "code": "C2.6",
+    "label": "Evaluate a proposed redesign using fair comparisons, defined outcomes, full cost and control risk",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c03-o1",
+    "book": "mis3000",
+    "chapter": 3,
+    "code": "C3.1",
+    "label": "Assess how an external capability changes customer needs and the conditions required for adoption",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c03-o2",
+    "book": "mis3000",
+    "chapter": 3,
+    "code": "C3.2",
+    "label": "Evaluate the functions and network effects that make an intermediary useful or replaceable",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c03-o3",
+    "book": "mis3000",
+    "chapter": 3,
+    "code": "C3.3",
+    "label": "Interpret connection counts, transaction value, revenue, profit and company valuation without confusing them",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c03-o4",
+    "book": "mis3000",
+    "chapter": 3,
+    "code": "C3.4",
+    "label": "Examine a forecast’s population, measures, assumptions, deadline and supporting evidence",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c03-o5",
+    "book": "mis3000",
+    "chapter": 3,
+    "code": "C3.5",
+    "label": "Separate direction from destination and assess how timing, participation and fees affect value capture",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c03-o6",
+    "book": "mis3000",
+    "chapter": 3,
+    "code": "C3.6",
+    "label": "Choose purchasing tests that establish comparable offers, complete costs and evidence for the next commitment",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c04-o1",
+    "book": "mis3000",
+    "chapter": 4,
+    "code": "C4.1",
+    "label": "Interpret reported AI performance figures for exactly what they establish",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c04-o2",
+    "book": "mis3000",
+    "chapter": 4,
+    "code": "C4.2",
+    "label": "Classify what an AI system is asked to do — predict, generate, augment, automate, or act — and the controls each needs",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c04-o3",
+    "book": "mis3000",
+    "chapter": 4,
+    "code": "C4.3",
+    "label": "Judge an AI pilot by complete outcomes and cost per correct resolution, not activity counts",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c04-o4",
+    "book": "mis3000",
+    "chapter": 4,
+    "code": "C4.4",
+    "label": "Apply the direction/destination test to who captures the value from an AI capability",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c04-o5",
+    "book": "mis3000",
+    "chapter": 4,
+    "code": "C4.5",
+    "label": "Choose whether to improve a response, remove avoidable work or redesign a handoff while preserving necessary judgment",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c04-o6",
+    "book": "mis3000",
+    "chapter": 4,
+    "code": "C4.6",
+    "label": "Plan the use of released capacity and assign authority to monitor, narrow or pause the service as conditions change",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c05-o1",
+    "book": "mis3000",
+    "chapter": 5,
+    "code": "C5.1",
+    "label": "Diagnose integration problems involving shared meanings, order controls and software connections",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c05-o2",
+    "book": "mis3000",
+    "chapter": 5,
+    "code": "C5.2",
+    "label": "Evaluate a switch using future savings, transition costs, uncertainty and usable records",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c05-o3",
+    "book": "mis3000",
+    "chapter": 5,
+    "code": "C5.3",
+    "label": "Distinguish accumulated capability from sunk spending and identify evidence that knowledge can be preserved",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c05-o4",
+    "book": "mis3000",
+    "chapter": 5,
+    "code": "C5.4",
+    "label": "Interpret infrastructure promises and identify operational responsibilities and capacity limits",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c05-o5",
+    "book": "mis3000",
+    "chapter": 5,
+    "code": "C5.5",
+    "label": "Allocate a constrained technology budget using business priorities, observable results and continuing responsibilities",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c05-o6",
+    "book": "mis3000",
+    "chapter": 5,
+    "code": "C5.6",
+    "label": "Compare protection choices using expected loss, minimum service requirements and uncertainty",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c06-o1",
+    "book": "mis3000",
+    "chapter": 6,
+    "code": "C6.1",
+    "label": "Choose measures that fit the intended business outcome and recognise what they leave out",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c06-o2",
+    "book": "mis3000",
+    "chapter": 6,
+    "code": "C6.2",
+    "label": "Count the correct entity using identifiers, conditions and related records without discarding valid data",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c06-o3",
+    "book": "mis3000",
+    "chapter": 6,
+    "code": "C6.3",
+    "label": "Diagnose data-quality and reporting problems by checking identity, missing values, source events and refresh timing",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c06-o4",
+    "book": "mis3000",
+    "chapter": 6,
+    "code": "C6.4",
+    "label": "Evaluate how targets affect behaviour and use additional evidence to assess service outcomes",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c06-o5",
+    "book": "mis3000",
+    "chapter": 6,
+    "code": "C6.5",
+    "label": "Interpret performance comparisons using case mix, time definitions and testable operational explanations",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c06-o6",
+    "book": "mis3000",
+    "chapter": 6,
+    "code": "C6.6",
+    "label": "Communicate and assess numerical claims using explicit definitions, decision criteria and assumptions",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c07-o1",
+    "book": "mis3000",
+    "chapter": 7,
+    "code": "C7.1",
+    "label": "Trace a digital service’s physical dependencies and distinguish network access from service availability",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c07-o2",
+    "book": "mis3000",
+    "chapter": 7,
+    "code": "C7.2",
+    "label": "Evaluate whether redundant paths avoid the particular failure a business needs to withstand",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c07-o3",
+    "book": "mis3000",
+    "chapter": 7,
+    "code": "C7.3",
+    "label": "Specify and assess backup arrangements using route evidence, switchover responsibilities and realistic tests",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c07-o4",
+    "book": "mis3000",
+    "chapter": 7,
+    "code": "C7.4",
+    "label": "Plan workable fallback and recovery procedures that preserve valid business records",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c07-o5",
+    "book": "mis3000",
+    "chapter": 7,
+    "code": "C7.5",
+    "label": "Assess satellite alternatives without confusing technical usefulness with commercial success",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c07-o6",
+    "book": "mis3000",
+    "chapter": 7,
+    "code": "C7.6",
+    "label": "Evaluate supplier concentration, unknown dependencies and contractual remedies in continuity decisions",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c08-o1",
+    "book": "mis3000",
+    "chapter": 8,
+    "code": "C8.1",
+    "label": "Distinguish power, energy and usable site capacity when assessing infrastructure needs",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c08-o2",
+    "book": "mis3000",
+    "chapter": 8,
+    "code": "C8.2",
+    "label": "Interpret project-pipeline totals by stage, date and evidence of commitment",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c08-o3",
+    "book": "mis3000",
+    "chapter": 8,
+    "code": "C8.3",
+    "label": "Explain how infrastructure costs and forecast risk are allocated, including exposure that remains after a contract",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c08-o4",
+    "book": "mis3000",
+    "chapter": 8,
+    "code": "C8.4",
+    "label": "Evaluate hypothetical capacity commitments, usage charges and phased expansion choices",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c08-o5",
+    "book": "mis3000",
+    "chapter": 8,
+    "code": "C8.5",
+    "label": "Assess competing infrastructure-policy positions using comparable costs, risks and behavioural evidence",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c08-o6",
+    "book": "mis3000",
+    "chapter": 8,
+    "code": "C8.6",
+    "label": "Interpret electricity bills and computing-demand claims without inventing their causes or scope",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c09-o1",
+    "book": "mis3000",
+    "chapter": 9,
+    "code": "C9.1",
+    "label": "Evaluate growth claims by connecting usage, price, costs and forecast scope",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c09-o2",
+    "book": "mis3000",
+    "chapter": 9,
+    "code": "C9.2",
+    "label": "Distinguish funding, customer receipts, supplier sales and financial-statement measures",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c09-o3",
+    "book": "mis3000",
+    "chapter": 9,
+    "code": "C9.3",
+    "label": "Calculate and explain differences among capital spending, accounting profit and cash under stated assumptions",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c09-o4",
+    "book": "mis3000",
+    "chapter": 9,
+    "code": "C9.4",
+    "label": "Assess asset-life estimates and economic usefulness without assuming either fraud or recoverable investment",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c09-o5",
+    "book": "mis3000",
+    "chapter": 9,
+    "code": "C9.5",
+    "label": "Evaluate financing commitments and staged investment against the timing of customer cash receipts",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c09-o6",
+    "book": "mis3000",
+    "chapter": 9,
+    "code": "C9.6",
+    "label": "Reconcile financial and operating evidence before judging an investment claim",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c10-o1",
+    "book": "mis3000",
+    "chapter": 10,
+    "code": "C10.1",
+    "label": "Specify supplier access and exceptions that fit the work and remain accountable over time",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c10-o2",
+    "book": "mis3000",
+    "chapter": 10,
+    "code": "C10.2",
+    "label": "Distinguish evidence from assumptions when assessing messages, alerts and incident reports",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c10-o3",
+    "book": "mis3000",
+    "chapter": 10,
+    "code": "C10.3",
+    "label": "Evaluate business harm using confidentiality, integrity, availability and clearly scoped costs",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c10-o4",
+    "book": "mis3000",
+    "chapter": 10,
+    "code": "C10.4",
+    "label": "Prepare for shared failures through dependency checks, response authority and assigned improvement work",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c10-o5",
+    "book": "mis3000",
+    "chapter": 10,
+    "code": "C10.5",
+    "label": "Choose and review proportionate incident actions while information is incomplete",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c10-o6",
+    "book": "mis3000",
+    "chapter": 10,
+    "code": "C10.6",
+    "label": "Judge recovery by trustworthy records, usable services and reconciled fallback work",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c11-o1",
+    "book": "mis3000",
+    "chapter": 11,
+    "code": "C11.1",
+    "label": "Assess what anecdotes, exposure counts and promotional claims establish about an information system",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c11-o2",
+    "book": "mis3000",
+    "chapter": 11,
+    "code": "C11.2",
+    "label": "Distinguish recorded facts, inferred circumstances and actions, including the consequences of error",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c11-o3",
+    "book": "mis3000",
+    "chapter": 11,
+    "code": "C11.3",
+    "label": "Turn scoped privacy requirements into operational questions, linked records and accountable processes",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c11-o4",
+    "book": "mis3000",
+    "chapter": 11,
+    "code": "C11.4",
+    "label": "Evaluate the additional value and tradeoffs of an intrusive proposal against a less intrusive design",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c11-o5",
+    "book": "mis3000",
+    "chapter": 11,
+    "code": "C11.5",
+    "label": "Specify purpose, access, retention and correction controls across the organisation and its suppliers",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c11-o6",
+    "book": "mis3000",
+    "chapter": 11,
+    "code": "C11.6",
+    "label": "Judge proposed uses by proportionality, practical choice and the ability to discover and challenge consequences",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c12-o1",
+    "book": "mis3000",
+    "chapter": 12,
+    "code": "C12.1",
+    "label": "Specify the operating conditions that let a reviewer make an informed and consequential disagreement",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c12-o2",
+    "book": "mis3000",
+    "chapter": 12,
+    "code": "C12.2",
+    "label": "Interpret classification results in terms of errors, affected people and the action attached to a flag",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c12-o3",
+    "book": "mis3000",
+    "chapter": 12,
+    "code": "C12.3",
+    "label": "Evaluate review capacity, thresholds and performance measures against the promised service",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c12-o4",
+    "book": "mis3000",
+    "chapter": 12,
+    "code": "C12.4",
+    "label": "Assess how target labels, selective investigation and feedback shape the evidence used to train and evaluate a model",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c12-o5",
+    "book": "mis3000",
+    "chapter": 12,
+    "code": "C12.5",
+    "label": "Design a usable challenge process that reconsiders evidence and completes the resulting remedy",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c12-o6",
+    "book": "mis3000",
+    "chapter": 12,
+    "code": "C12.6",
+    "label": "Assign decision ownership, evaluate safeguards and set conditions for intervening in a failing process",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c13-o1",
+    "book": "mis3000",
+    "chapter": 13,
+    "code": "C13.1",
+    "label": "Evaluate demonstrations and recommendations against representative business work and the limits of the evidence",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c13-o2",
+    "book": "mis3000",
+    "chapter": 13,
+    "code": "C13.2",
+    "label": "Compare ownership costs over a consistent scope and test assumptions that could reverse the ranking",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c13-o3",
+    "book": "mis3000",
+    "chapter": 13,
+    "code": "C13.3",
+    "label": "Assess alternatives and benefits without confusing capacity, activity or sales with realised value",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c13-o4",
+    "book": "mis3000",
+    "chapter": 13,
+    "code": "C13.4",
+    "label": "Define a bounded pilot with acceptance conditions that test employee work, exceptions and usable outputs",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c13-o5",
+    "book": "mis3000",
+    "chapter": 13,
+    "code": "C13.5",
+    "label": "Judge rollout and adoption through business outcomes, responsibilities and a workable transition",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c13-o6",
+    "book": "mis3000",
+    "chapter": 13,
+    "code": "C13.6",
+    "label": "Manage changes and supplier dependence through explicit scope, maintenance and exit decisions",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c14-o1",
+    "book": "mis3000",
+    "chapter": 14,
+    "code": "C14.1",
+    "label": "Maintain and evaluate a decision record without rewriting earlier reasoning or confusing outcomes with decision quality",
+    "bloom": "analyse"
+  },
+  {
+    "id": "mis3000-c14-o2",
+    "book": "mis3000",
+    "chapter": 14,
+    "code": "C14.2",
+    "label": "Verify tool-assisted claims using relevant definitions, sources, calculations and proportional review",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c14-o3",
+    "book": "mis3000",
+    "chapter": 14,
+    "code": "C14.3",
+    "label": "Make an actionable recommendation under uncertainty with an owner, a consequence and a review condition",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c14-o4",
+    "book": "mis3000",
+    "chapter": 14,
+    "code": "C14.4",
+    "label": "Design a bounded learning plan that connects observation, verification, practice and feedback",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c14-o5",
+    "book": "mis3000",
+    "chapter": 14,
+    "code": "C14.5",
+    "label": "Build practical business understanding and reliability while respecting confidentiality and evidence limits",
+    "bloom": "apply"
+  },
+  {
+    "id": "mis3000-c14-o6",
+    "book": "mis3000",
+    "chapter": 14,
+    "code": "C14.6",
+    "label": "Connect technology capability to organisational arrangements, value and dependencies before inferring a business outcome",
+    "bloom": "analyse"
+  }
+]

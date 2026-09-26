@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "id": "ch05",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 5,
+  "label": "5",
+  "title": "What did you inherit?",
+  "version": 1,
+  "contentHash": "sha256:2c78ab6e87a68b4f",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c5s1",
+      "title": "A clerk, a catalogue and a telephone"
+    },
+    {
+      "id": "c5s2",
+      "title": "The boring thing becomes the business"
+    },
+    {
+      "id": "c5s3",
+      "title": "The reversal, and how to reconcile it"
+    },
+    {
+      "id": "c5s4",
+      "title": "Nobody can buy this in the year they need it"
+    },
+    {
+      "id": "c5s5",
+      "title": "What a business graduate actually needs to know about infrastructure"
+    },
+    {
+      "id": "c5s6",
+      "title": "The budget you actually inherit"
+    },
+    {
+      "id": "c5s7",
+      "title": "How much protection is enough?"
+    },
+    {
+      "id": "c5s8",
+      "title": "Your turn"
+    },
+    {
+      "id": "c5s9",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c05-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 5.1",
+      "caption": "An order system becomes a capability. The terminal is replaceable; the mappings, routines and trust take longer to rebuild.",
+      "number": "5.1"
+    },
+    {
+      "id": "fig-mis3000-c05-02",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "Pay for the right protection. Among these feasible choices, the middle option has the lowest estimated total cost.",
+      "number": "5.2"
+    }
+  ]
+}

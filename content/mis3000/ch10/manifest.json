@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 2,
+  "id": "ch10",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 10,
+  "label": "10",
+  "title": "What happens when someone attacks it",
+  "version": 1,
+  "contentHash": "sha256:5e4257becc433782",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c10s1",
+      "title": "A contractor's account in Pennsylvania"
+    },
+    {
+      "id": "c10s2",
+      "title": "The detail that should bother you most"
+    },
+    {
+      "id": "c10s3",
+      "title": "What access are you approving?"
+    },
+    {
+      "id": "c10s4",
+      "title": "What a breach costs the business"
+    },
+    {
+      "id": "c10s5",
+      "title": "Now the version with no attacker"
+    },
+    {
+      "id": "c10s6",
+      "title": "Two in the morning"
+    },
+    {
+      "id": "c10s7",
+      "title": "The first hour: a decision you can practise"
+    },
+    {
+      "id": "c10s8",
+      "title": "Recovery is a business test"
+    },
+    {
+      "id": "c10s9",
+      "title": "You are part of the surface"
+    },
+    {
+      "id": "c10s10",
+      "title": "Your turn"
+    },
+    {
+      "id": "c10s11",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c10-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 10.1",
+      "caption": "Where access can spread. Several controls can interrupt a path; valid credentials do not justify unrestricted access.",
+      "number": "10.1"
+    },
+    {
+      "id": "fig-mis3000-c10-02",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "Decisions before certainty. Coordinate containment and continuity; a single diagnosis is not a prerequisite for every protective action.",
+      "number": "10.2"
+    }
+  ]
+}

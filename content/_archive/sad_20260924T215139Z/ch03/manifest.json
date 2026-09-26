@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "ch03",
+  "book": "sad",
+  "kind": "chapter",
+  "number": 3,
+  "label": "3",
+  "title": "Use Cases & Activity Diagrams",
+  "version": 1,
+  "contentHash": "sha256:0f5c667f72a0a761",
+  "content": "content.md",
+  "sourceHtml": "content.html",
+  "sections": [
+    {
+      "id": "c3s1",
+      "title": "From Requirements to Models"
+    },
+    {
+      "id": "c3s2",
+      "title": "Actors, Goals, and the System Boundary"
+    },
+    {
+      "id": "c3s3",
+      "title": "Include and Extend"
+    },
+    {
+      "id": "c3s4",
+      "title": "The Use Case Description"
+    },
+    {
+      "id": "c3s5",
+      "title": "Activity Diagrams and the Unhappy Path"
+    },
+    {
+      "id": "c3s6",
+      "title": "Choosing a Model"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-sad-c03-01",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 3.1: A use case survey of the course registration system",
+      "caption": "Figure 3.1: A use case survey of the course registration system",
+      "number": "3.1"
+    },
+    {
+      "id": "fig-sad-c03-02",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 3.2: Include and extend relationships in enrollment",
+      "caption": "Figure 3.2: Include and extend relationships in enrollment",
+      "number": "3.2"
+    },
+    {
+      "id": "fig-sad-c03-03",
+      "src": "figures/fig-03.png",
+      "alt": "Figure 3.3: The enrollment process, including its alternate paths",
+      "caption": "Figure 3.3: The enrollment process, including its alternate paths",
+      "number": "3.3"
+    },
+    {
+      "id": "fig-sad-c03-04",
+      "src": "figures/fig-04.png",
+      "alt": "Figure 3.4: The enrollment handoff across student, system, and instructor",
+      "caption": "Figure 3.4: The enrollment handoff across student, system, and instructor",
+      "number": "3.4"
+    }
+  ]
+}
