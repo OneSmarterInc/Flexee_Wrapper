@@ -9,6 +9,7 @@ import Spine from "@/components/Spine";
 import ProgressBar from "@/components/ProgressBar";
 import Bookmarker from "@/components/Bookmarker";
 import LogoutButton from "@/components/LogoutButton";
+import BackButton from "@/components/BackButton";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,11 @@ export default async function EntryPage({ params }: { params: Promise<{ book: st
         <Spine bookId={book} current={entry} />
         <main className="reading">
           <div className="reading-inner">
+            <div className="reader-toolbar ui">
+              <BackButton fallbackHref={`/${book}`} />
+              <Link className="nav-button ghost" href={`/${book}`}>Course home</Link>
+              <Link className="nav-button secondary" href={`/${book}/exams`}>Exams</Link>
+            </div>
             <article>
               {manifest.sections.length > 1 && (
                 <nav className="sections" aria-label="In this chapter">
