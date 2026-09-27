@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env
+.env.local
+deploy/aws/.env
+
+# intake bookkeeping: history is in git; staging is per-run
+content/_archive/
+content/_staging/

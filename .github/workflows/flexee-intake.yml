@@ -1,0 +1,80 @@
+# Flexee book intake and database operations, run by hand from the repository's Actions tab.
+#   setup    — first time only: create tables, load the books already in content/, seed sections
+#   migrate  — after an app upgrade: apply new database migrations
+#   report   — run the intake against Drive and show the report; changes nothing
+#   approve  — run the intake again; if it is READY TO APPROVE, admit the book, commit it
+#              (Vercel redeploys on the push), then load its chapters and questions into the database
+# Secrets: GOOGLE_SA_JSON (the intake service account key), DATABASE_URL_DIRECT (Supabase direct
+# connection, port 5432 — scripts need a session connection, not the transaction pooler).
+name: Flexee intake
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to run"
+        type: choice
+        options: [report, approve, migrate, setup]
+        default: report
+      book_id:
+        description: "Book id (e.g. sad, mis3000)"
+        default: sad
+      drive_folder:
+        description: "Drive id of the book's CURRENT folder (report/approve)"
+        required: false
+      standards_folder:
+        description: "Drive id of Flexee_Standards (report/approve)"
+        required: false
+permissions:
+  contents: write
+concurrency:
+  group: flexee-intake
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_DIRECT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Database — first-time setup
+        if: inputs.action == 'setup'
+        run: npm run db:setup
+      - name: Database — apply migrations
+        if: inputs.action == 'migrate'
+        run: npm run db:deploy
+
+      - uses: actions/setup-python@v5
+        if: inputs.action == 'report' || inputs.action == 'approve'
+        with: { python-version: "3.12" }
+      - name: Intake — prepare
+        if: inputs.action == 'report' || inputs.action == 'approve'
+        env: { SA: "${{ secrets.GOOGLE_SA_JSON }}" }
+        run: |
+          pip install google-auth requests Pillow
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+      - name: Intake — run and report
+        if: inputs.action == 'report' || inputs.action == 'approve'
+        run: |
+          set +e
+          python3 tools/flexee_intake.py --book-id "${{ inputs.book_id }}" \
+            --drive-folder "${{ inputs.drive_folder }}" --standards-folder "${{ inputs.standards_folder }}" \
+            --credentials "$RUNNER_TEMP/sa.json" --out content
+          code=$?
+          cat "content/_intake_report_${{ inputs.book_id }}.md" >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - name: Intake — admit, commit, load
+        if: inputs.action == 'approve'
+        run: |
+          python3 tools/flexee_intake.py --book-id "${{ inputs.book_id }}" --out content --approve
+          git config user.name "flexee-intake"; git config user.email "intake@flexee.org"
+          git add "content/${{ inputs.book_id }}" "content/_intake_report_${{ inputs.book_id }}.md"
+          git commit -m "Admit ${{ inputs.book_id }} via intake (run ${{ github.run_number }})"
+          git push
+          npm run db:sync-content
+          npm run db:sync-questions
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
