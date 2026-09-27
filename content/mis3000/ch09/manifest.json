@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 2,
+  "id": "ch09",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 9,
+  "label": "9",
+  "title": "Reading the money",
+  "version": 1,
+  "contentHash": "sha256:5825172d1c7510de",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c9s1",
+      "title": "A number that doubled every hundred days"
+    },
+    {
+      "id": "c9s2",
+      "title": "What the money built"
+    },
+    {
+      "id": "c9s3",
+      "title": "More use, less revenue"
+    },
+    {
+      "id": "c9s4",
+      "title": "Follow the payment"
+    },
+    {
+      "id": "c9s5",
+      "title": "One purchase, two sets of accounts"
+    },
+    {
+      "id": "c9s6",
+      "title": "An assumption changes profit"
+    },
+    {
+      "id": "c9s7",
+      "title": "Buying equipment is not renting a service"
+    },
+    {
+      "id": "c9s8",
+      "title": "Cash is patient. Debt has dates."
+    },
+    {
+      "id": "c9s9",
+      "title": "What can wait for demand?"
+    },
+    {
+      "id": "c9s10",
+      "title": "Your instrument panel"
+    },
+    {
+      "id": "c9s11",
+      "title": "Your turn"
+    },
+    {
+      "id": "c9s12",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c09-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 9.1",
+      "caption": "Follow the payment. Supplier sales do not establish that the buyer will earn a return.",
+      "number": "9.1"
+    },
+    {
+      "id": "fig-mis3000-c09-02",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "An assumption changes profit. Changing estimated life changes depreciation, not the receipts or cash operating costs in this example.",
+      "number": "9.2"
+    }
+  ]
+}

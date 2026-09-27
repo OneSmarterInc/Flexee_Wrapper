@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 2,
+  "id": "ch08",
+  "book": "sad",
+  "kind": "chapter",
+  "number": 8,
+  "label": "8",
+  "title": "Design Reviews — Critiquing a Model",
+  "version": 1,
+  "sourceVersion": "v1.1",
+  "contentHash": "sha256:59d7f3a93a17e2ce",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c8s1",
+      "title": "Why Review at All"
+    },
+    {
+      "id": "c8s2",
+      "title": "Reviewing Use Cases"
+    },
+    {
+      "id": "c8s3",
+      "title": "Reviewing Data Flow Diagrams"
+    },
+    {
+      "id": "c8s4",
+      "title": "Reviewing Activity Diagrams"
+    },
+    {
+      "id": "c8s5",
+      "title": "Reviewing Data Models"
+    },
+    {
+      "id": "c8s6",
+      "title": "Reviewing Decision Tables and Interfaces"
+    },
+    {
+      "id": "c8s7",
+      "title": "One Checklist, Six Artifacts"
+    },
+    {
+      "id": "c8s8",
+      "title": "How to Say It"
+    },
+    {
+      "id": "c8s9",
+      "title": "Self-Review"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-sad-c08-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig8_1_defect_propagation.png",
+      "alt": "Figure 8.1: How a single defect propagates through the artifacts",
+      "caption": "Figure 8.1: How a single defect propagates through the artifacts",
+      "number": "8.1"
+    },
+    {
+      "id": "fig-sad-c08-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig8_2_use_case_review.png",
+      "alt": "Figure 8.2: Use case review, compliant and defective",
+      "caption": "Figure 8.2: Use case review, compliant and defective",
+      "number": "8.2"
+    },
+    {
+      "id": "fig-sad-c08-03",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig8_3_dfd_review.png",
+      "alt": "Figure 8.3: DFD review, compliant and defective",
+      "caption": "Figure 8.3: DFD review, compliant and defective",
+      "number": "8.3"
+    },
+    {
+      "id": "fig-sad-c08-04",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig8_4_erd_review.png",
+      "alt": "Figure 8.4: ERD review, compliant and defective",
+      "caption": "Figure 8.4: ERD review, compliant and defective",
+      "number": "8.4"
+    }
+  ]
+}

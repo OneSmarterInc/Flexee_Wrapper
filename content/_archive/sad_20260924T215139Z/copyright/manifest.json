@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "copyright",
+  "book": "sad",
+  "kind": "front",
+  "number": null,
+  "label": "Copyright",
+  "title": "Copyright",
+  "version": 1,
+  "contentHash": "sha256:659fa5520ecc1e68",
+  "content": "content.md",
+  "sourceHtml": "content.html",
+  "sections": [],
+  "figures": []
+}

@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 2,
+  "id": "ch06",
+  "book": "sad",
+  "kind": "chapter",
+  "number": 6,
+  "label": "6",
+  "title": "User Interface & Report Design",
+  "version": 1,
+  "sourceVersion": "v1.2",
+  "contentHash": "sha256:dcd85600e650d0f0",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c6s1",
+      "title": "Five Habits of a Usable Screen"
+    },
+    {
+      "id": "c6s2",
+      "title": "The Same Task, Organized Two Ways"
+    },
+    {
+      "id": "c6s3",
+      "title": "Grouping and Prefilling"
+    },
+    {
+      "id": "c6s4",
+      "title": "Validation and Error Recovery"
+    },
+    {
+      "id": "c6s5",
+      "title": "Reports Answer Questions"
+    },
+    {
+      "id": "c6s6",
+      "title": "Traceability: Where Fields Come From"
+    },
+    {
+      "id": "c6s7",
+      "title": "Designing for the Real User"
+    },
+    {
+      "id": "c6s8",
+      "title": "Fidelity and When to Raise It"
+    },
+    {
+      "id": "c6s9",
+      "title": "Choosing Between an Interface and a Report"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-sad-c06-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig6_1_screen_comparison.png",
+      "alt": "Figure 6.1: The same enrollment task before and after reorganization",
+      "caption": "Figure 6.1: The same enrollment task before and after reorganization",
+      "number": "6.1"
+    },
+    {
+      "id": "fig-sad-c06-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig6_2_validation.png",
+      "alt": "Figure 6.2: A validation message attached to the field that caused it",
+      "caption": "Figure 6.2: A validation message attached to the field that caused it",
+      "number": "6.2"
+    },
+    {
+      "id": "fig-sad-c06-03",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig6_3_field_traceability.png",
+      "alt": "Figure 6.3: Fields trace to attributes; validations trace to rules",
+      "caption": "Figure 6.3: Fields trace to attributes; validations trace to rules",
+      "number": "6.3"
+    },
+    {
+      "id": "fig-sad-c06-04",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig6_4_fidelity.png",
+      "alt": "Figure 6.4: Fidelity should rise as uncertainty falls",
+      "caption": "Figure 6.4: Fidelity should rise as uncertainty falls",
+      "number": "6.4"
+    }
+  ]
+}

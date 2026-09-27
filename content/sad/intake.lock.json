@@ -1,0 +1,72 @@
+{
+  "registerVersion": "4.2",
+  "stagedAt": "2026-09-24T22:07:01.214638+00:00",
+  "source": "local:/home/claude/sad_in",
+  "files": {
+    "ch01": {
+      "package": "Chapter_01_Package_v1.2.zip",
+      "version": "1.2",
+      "sha256": "358f312de8b66a101fcfd958b717977e1ca44af708d7fc8b20730d665c1c479a"
+    },
+    "ch02": {
+      "package": "Chapter_02_Package_v1.1.zip",
+      "version": "1.1",
+      "sha256": "10d7a82cddf470eb2cf98935c0ee5416265ae994fb42e9dea76cf71332b402d3"
+    },
+    "ch03": {
+      "package": "Chapter_03_Package_v1.2.zip",
+      "version": "1.2",
+      "sha256": "494f5d1d43722bd2f75ed39b1fcb9c86cc522d77504b27ac78a82a6eb2ee2d94"
+    },
+    "ch04": {
+      "package": "Chapter_04_Package_v1.1.zip",
+      "version": "1.1",
+      "sha256": "37052b2fdd55f9c9e545cd313cfdcb02ee489d2a1f70851fcdefa981f64206b7"
+    },
+    "ch05": {
+      "package": "Chapter_05_Package_v1.2.zip",
+      "version": "1.2",
+      "sha256": "13451bf158ec3ca99a016e1090657393f16e5475c00136e8fc94a091c3a01fc6"
+    },
+    "ch06": {
+      "package": "Chapter_06_Package_v1.2.zip",
+      "version": "1.2",
+      "sha256": "06dfe81e17d3d80d05de4f84c435dd0d2a5a87e55596132e3bbb752a2f2af6a2"
+    },
+    "ch07": {
+      "package": "Chapter_07_Package_v1.1.zip",
+      "version": "1.1",
+      "sha256": "4cadb17068774247efd1fe0e53685d0b3b6aa6312c0d6c085067ef7378968eaf"
+    },
+    "ch08": {
+      "package": "Chapter_08_Package_v1.1.zip",
+      "version": "1.1",
+      "sha256": "6aecc0437bf5575655dd3bba1df61cab6cd70f17ba507a102f58d57f51e57bb7"
+    },
+    "ch09": {
+      "package": "Chapter_09_Package_v1.1.zip",
+      "version": "1.1",
+      "sha256": "d065b24cc238fabcf3946b3ad661243f64637853e49f44d1da9f3d4e1ef670b5"
+    },
+    "ch10": {
+      "package": "Chapter_10_Package_v1.1.zip",
+      "version": "1.1",
+      "sha256": "8db298706d4973373e8dbdb01b6e21dae457e6edbb2c6539211aedb069dd7b6a"
+    },
+    "ch11": {
+      "package": "Chapter_11_Package_v1.1.zip",
+      "version": "1.1",
+      "sha256": "ec919ae2f967b9280ad70ffe7a87a271ff01bf3217e98ad392a726a0f8473a4f"
+    },
+    "ch12": {
+      "package": "Chapter_12_Package_v1.1.zip",
+      "version": "1.1",
+      "sha256": "d8cbc433c6fe3ec0e57639406bb58391a4580875b5517cccb839f6aa9c55a6d5"
+    },
+    "front-matter": {
+      "file": "Book_Front_Matter_v1.5.md",
+      "version": "1.5",
+      "sha256": "a6c4bf96b57f544fbf06aca15d2759784b25edbea7b33909a5c531bd30b948b4"
+    }
+  }
+}

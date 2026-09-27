@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "id": "ch07",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 7,
+  "label": "7",
+  "title": "The internet is a physical thing",
+  "version": 1,
+  "contentHash": "sha256:596447aaca11bc07",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c7s1",
+      "title": "A country goes dark"
+    },
+    {
+      "id": "c7s2",
+      "title": "What the internet is made of"
+    },
+    {
+      "id": "c7s3",
+      "title": "The dependency you never agreed to"
+    },
+    {
+      "id": "c7s4",
+      "title": "Follow one payment"
+    },
+    {
+      "id": "c7s5",
+      "title": "Buying a backup that answers the question"
+    },
+    {
+      "id": "c7s6",
+      "title": "Keep some business moving"
+    },
+    {
+      "id": "c7s7",
+      "title": "The satellites, and what they change"
+    },
+    {
+      "id": "c7s8",
+      "title": "Who owns the middle, again"
+    },
+    {
+      "id": "c7s9",
+      "title": "Your turn"
+    },
+    {
+      "id": "c7s10",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c07-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 7.1",
+      "caption": "Two providers, one dependency. Check what the backup shares with the primary path.",
+      "number": "7.1"
+    },
+    {
+      "id": "fig-mis3000-c07-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 7.2",
+      "caption": "What has to keep working? Trace dependencies to a physical route before claiming an alternative exists.",
+      "number": "7.2"
+    }
+  ]
+}

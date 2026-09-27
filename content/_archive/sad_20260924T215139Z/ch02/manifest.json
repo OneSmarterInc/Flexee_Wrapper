@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "ch02",
+  "book": "sad",
+  "kind": "chapter",
+  "number": 2,
+  "label": "2",
+  "title": "Project Management & Requirements Elicitation",
+  "version": 1,
+  "contentHash": "sha256:a812f33851e61457",
+  "content": "content.md",
+  "sourceHtml": "content.html",
+  "sections": [
+    {
+      "id": "c2s1",
+      "title": "Project Control and the Triple Constraint"
+    },
+    {
+      "id": "c2s2",
+      "title": "Breaking Down and Tracking the Work"
+    },
+    {
+      "id": "c2s3",
+      "title": "Managing Risk and Change"
+    },
+    {
+      "id": "c2s4",
+      "title": "Requirements Elicitation"
+    },
+    {
+      "id": "c2s5",
+      "title": "The Requirements Catalogue"
+    },
+    {
+      "id": "c2s6",
+      "title": "Traceability: A Requirement’s Downstream Life"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-sad-c02-01",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 2.1: The triple constraint governing every project decision",
+      "caption": "Figure 2.1: The triple constraint governing every project decision",
+      "number": "2.1"
+    },
+    {
+      "id": "fig-sad-c02-02",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 2.2: A work breakdown structure for the course registration project",
+      "caption": "Figure 2.2: A work breakdown structure for the course registration project",
+      "number": "2.2"
+    },
+    {
+      "id": "fig-sad-c02-03",
+      "src": "figures/fig-03.png",
+      "alt": "Figure 2.3: Milestones defined as observable results rather than activity",
+      "caption": "Figure 2.3: Milestones defined as observable results rather than activity",
+      "number": "2.3"
+    },
+    {
+      "id": "fig-sad-c02-04",
+      "src": "figures/fig-04.png",
+      "alt": "Figure 2.4: A requirement traced from its source through to verification",
+      "caption": "Figure 2.4: A requirement traced from its source through to verification",
+      "number": "2.4"
+    }
+  ]
+}

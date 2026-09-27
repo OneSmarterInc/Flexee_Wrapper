@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "id": "contents",
+  "book": "mis3000",
+  "kind": "front",
+  "number": null,
+  "label": null,
+  "title": "Contents",
+  "version": 1,
+  "contentHash": "sha256:91074e253c6ffc4f",
+  "content": "content.md",
+  "sections": [],
+  "figures": []
+}

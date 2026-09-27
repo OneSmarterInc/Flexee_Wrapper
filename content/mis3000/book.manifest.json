@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "id": "mis3000",
+  "title": "Introduction to MIS",
+  "subtitle": "MIS 3000",
+  "meta": "Working title Flexee-3000",
+  "copyright": "Flexee",
+  "license": "read-only",
+  "defaultEntry": "preface",
+  "spine": [
+    {
+      "ref": "title-page",
+      "kind": "front"
+    },
+    {
+      "ref": "contents",
+      "kind": "front"
+    },
+    {
+      "ref": "preface",
+      "kind": "front"
+    },
+    {
+      "ref": "introduction-how-to-use-this-book",
+      "kind": "front"
+    },
+    {
+      "ref": "acknowledgments",
+      "kind": "front"
+    },
+    {
+      "ref": "ch01",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch02",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch03",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch04",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch05",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch06",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch07",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch08",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch09",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch10",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch11",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch12",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch13",
+      "kind": "chapter"
+    },
+    {
+      "ref": "ch14",
+      "kind": "chapter"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+:root {
+  --paper: #f3f6f9;      /* cool ice, not warm cream */
+  --panel: #ffffff;
+  --ink: #1b2536;        /* navy-ink body text */
+  --navy: #12233f;       /* headings, brand */
+  --muted: #5d6b80;
+  --link: #2f5c8f;       /* slate blue */
+  --rule: #dce3ec;
+  --mark: #e9eef5;       /* active nav fill */
+  --figbg: #eef2f7;
+  --maxread: 40rem;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --paper: #0f1522;
+  --panel: #141c2b;
+  --ink: #d7deea;
+  --navy: #cdd9ef;
+  --muted: #8794a8;
+  --link: #8fb4e6;
+  --rule: #263349;
+  --mark: #1b2536;
+  --figbg: #172033;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1522; --panel: #141c2b; --ink: #d7deea; --navy: #cdd9ef;
+    --muted: #8794a8; --link: #8fb4e6; --rule: #263349; --mark: #1b2536; --figbg: #172033;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 1.075rem;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+.ui { font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+a { color: var(--link); text-underline-offset: 2px; }
+
+/* progress bar */
+.progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--link); width: 0; z-index: 50; transition: width .1s linear; }
+
+/* app shell: fixed left spine + reading column */
+.shell { display: grid; grid-template-columns: 17rem minmax(0, 1fr); min-height: 100vh; }
+.spine {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  border-right: 1px solid var(--rule); background: var(--panel); padding: 1.4rem 1rem 3rem;
+}
+.spine .book-title { font-weight: 600; color: var(--navy); font-size: 1.05rem; line-height: 1.25; margin: 0 0 .15rem; }
+.spine .book-sub { color: var(--muted); font-size: .82rem; margin: 0 0 1.1rem; }
+.spine ol { list-style: none; margin: 0; padding: 0; }
+.spine li { margin: 0; }
+.spine a { display: block; text-decoration: none; color: var(--ink); padding: .3rem .5rem; border-radius: 6px; font-size: .88rem; line-height: 1.3; }
+.spine a:hover { background: var(--mark); }
+.spine a[aria-current="page"] { background: var(--mark); color: var(--navy); font-weight: 600; }
+.spine .num { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: .45rem; }
+.spine .group-label { color: var(--muted); font-size: .72rem; letter-spacing: .02em; margin: 1rem .5rem .3rem; }
+
+.reading { padding: 3.2rem 2rem 6rem; }
+.reading-inner { max-width: var(--maxread); margin: 0 auto; }
+
+.eyebrow { font-family: inherit; color: var(--muted); font-size: .9rem; margin: 0 0 .3rem; }
+article h1 { font-size: 2.05rem; line-height: 1.15; color: var(--navy); margin: .1rem 0 1.4rem; letter-spacing: -.01em; }
+article h2 { font-size: 1.42rem; color: var(--navy); margin: 2.4rem 0 .7rem; }
+article h3 { font-size: 1.16rem; color: var(--navy); margin: 1.8rem 0 .5rem; }
+article h4 { font-size: 1.02rem; color: var(--ink); margin: 1.3rem 0 .4rem; }
+article p { margin: 0 0 1.05rem; }
+article blockquote { margin: 1.2rem 0; padding: .5rem 1.1rem; border-left: 3px solid var(--rule); color: var(--muted); }
+article ul, article ol { padding-left: 1.3rem; }
+article li { margin: .25rem 0; }
+
+/* tables (GFM) */
+article table { width: 100%; border-collapse: collapse; margin: 1.4rem 0; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .92rem; display: block; overflow-x: auto; }
+article th, article td { border: 1px solid var(--rule); padding: .5rem .7rem; text-align: left; vertical-align: top; }
+article thead th { background: var(--mark); color: var(--navy); font-weight: 600; }
+
+/* figures */
+.fx-figure { margin: 1.8rem 0; text-align: center; }
+.fx-figure img { max-width: 100%; height: auto; background: var(--figbg); border: 1px solid var(--rule); border-radius: 4px; }
+.fx-figure figcaption { font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .84rem; color: var(--muted); margin-top: .6rem; line-height: 1.45; }
+.fx-figure-pending {
+  margin: 1.8rem 0; padding: 2rem 1rem; text-align: center; color: var(--muted);
+  background: var(--figbg); border: 1px dashed var(--rule); border-radius: 4px;
+  font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .88rem;
+}
+
+/* within-chapter section list */
+.sections { font-family: "IBM Plex Sans", system-ui, sans-serif; border: 1px solid var(--rule); border-radius: 8px; padding: .9rem 1.1rem; margin: 0 0 2.2rem; background: var(--panel); }
+.sections h2 { font-size: .82rem; color: var(--muted); margin: 0 0 .5rem; font-family: inherit; }
+.sections ol { margin: 0; padding-left: 1.1rem; }
+.sections a { text-decoration: none; }
+.sections a:hover { text-decoration: underline; }
+
+/* prev / next */
+.entry-nav { display: flex; justify-content: space-between; gap: 1rem; margin-top: 3.5rem; padding-top: 1.3rem; border-top: 1px solid var(--rule); font-family: "IBM Plex Sans", system-ui, sans-serif; }
+.entry-nav a { text-decoration: none; max-width: 45%; }
+.entry-nav .dir { display: block; color: var(--muted); font-size: .78rem; }
+.entry-nav .t { color: var(--navy); }
+.entry-nav .next { text-align: right; margin-left: auto; }
+
+/* catalog */
+.catalog { max-width: 46rem; margin: 0 auto; padding: 5rem 2rem; }
+.catalog h1 { color: var(--navy); font-size: 2rem; }
+.book-card { display: block; text-decoration: none; border: 1px solid var(--rule); border-radius: 10px; padding: 1.3rem 1.5rem; margin: 1rem 0; background: var(--panel); color: var(--ink); }
+.book-card:hover { border-color: var(--link); }
+.book-card .t { color: var(--navy); font-size: 1.25rem; }
+.book-card .s { color: var(--muted); font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .9rem; }
+
+.theme-toggle { position: fixed; top: .7rem; right: .9rem; z-index: 40; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .8rem; background: var(--panel); color: var(--muted); border: 1px solid var(--rule); border-radius: 6px; padding: .3rem .6rem; cursor: pointer; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .spine { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .reading { padding: 2rem 1.2rem 4rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .progress { transition: none; } }

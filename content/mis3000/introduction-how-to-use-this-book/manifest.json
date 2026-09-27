@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "id": "introduction-how-to-use-this-book",
+  "book": "mis3000",
+  "kind": "front",
+  "number": null,
+  "label": null,
+  "title": "Introduction: How to use this book",
+  "version": 1,
+  "contentHash": "sha256:dca6baf697eaa25c",
+  "content": "content.md",
+  "sections": [],
+  "figures": []
+}

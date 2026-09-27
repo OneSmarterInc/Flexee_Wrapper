@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "id": "ch03",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 3,
+  "label": "3",
+  "title": "When the change isn't yours to schedule",
+  "version": 1,
+  "contentHash": "sha256:0101da50eeed5dc6",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c3s1",
+      "title": "A question from a three-year-old"
+    },
+    {
+      "id": "c3s2",
+      "title": "The mechanism, and where you have seen it before"
+    },
+    {
+      "id": "c3s3",
+      "title": "A company built around the opportunity"
+    },
+    {
+      "id": "c3s4",
+      "title": "A forecast is several claims joined together"
+    },
+    {
+      "id": "c3s5",
+      "title": "Your second instrument"
+    },
+    {
+      "id": "c3s6",
+      "title": "Work through the decision"
+    },
+    {
+      "id": "c3s7",
+      "title": "The middleman changes shape"
+    },
+    {
+      "id": "c3s8",
+      "title": "The version you may meet next"
+    },
+    {
+      "id": "c3s9",
+      "title": "Your turn"
+    },
+    {
+      "id": "c3s10",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c03-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 3.1",
+      "caption": "Fewer connections. Three buyers and three sellers can connect through nine direct relationships or six exchange links. Connection counts alone do not establish profit.",
+      "number": "3.1"
+    },
+    {
+      "id": "fig-mis3000-c03-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 3.2",
+      "caption": "Two forecasts inside one. A useful capability can spread while the predicted seller earns little from it.",
+      "number": "3.2"
+    }
+  ]
+}

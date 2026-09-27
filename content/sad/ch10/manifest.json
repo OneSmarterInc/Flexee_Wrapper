@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "id": "ch10",
+  "book": "sad",
+  "kind": "chapter",
+  "number": 10,
+  "label": "10",
+  "title": "Design Review & Testing",
+  "version": 1,
+  "sourceVersion": "v1.1",
+  "contentHash": "sha256:155f11f44c5ac891",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c10s1",
+      "title": "Two Jobs, Two Objects"
+    },
+    {
+      "id": "c10s2",
+      "title": "Reviewing Interfaces"
+    },
+    {
+      "id": "c10s3",
+      "title": "Reviewing Reports"
+    },
+    {
+      "id": "c10s4",
+      "title": "Traceability, the Review That Catches the Most"
+    },
+    {
+      "id": "c10s5",
+      "title": "Four Levels, Four Kinds of Evidence"
+    },
+    {
+      "id": "c10s6",
+      "title": "Tests Come From Requirements"
+    },
+    {
+      "id": "c10s7",
+      "title": "Writing a Test Case"
+    },
+    {
+      "id": "c10s8",
+      "title": "What Acceptance Testing Actually Proves"
+    },
+    {
+      "id": "c10s9",
+      "title": "Test Planning as Design Work"
+    },
+    {
+      "id": "c10s10",
+      "title": "The Bridge From Design to Build"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-sad-c10-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig10_1_two_jobs.png",
+      "alt": "Figure 10.1: Review and testing examine different objects at different times",
+      "caption": "Figure 10.1: Review and testing examine different objects at different times",
+      "number": "10.1"
+    },
+    {
+      "id": "fig-sad-c10-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig10_2_test_levels.png",
+      "alt": "Figure 10.2: The four testing levels and what each demonstrates",
+      "caption": "Figure 10.2: The four testing levels and what each demonstrates",
+      "number": "10.2"
+    },
+    {
+      "id": "fig-sad-c10-03",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig10_3_requirement_to_test.png",
+      "alt": "Figure 10.3: R-01 from requirement through to evidence",
+      "caption": "Figure 10.3: R-01 from requirement through to evidence",
+      "number": "10.3"
+    },
+    {
+      "id": "fig-sad-c10-04",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig10_4_test_case.png",
+      "alt": "Figure 10.4: A test case for prerequisite enforcement",
+      "caption": "Figure 10.4: A test case for prerequisite enforcement",
+      "number": "10.4"
+    }
+  ]
+}

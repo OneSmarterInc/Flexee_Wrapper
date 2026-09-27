@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "id": "ch01",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 1,
+  "label": "1",
+  "title": "What does technology actually change?",
+  "version": 1,
+  "contentHash": "sha256:c8c4663c1ece4deb",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c1s1",
+      "title": "A question with a small answer and a large one"
+    },
+    {
+      "id": "c1s2",
+      "title": "One company, twice"
+    },
+    {
+      "id": "c1s3",
+      "title": "One industry, then another"
+    },
+    {
+      "id": "c1s4",
+      "title": "One society"
+    },
+    {
+      "id": "c1s5",
+      "title": "What you just watched"
+    },
+    {
+      "id": "c1s6",
+      "title": "Improvement is not the same as advantage"
+    },
+    {
+      "id": "c1s7",
+      "title": "Try the question on a smaller business"
+    },
+    {
+      "id": "c1s8",
+      "title": "Your turn"
+    },
+    {
+      "id": "c1s9",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c01-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 1.1",
+      "caption": "Three scales of change. The question changes with the scale: how a firm works, where an industry ends, and what a society takes for granted.",
+      "number": "1.1"
+    },
+    {
+      "id": "fig-mis3000-c01-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 1.2",
+      "caption": "The whole system. A new capability works through people, processes and data as well as technology.",
+      "number": "1.2"
+    }
+  ]
+}

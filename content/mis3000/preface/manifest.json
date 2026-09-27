@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "id": "preface",
+  "book": "mis3000",
+  "kind": "front",
+  "number": null,
+  "label": null,
+  "title": "Preface",
+  "version": 1,
+  "contentHash": "sha256:5638dbabcbd4101e",
+  "content": "content.md",
+  "sections": [],
+  "figures": []
+}

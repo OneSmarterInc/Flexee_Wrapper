@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "id": "ch08",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 8,
+  "label": "8",
+  "title": "What the machine eats",
+  "version": 1,
+  "contentHash": "sha256:8dc9073ac0e053a7",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c8s1",
+      "title": "A utility says no"
+    },
+    {
+      "id": "c8s2",
+      "title": "What a data centre is, for business purposes"
+    },
+    {
+      "id": "c8s3",
+      "title": "Read the unit before the headline"
+    },
+    {
+      "id": "c8s4",
+      "title": "Interest is not commitment"
+    },
+    {
+      "id": "c8s5",
+      "title": "Who pays for the wire?"
+    },
+    {
+      "id": "c8s6",
+      "title": "What the Ohio terms actually teach"
+    },
+    {
+      "id": "c8s7",
+      "title": "Three positions, and the evidence each needs"
+    },
+    {
+      "id": "c8s8",
+      "title": "Read a bill without inventing its cause"
+    },
+    {
+      "id": "c8s9",
+      "title": "The question Chapter 4 left open"
+    },
+    {
+      "id": "c8s10",
+      "title": "Your turn"
+    },
+    {
+      "id": "c8s11",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c08-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 8.1",
+      "caption": "Who carries the forecast risk? Contract terms can shift part of the cost of unused capacity; they do not remove every risk.",
+      "number": "8.1"
+    }
+  ]
+}

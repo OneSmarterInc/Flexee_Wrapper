@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "ch05",
+  "book": "sad",
+  "kind": "chapter",
+  "number": 5,
+  "label": "5",
+  "title": "Entity-Relationship Diagrams & Normalization",
+  "version": 1,
+  "contentHash": "sha256:a1a4d6b6bb59f6b7",
+  "content": "content.md",
+  "sourceHtml": "content.html",
+  "sections": [
+    {
+      "id": "c5s1",
+      "title": "Entities, Attributes, and Keys"
+    },
+    {
+      "id": "c5s2",
+      "title": "Cardinality and Optionality"
+    },
+    {
+      "id": "c5s3",
+      "title": "A First Model, and What It Cannot Say"
+    },
+    {
+      "id": "c5s4",
+      "title": "The Associative Entity"
+    },
+    {
+      "id": "c5s5",
+      "title": "Why Normalization Exists"
+    },
+    {
+      "id": "c5s6",
+      "title": "Normalizing the Grades Table"
+    },
+    {
+      "id": "c5s7",
+      "title": "Two Routes to One Model"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-sad-c05-01",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 5.1: Cardinality and optionality between course and section",
+      "caption": "Figure 5.1: Cardinality and optionality between course and section",
+      "number": "5.1"
+    },
+    {
+      "id": "fig-sad-c05-02",
+      "src": "figures/fig-02.png",
+      "alt": "Figure 5.2: A first-pass model with the student-to-section relationship unresolved",
+      "caption": "Figure 5.2: A first-pass model with the student-to-section relationship unresolved",
+      "number": "5.2"
+    },
+    {
+      "id": "fig-sad-c05-03",
+      "src": "figures/fig-03.png",
+      "alt": "Figure 5.3: Enrollment resolves the many-to-many and carries its own facts",
+      "caption": "Figure 5.3: Enrollment resolves the many-to-many and carries its own facts",
+      "number": "5.3"
+    },
+    {
+      "id": "fig-sad-c05-04",
+      "src": "figures/fig-04.png",
+      "alt": "Figure 5.4: Functional dependencies in the wide grades table",
+      "caption": "Figure 5.4: Functional dependencies in the wide grades table",
+      "number": "5.4"
+    }
+  ]
+}

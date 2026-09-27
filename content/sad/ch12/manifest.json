@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 2,
+  "id": "ch12",
+  "book": "sad",
+  "kind": "chapter",
+  "number": 12,
+  "label": "12",
+  "title": "Where AI Fits",
+  "version": 1,
+  "sourceVersion": "v1.1",
+  "contentHash": "sha256:b8c8b11ec60984e0",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c12s1",
+      "title": "One Arc, Many Views"
+    },
+    {
+      "id": "c12s2",
+      "title": "Most Problems Are Data-Capture Problems First"
+    },
+    {
+      "id": "c12s3",
+      "title": "The Three-Legged Test"
+    },
+    {
+      "id": "c12s4",
+      "title": "\"Why Not Just Buy a Platform?\""
+    },
+    {
+      "id": "c12s5",
+      "title": "What the Analyst's Role Really Is"
+    },
+    {
+      "id": "c12s6",
+      "title": "Five Things to Carry"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-sad-c12-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig12_1_the_arc.png",
+      "alt": "Figure 12.1: The whole arc, with traceability running its full length",
+      "caption": "Figure 12.1: The whole arc, with traceability running its full length",
+      "number": "12.1"
+    },
+    {
+      "id": "fig-sad-c12-02",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig12_2_three_legs.png",
+      "alt": "Figure 12.2: Three conditions that must hold together",
+      "caption": "Figure 12.2: Three conditions that must hold together",
+      "number": "12.2"
+    },
+    {
+      "id": "fig-sad-c12-03",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig12_3_foundation.png",
+      "alt": "Figure 12.3: What a platform supplies, and what it sits on",
+      "caption": "Figure 12.3: What a platform supplies, and what it sits on",
+      "number": "12.3"
+    }
+  ]
+}

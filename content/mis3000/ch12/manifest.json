@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "id": "ch12",
+  "book": "mis3000",
+  "kind": "chapter",
+  "number": 12,
+  "label": "12",
+  "title": "Who decides?",
+  "version": 1,
+  "contentHash": "sha256:5d866d029da5bb97",
+  "content": "content.md",
+  "sections": [
+    {
+      "id": "c12s1",
+      "title": "A government takes responsibility"
+    },
+    {
+      "id": "c12s2",
+      "title": "The human in the loop"
+    },
+    {
+      "id": "c12s3",
+      "title": "An accurate system can still flag the wrong people"
+    },
+    {
+      "id": "c12s4",
+      "title": "A reviewer who can change the outcome"
+    },
+    {
+      "id": "c12s5",
+      "title": "What the historical record really records"
+    },
+    {
+      "id": "c12s6",
+      "title": "A challenge that reaches someone"
+    },
+    {
+      "id": "c12s7",
+      "title": "Accountability, and the person who signs"
+    },
+    {
+      "id": "c12s8",
+      "title": "Your turn"
+    },
+    {
+      "id": "c12s9",
+      "title": "Sources and example notes"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig-mis3000-c12-01",
+      "kind": "image",
+      "status": "final",
+      "src": "figures/fig-01.png",
+      "alt": "Figure 12.1",
+      "caption": "A reviewer who can disagree. A human step protects people only when it permits an informed, consequential challenge.",
+      "number": "12.1"
+    },
+    {
+      "id": "fig-mis3000-c12-02",
+      "kind": "table",
+      "status": "final",
+      "src": null,
+      "caption": "An accurate system can still flag the wrong people. Inspect who bears the errors, not only the overall accuracy. Fictional data, not the Dutch case.",
+      "number": "12.2"
+    }
+  ]
+}
