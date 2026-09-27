@@ -1,0 +1,239 @@
+.page-kicker {
+  color: var(--link);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  margin-bottom: .35rem;
+  text-transform: uppercase;
+}
+
+.catalog-meta,
+.back-strip,
+.reader-toolbar,
+.button-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+}
+
+.catalog-meta {
+  color: var(--muted);
+  justify-content: space-between;
+  margin: -.3rem 0 1.25rem;
+}
+
+.back-strip,
+.reader-toolbar {
+  margin-bottom: 1.45rem;
+}
+
+.reader-toolbar {
+  margin-top: -.35rem;
+}
+
+.join-form {
+  display: flex;
+  gap: .65rem;
+  margin: 1rem 0 2rem;
+  max-width: 34rem;
+}
+
+.create-section-form {
+  display: grid;
+  gap: .75rem;
+  max-width: 28rem;
+}
+
+.nav-button {
+  align-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: .92rem;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1.1;
+  min-height: 2.55rem;
+  padding: .65rem .95rem;
+  text-decoration: none;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+  white-space: nowrap;
+}
+
+.nav-button:hover {
+  transform: translateY(-1px);
+}
+
+.nav-button.primary {
+  background: var(--link);
+  border-color: var(--link);
+  color: #fff;
+}
+
+.nav-button.secondary {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--link) 72%, var(--rule));
+  color: var(--link);
+}
+
+.nav-button.ghost {
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.nav-button.ghost:hover,
+.nav-button.secondary:hover {
+  background: var(--mark);
+  color: var(--navy);
+}
+
+.course-card,
+.featured-card,
+.section-card {
+  position: relative;
+}
+
+.course-card {
+  overflow: hidden;
+}
+
+.course-card::before,
+.featured-card::before,
+.section-card::before {
+  background: var(--link);
+  content: "";
+  inset: 0 auto 0 0;
+  opacity: .85;
+  position: absolute;
+  width: 4px;
+}
+
+.featured-card,
+.section-card {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.featured-card .nav-button,
+.section-card .nav-button {
+  flex: 0 0 auto;
+}
+
+.book-card .button-row {
+  margin-top: 1rem;
+}
+
+.button-row form {
+  display: inline-flex;
+}
+
+.exam-question {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  margin: 0 0 1.1rem;
+  padding: 1rem 1.2rem;
+}
+
+.exam-question legend {
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+  padding: 0 .35rem;
+}
+
+.exam-options {
+  display: grid;
+  gap: .55rem;
+}
+
+.exam-options label {
+  align-items: flex-start;
+  background: var(--panel-soft);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  gap: .6rem;
+  padding: .65rem .75rem;
+}
+
+.result-card {
+  margin-bottom: 1rem;
+}
+
+:root[data-theme="dark"] .nav-button.primary {
+  color: #08111f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .nav-button.primary {
+    color: #08111f;
+  }
+}
+
+@media (max-width: 700px) {
+  .catalog-meta,
+  .featured-card,
+  .section-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .catalog-meta {
+    justify-content: flex-start;
+  }
+
+  .join-form,
+  .back-strip,
+  .reader-toolbar,
+  .button-row {
+    align-items: stretch;
+  }
+
+  .reader-toolbar .nav-button,
+  .back-strip .nav-button {
+    flex: 1 1 auto;
+  }
+
+  .featured-card .nav-button,
+  .section-card .nav-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .nav-button {
+    min-height: 2.7rem;
+    padding: .7rem .85rem;
+    width: 100%;
+  }
+
+  .button-row form,
+  .button-row form .nav-button,
+  .join-form input,
+  .join-form .nav-button,
+  .create-section-form .nav-button {
+    width: 100%;
+  }
+
+  .exam-question {
+    padding: .95rem .85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-button {
+    transition: none;
+  }
+
+  .nav-button:hover {
+    transform: none;
+  }
+}
