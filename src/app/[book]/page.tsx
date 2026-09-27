@@ -5,6 +5,7 @@ import { currentUser } from "@/lib/auth";
 import { enrolmentForBook, getBookmark } from "@/lib/enrolment";
 import { listAnnouncements, upcoming, getSyllabus } from "@/lib/course";
 import LogoutButton from "@/components/LogoutButton";
+import BackButton from "@/components/BackButton";
 
 export const dynamic = "force-dynamic";
 
@@ -24,15 +25,21 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
   const [ann, due, syl] = await Promise.all([listAnnouncements(enr.sectionId), upcoming(enr.sectionId, 5), getSyllabus(enr.sectionId)]);
 
   return (
-    <main className="catalog" style={{ maxWidth: "44rem" }}>
+    <main className="catalog course-home" style={{ maxWidth: "44rem" }}>
       <LogoutButton />
+      <div className="back-strip ui">
+        <BackButton fallbackHref="/" />
+        <Link className="nav-button ghost" href="/">All books</Link>
+        <Link className="nav-button secondary" href={`/${book}/exams`}>Exams</Link>
+      </div>
       <h1>{manifest.title}</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>{manifest.subtitle ?? ""}</p>
-      <Link href={resumeHref}>
-        <div className="book-card" style={{ borderColor: "var(--link)" }}>
-          <div className="t">{bm ? "Continue reading →" : "Start reading →"}</div>
+      <Link href={resumeHref} className="book-card featured-card">
+        <div>
+          <div className="t">{bm ? "Continue reading" : "Start reading"}</div>
           <div className="s">{bm ? "Pick up where you left off" : "Open the book"}</div>
         </div>
+        <span className="nav-button primary">{bm ? "Continue" : "Start"}</span>
       </Link>
 
       {due.length > 0 && (
@@ -41,7 +48,7 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
           <ul className="ui" style={{ listStyle: "none", padding: 0 }}>
             {due.map((d) => (
               <li key={d.id} style={{ borderBottom: "1px solid var(--rule)", padding: ".4rem 0" }}>
-                <strong>{d.dueAt ? new Date(d.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}</strong>
+                <strong>{d.dueAt ? new Date(d.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "-"}</strong>
                 {"  "}{d.title}{d.kind ? <span style={{ color: "var(--muted)" }}> · {d.kind}</span> : null}
               </li>
             ))}
