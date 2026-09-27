@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./ui-polish.css";
 import type { Metadata } from "next";
 import ThemeToggle from "@/components/ThemeToggle";
 
