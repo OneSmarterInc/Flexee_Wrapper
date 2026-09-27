@@ -148,18 +148,21 @@ def parse_register(text):
     if "Current version of every artifact" not in t:
         return parse_register_legacy(text)
     r = {"raw_ok": True, "layout": "section-0 table"}
-    m = re.search(r"Register version:\s*([\d.]+)", t); r["register_version"] = m.group(1) if m else None
+    m = re.search(r"Register version:\s*v?([\d.]+)", t); r["register_version"] = m.group(1) if m else None
     st = re.search(r"Intake status:\s*([A-Z][A-Z ]+)", t); r["intake_status"] = st.group(1).strip() if st else None
     bt = re.search(r"Built to:\s*(.+?)\s*$", t, re.M); r["built_to"] = re.sub(r"\s*\(.*$", "", bt.group(1)).strip() if bt else None
-    c = re.search(r"^#\s*([A-Z]{2,5})\s*(\d{3,4})\b", t, re.M); r["course"] = (c.group(1) + c.group(2)) if c else None
+    first = next((l for l in t.splitlines() if l.startswith("#")), "")
+    c = re.search(r"\b([A-Z]{2,5})\s?(\d{3,4})\b", first); r["course"] = (c.group(1) + c.group(2)) if c else None
     def cell(label):
         m = re.search(rf"^\|\s*{label}\s*\|\s*([^|]+?)\s*\|", t, re.M | re.I); return m.group(1).strip() if m else None
     ed = cell("Edition") or ""
     r["imprint"] = {"publisher": cell("Publisher"), "author": cell("Author"), "editor": cell("Editor"),
                     "year": (re.search(r"\d{4}", ed) or [None])[0]}
-    r["chapter_count"] = int(cell("Chapters")) if (cell("Chapters") or "").isdigit() else None
-    r["figure_count"] = int(cell("Figures")) if (cell("Figures") or "").isdigit() else None
-    bv = cell("Book version"); r["book_version"] = bv.lstrip("v") if bv else None
+    def lead_int(v):  # "25 — counted in the packages…" -> 25
+        m = re.match(r"\s*(\d[\d,]*)", v or ""); return int(m.group(1).replace(",", "")) if m else None
+    r["chapter_count"] = lead_int(cell("Chapters"))
+    r["figure_count"] = lead_int(cell("Figures"))
+    bv = re.search(r"v?(\d+(?:\.\d+)+)", cell("Book version") or ""); r["book_version"] = bv.group(1) if bv else None
     body = t[t.index("Current version of every artifact"):]
     body = re.split(r"\n\s*---\s*\n|\n#{1,3} ", body)[0]
     rows, chap = [], {}
@@ -168,8 +171,9 @@ def parse_register(text):
         if len(cells) < 4 or cells[0] in ("Lane", "") or set(cells[0]) <= set("-: "): continue
         lane = cells[0].strip("`"); artifact, vcell, status = cells[1], cells[2], cells[3]
         vm = re.search(r"v(\d+(?:\.\d+)*)", vcell); version = vm.group(1) if vm else None
-        cnt = re.search(r"(\d+)\s+objectives", vcell)
-        files = _expected_files(lane, artifact, version, r["course"]) if (version or lane == "07_Question_Banks") else []
+        cnt = re.search(r"(\d+)\s+objectives", vcell + " " + status)
+        has_ticks = "`" in artifact
+        files = _expected_files(lane, artifact, version, r["course"]) if (version or has_ticks or lane == "07_Question_Banks") else []
         rows.append({"lane": lane, "artifact": artifact, "version": version, "status": status, "files": files})
         if lane == "04_Chapters" and version:
             for f in files:
