@@ -71,6 +71,8 @@ export async function enrollByCodeAction(formData: FormData) {
 export async function createSectionAction(formData: FormData) {
   const user = await currentUser();
   if (!user) redirect("/login?next=/teach");
+  // Classes are created by administrators (see /admin); an admin creating one here teaches it.
+  if (user!.systemRole !== "admin") redirect(`/teach?error=${encodeURIComponent("Classes are set up by an administrator. Ask one to create your class and add you as its faculty.")}`);
   const bookId = clean(formData.get("bookId"));
   const name = clean(formData.get("name"));
   if (!bookId || !name) redirect(`/teach?error=${encodeURIComponent("Pick a book and name the section.")}`);

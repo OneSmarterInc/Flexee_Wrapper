@@ -1,11 +1,11 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { and, eq, inArray } from "drizzle-orm";
 import * as schema from "../src/db/schema.ts";
 const { sections, users, enrolments, exams, examAttempts, lineItems, lineItemScores } = schema;
 const client = new PGlite(); const db = drizzle(client, { schema });
-for (const f of ["0000_init","0001_section_owner_and_invites","0002_content_versioning","0003_assessment","0004_learning_objectives","0005_gradebook"])
+for (const f of readdirSync("drizzle").filter((x) => x.endsWith(".sql")).map((x) => x.slice(0, -4)).sort()) // every migration, so this test never goes stale
   for (const s of readFileSync(`drizzle/${f}.sql`,"utf8").split("--> statement-breakpoint")) { const t=s.trim(); if(t) await client.exec(t); }
 const P=(b:boolean)=>b?"PASS":"*** FAIL ***";
 

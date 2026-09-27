@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import bcrypt from "bcryptjs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -8,7 +8,7 @@ const { users, identities, sections, enrolments, rosterInvites } = schema;
 
 const client = new PGlite();
 const db = drizzle(client, { schema });
-for (const f of ["drizzle/0000_init.sql", "drizzle/0001_section_owner_and_invites.sql"])
+for (const f of readdirSync("drizzle").filter((x) => x.endsWith(".sql")).sort().map((x) => `drizzle/${x}`)) // every migration
   for (const s of readFileSync(f, "utf8").split("--> statement-breakpoint")) { const t = s.trim(); if (t) await client.exec(t); }
 console.log("both migrations applied");
 

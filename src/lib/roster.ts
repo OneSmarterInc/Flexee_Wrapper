@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { sections, enrolments, users, identities, rosterInvites } from "@/db/schema";
 import { pinSectionToLatest } from "@/lib/versions";
@@ -12,9 +12,17 @@ function code() {
   return s;
 }
 
-export async function createSection(userId: string, bookId: string, name: string, term?: string) {
-  const [sec] = await db().insert(sections).values({ bookId, name, term: term ?? null, joinCode: code(), createdBy: userId }).returning();
-  await db().insert(enrolments).values({ sectionId: sec.id, userId, role: "instructor" }).onConflictDoNothing();
+export type ClassRole = "student" | "instructor";
+
+// Create a class (section) for one book. `teach` enrols the creator as its instructor; an admin
+// setting up a class for someone else leaves it off and adds faculty afterwards.
+export async function createSection(userId: string, bookId: string, name: string, term?: string, opts: { teach?: boolean } = {}) {
+  const teach = opts.teach ?? true;
+  const [sec] = await db().insert(sections).values({
+    bookId, name, term: term ?? null, joinCode: code(), createdBy: userId,
+    bookPublishedAt: new Date(), // until the book library (step 2), a class's book is live when the class is created
+  }).returning();
+  if (teach) await db().insert(enrolments).values({ sectionId: sec.id, userId, role: "instructor" }).onConflictDoNothing();
   await pinSectionToLatest(sec.id, bookId); // snapshot the reading set at adoption
   await applyGradebookStarter(sec.id, bookId); // seed the editable starter gradebook
   return sec;
@@ -71,9 +79,19 @@ export async function enrollByCode(userId: string, joinCode: string) {
   return sec;
 }
 
+// Enrol (or re-role) a user in a class. Faculty are never demoted by a later student list:
+// adding someone as instructor raises their role; adding an instructor as student leaves them instructor.
+async function enrolAs(sectionId: string, userId: string, role: ClassRole) {
+  await db().insert(enrolments).values({ sectionId, userId, role })
+    .onConflictDoUpdate({
+      target: [enrolments.sectionId, enrolments.userId],
+      set: { role: sql`case when ${enrolments.role} = 'instructor' then 'instructor' else ${role} end` },
+    });
+}
+
 // Commit a cleaned roster: existing users become enrolments immediately; unknown
-// emails become invites that convert on first sign-in.
-export async function commitRoster(sectionId: string, rows: { email: string; name?: string }[]) {
+// emails become invites that convert on first sign-in, with the same role.
+export async function commitRoster(sectionId: string, rows: { email: string; name?: string }[], role: ClassRole = "student") {
   let enrolled = 0, invited = 0;
   const emails = rows.map((r) => r.email.toLowerCase().trim()).filter(Boolean);
   if (!emails.length) return { enrolled, invited };
@@ -87,10 +105,14 @@ export async function commitRoster(sectionId: string, rows: { email: string; nam
     if (!email) continue;
     const uid = knownMap.get(email);
     if (uid) {
-      await db().insert(enrolments).values({ sectionId, userId: uid }).onConflictDoNothing();
+      await enrolAs(sectionId, uid, role);
       enrolled++;
     } else {
-      await db().insert(rosterInvites).values({ sectionId, email, name: r.name ?? null }).onConflictDoNothing();
+      await db().insert(rosterInvites).values({ sectionId, email, name: r.name ?? null, role })
+        .onConflictDoUpdate({
+          target: [rosterInvites.sectionId, rosterInvites.email],
+          set: { role: sql`case when ${rosterInvites.role} = 'instructor' then 'instructor' else ${role} end` },
+        });
       invited++;
     }
   }
@@ -103,7 +125,7 @@ export async function claimInvites(userId: string, email: string) {
   const invites = await db().select().from(rosterInvites).where(eq(rosterInvites.email, e));
   if (!invites.length) return 0;
   for (const inv of invites) {
-    await db().insert(enrolments).values({ sectionId: inv.sectionId, userId }).onConflictDoNothing();
+    await enrolAs(inv.sectionId, userId, (inv.role as ClassRole) || "student");
   }
   await db().delete(rosterInvites).where(inArray(rosterInvites.id, invites.map((i) => i.id)));
   return invites.length;

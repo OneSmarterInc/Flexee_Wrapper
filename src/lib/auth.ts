@@ -40,7 +40,7 @@ export async function currentUser() {
   const id = (await cookies()).get(COOKIE)?.value;
   if (!id) return null;
   const rows = await db()
-    .select({ id: users.id, displayName: users.displayName })
+    .select({ id: users.id, displayName: users.displayName, systemRole: users.systemRole })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, id), gt(sessions.expiresAt, new Date())))

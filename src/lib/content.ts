@@ -1,7 +1,8 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
+import { contentStore } from "@/lib/storage";
 
-// The content tree produced by the intake tools. Override with CONTENT_DIR.
+// The content tree produced by the intake tools. Books are read through the content store
+// (src/lib/storage.ts), which is either this folder or an S3 bucket, set by CONTENT_STORE.
 export const CONTENT_DIR = process.env.CONTENT_DIR || path.join(process.cwd(), "content");
 
 export type Figure = {
@@ -44,18 +45,16 @@ export type BookManifest = {
   spine: SpineItem[];
 };
 
-async function readJson<T>(p: string): Promise<T> {
-  return JSON.parse(await fs.readFile(p, "utf8")) as T;
+async function readJson<T>(key: string): Promise<T> {
+  return JSON.parse(await contentStore().readText(key)) as T;
 }
 
 export async function listBooks(): Promise<BookManifest[]> {
-  const dirs = await fs.readdir(CONTENT_DIR, { withFileTypes: true });
   const books: BookManifest[] = [];
-  for (const d of dirs) {
-    if (!d.isDirectory()) continue;
-    const mp = path.join(CONTENT_DIR, d.name, "book.manifest.json");
+  for (const d of await contentStore().listDirs("")) {
+    if (d.startsWith("_")) continue; // _archive, _staging and reports are intake bookkeeping
     try {
-      books.push(await readJson<BookManifest>(mp));
+      books.push(await readJson<BookManifest>(`${d}/book.manifest.json`));
     } catch {
       /* not a book dir */
     }
@@ -64,14 +63,14 @@ export async function listBooks(): Promise<BookManifest[]> {
 }
 
 export async function getBook(bookId: string): Promise<BookManifest> {
-  return readJson<BookManifest>(path.join(CONTENT_DIR, bookId, "book.manifest.json"));
+  return readJson<BookManifest>(`${bookId}/book.manifest.json`);
 }
 
 export async function getEntry(bookId: string, entryId: string) {
-  const dir = path.join(CONTENT_DIR, bookId, entryId);
-  const manifest = await readJson<EntryManifest>(path.join(dir, "manifest.json"));
-  const markdown = await fs.readFile(path.join(dir, manifest.content), "utf8");
-  return { manifest, markdown, dir };
+  const key = `${bookId}/${entryId}`;
+  const manifest = await readJson<EntryManifest>(`${key}/manifest.json`);
+  const markdown = await contentStore().readText(`${key}/${manifest.content}`);
+  return { manifest, markdown, key };
 }
 
 // spine with resolved titles, for a book's table of contents
@@ -79,9 +78,7 @@ export async function getToc(bookId: string) {
   const book = await getBook(bookId);
   const items = await Promise.all(
     book.spine.map(async (s) => {
-      const m = await readJson<EntryManifest>(
-        path.join(CONTENT_DIR, bookId, s.ref, "manifest.json"),
-      );
+      const m = await readJson<EntryManifest>(`${bookId}/${s.ref}/manifest.json`);
       return { ref: s.ref, kind: s.kind, number: m.number, title: m.title };
     }),
   );

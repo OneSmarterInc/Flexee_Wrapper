@@ -9,7 +9,9 @@ export function db() {
   if (_db) return _db;
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
-  _db = drizzle(postgres(url, { prepare: false }), { schema });
+  // prepare:false keeps this compatible with transaction poolers (Supabase, PgBouncer, RDS Proxy).
+  // DB_POOL_MAX caps connections per instance; on serverless hosts set it low (e.g. 3).
+  _db = drizzle(postgres(url, { prepare: false, max: Number(process.env.DB_POOL_MAX || 10) }), { schema });
   return _db;
 }
 export { schema };

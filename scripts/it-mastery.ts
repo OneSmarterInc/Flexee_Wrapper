@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -8,7 +8,7 @@ const { questions, learningObjectives, sections, users, enrolments, exams, examA
 
 const client = new PGlite();
 const db = drizzle(client, { schema });
-for (const f of ["0000_init","0001_section_owner_and_invites","0002_content_versioning","0003_assessment","0004_learning_objectives"])
+for (const f of readdirSync("drizzle").filter((x) => x.endsWith(".sql")).map((x) => x.slice(0, -4)).sort()) // every migration, so this test never goes stale
   for (const s of readFileSync(`drizzle/${f}.sql`,"utf8").split("--> statement-breakpoint")) { const t = s.trim(); if (t) await client.exec(t); }
 console.log("5 migrations applied");
 

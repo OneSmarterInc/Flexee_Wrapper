@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import bcrypt from "bcryptjs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -7,7 +7,7 @@ import * as schema from "../src/db/schema.ts";
 const { users, identities, sessions, sections, enrolments } = schema;
 const P=(b:boolean)=>b?"PASS":"*** FAIL ***";
 const client=new PGlite(); const db=drizzle(client,{schema});
-for(const f of ["0000_init","0001_section_owner_and_invites","0002_content_versioning","0003_assessment","0004_learning_objectives","0005_gradebook","0006_lti","0007_account_recovery","0008_nrps"])
+for(const f of readdirSync("drizzle").filter((x)=>x.endsWith(".sql")).map((x)=>x.slice(0,-4)).sort()) // every migration
   for(const s of readFileSync(`drizzle/${f}.sql`,"utf8").split("--> statement-breakpoint")){const t=s.trim(); if(t) await client.exec(t);}
 
 const [sec]=await db.insert(sections).values({bookId:"mis3000",name:"S",joinCode:"P1"}).returning();

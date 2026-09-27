@@ -33,6 +33,7 @@ import { sql } from "drizzle-orm";
 export const users = pgTable("users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   displayName: text("display_name").notNull(),
+  systemRole: text("system_role").notNull().default("user"), // 'admin' | 'user'
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -73,6 +74,7 @@ export const sections = pgTable(
     name: text("name").notNull(),
     joinCode: text("join_code"),
     term: text("term"),                             // e.g. "2027 Spring" — for the course dashboard
+    bookPublishedAt: timestamp("book_published_at", { withTimezone: true }), // null = students cannot see the book yet
     externalContextId: text("external_context_id"), // nullable — LTI seam
     createdBy: text("created_by").references((): any => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -119,6 +121,7 @@ export const rosterInvites = pgTable(
     sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     name: text("name"),
+    role: text("role").notNull().default("student"), // 'student' | 'instructor' — the role on joining
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("roster_invites_section_email_uq").on(t.sectionId, t.email)],

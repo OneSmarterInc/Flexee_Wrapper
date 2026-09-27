@@ -20,11 +20,12 @@ export default async function Teach({ searchParams }: { searchParams: Promise<{ 
       <div className="back-strip ui">
         <BackButton fallbackHref="/" />
         <Link className="nav-button ghost" href="/">Reading home</Link>
+        {user!.systemRole === "admin" && <Link className="nav-button ghost" href="/admin">Administration</Link>}
       </div>
       <div className="page-kicker ui">Teaching & records</div>
       <h1>My courses</h1>
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
-      {groups.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>No sections yet. Create one below.</p>}
+      {groups.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>No classes yet.</p>}
       {groups.map((g) => (
         <section key={g.term} style={{ marginTop: "1.4rem" }}>
           <h2 className="ui" style={{ color: "var(--muted)", fontSize: ".9rem", borderBottom: "1px solid var(--rule)", paddingBottom: ".3rem" }}>{g.term}</h2>
@@ -39,7 +40,13 @@ export default async function Teach({ searchParams }: { searchParams: Promise<{ 
           ))}
         </section>
       ))}
-      <h2 style={{ color: "var(--navy)", marginTop: "2rem" }}>Create a section</h2>
+      {user!.systemRole !== "admin" && (
+        <p className="ui" style={{ color: "var(--muted)", marginTop: "2rem" }}>
+          Classes are set up by an administrator. If a class you teach is missing, ask an administrator to create it and add you as its faculty.
+        </p>
+      )}
+      {user!.systemRole === "admin" && <>
+      <h2 style={{ color: "var(--navy)", marginTop: "2rem" }}>Create a section you teach</h2>
       <form action={createSectionAction} className="ui create-section-form">
         <select name="bookId" required style={field}>
           <option value="">Choose a book...</option>
@@ -49,6 +56,7 @@ export default async function Teach({ searchParams }: { searchParams: Promise<{ 
         <input name="term" placeholder="Term (e.g. 2027 Spring)" style={field} />
         <button type="submit" className="nav-button primary">Create section</button>
       </form>
+      </>}
     </main>
   );
 }
