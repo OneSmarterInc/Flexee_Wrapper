@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/auth";
 import { enrolmentForBook } from "@/lib/enrolment";
 import { attemptEnrolmentId, attemptResult } from "@/lib/assessment";
 import LogoutButton from "@/components/LogoutButton";
+import BackButton from "@/components/BackButton";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +18,19 @@ export default async function ExamResult({ params }: { params: Promise<{ book: s
   if (!result) redirect(`/${book}/exams`);
 
   return (
-    <main className="catalog" style={{ maxWidth: "44rem" }}>
+    <main className="catalog exam-result" style={{ maxWidth: "44rem" }}>
       <LogoutButton />
-      <p className="ui"><Link href={`/${book}/exams`}>← Exams</Link></p>
+      <div className="back-strip ui">
+        <BackButton fallbackHref={`/${book}/exams`} />
+        <Link className="nav-button ghost" href={`/${book}/exams`}>Exams</Link>
+      </div>
       <h1>Your score: {result.score}/{result.maxPoints}</h1>
       {!result.showFeedback && <p className="ui" style={{ color: "var(--muted)" }}>Answers and explanations will be available after the exam closes.</p>}
       {result.showFeedback && result.items.map((it, i) => (
-        <div key={i} style={{ border: "1px solid var(--rule)", borderRadius: "8px", padding: "1rem 1.2rem", margin: "0 0 1rem" }}>
+        <div key={i} className="book-card result-card">
           <p style={{ marginTop: 0 }}>{it.stem}</p>
           <p className="ui" style={{ fontSize: ".9rem", color: it.correct ? "#2a7d3f" : "#b4451f" }}>
-            {it.correct ? "Correct" : "Incorrect"} — you chose: {it.selected}
+            {it.correct ? "Correct" : "Incorrect"} - you chose: {it.selected}
           </p>
           {!it.correct && it.answer && <p className="ui" style={{ fontSize: ".9rem" }}>Correct answer: {it.answer}</p>}
           {it.rationale && <p className="ui" style={{ fontSize: ".88rem", color: "var(--muted)" }}>{it.rationale}</p>}
