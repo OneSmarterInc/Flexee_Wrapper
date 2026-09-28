@@ -211,7 +211,7 @@ def reconcile(reg, src):
             f = row["files"][0]
             if f in listing and listing[f] != row["size"]:
                 msg = f"{lane}: `{f}` is {listing[f]:,} bytes in Drive; the register says {row['size']:,}"
-                (stops if lane in INTAKE_LANES else warns).append(msg)
+                stops.append(msg)
         for f in extra:
             if lane == "07_Question_Banks" and f.startswith("review/"): continue  # derived, regenerated
             (stops if lane in INTAKE_LANES else warns).append(f"{lane}: `{f}` is in Drive but not in the register")
