@@ -61,5 +61,15 @@ run("IN PROGRESS stops before anything else", build(S, {"status": "IN PROGRESS"}
 b = build(S, {"ch_rows": "| `04_Chapters` | Chapters 1, 2 | **v1.3** | CURRENT |\n| `04_Chapters` | Chapters 2, 3, 5, 6 | **v1.2** | CURRENT |\n| `04_Chapters` | Chapters 4, 7–12 | **v1.1** | CURRENT |"})
 run("chapter listed at two versions stops", b, False, ["gives chapter 2 two versions"])
 
+# 12. synthetic fixture for SAD v6.18's Lane | File | Bytes | Status layout, including optional Title/Series rows
+run("File | Bytes layout admits, sizes checked", build(S, layout="file-bytes"), True,
+    ["READY TO APPROVE", "files the register lists are in Drive"])
+
+# 13. a file whose size differs from the register's Bytes column stops the intake
+b = build(S, layout="file-bytes"); pkg = b / "04_Chapters" / "Chapter_05_Package_v1.2.zip"
+with open(pkg, "ab") as fh: fh.write(b"\0")          # same name, one byte longer: a different file
+run("a file whose size differs from the register stops", b, False,
+    ["Chapter_05_Package_v1.2.zip` is", "the register says", "STOPPED"])
+
 print(f"\n{sum(ok for _, ok in results)}/{len(results)} passed")
 sys.exit(0 if all(ok for _, ok in results) else 1)

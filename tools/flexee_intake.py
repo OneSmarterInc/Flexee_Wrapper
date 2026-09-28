@@ -131,6 +131,8 @@ def _expected_files(lane, artifact, version, course):
         ext = ".md" if lane == "01_Speaker_Notes" else ".pptx"
         kind = {"01_Speaker_Notes": "Notes", "02_Lecture_Decks": "Lecture", "03_Studio_Packs": "Studio"}[lane]
         base = ticks[0] if ticks else f"{course}_WeekNN_{kind}"
+        if re.search(r"\.\w{2,5}$", base) and "NN" not in base:
+            return [base]  # already a complete file name (File | Bytes layout)
         if "NN" in base:
             return [base.replace("NN", f"{w:02d}") + f"_v{version}{ext}" for w in wk]
         return [base + f"_v{version}{ext}"]
@@ -171,10 +173,17 @@ def parse_register(text):
         if len(cells) < 4 or cells[0] in ("Lane", "") or set(cells[0]) <= set("-: "): continue
         lane = cells[0].strip("`"); artifact, vcell, status = cells[1], cells[2], cells[3]
         vm = re.search(r"v(\d+(?:\.\d+)*)", vcell); version = vm.group(1) if vm else None
+        size = None
+        if re.fullmatch(r"[\d,]+", vcell.replace("*", "").strip()):   # Lane | File | Bytes | Status layout
+            size = int(vcell.replace("*", "").replace(",", "").strip())
+        if not version:                                                # version lives in the file name
+            fm = re.search(r"_v(\d+(?:\.\d+)+)\.[A-Za-z0-9]+`?\s*$", artifact.strip().strip("`"))
+            if fm: version = fm.group(1)
         cnt = re.search(r"(\d+)\s+objectives", vcell + " " + status)
         has_ticks = "`" in artifact
         files = _expected_files(lane, artifact, version, r["course"]) if (version or has_ticks or lane == "07_Question_Banks") else []
-        rows.append({"lane": lane, "artifact": artifact, "version": version, "status": status, "files": files})
+        rows.append({"lane": lane, "artifact": artifact, "version": version, "status": status, "files": files,
+                     "size": size if len(files) == 1 else None})
         if lane == "04_Chapters" and version:
             for f in files:
                 n = int(re.match(r"Chapter_(\d+)_", f).group(1)); chap.setdefault(n, []).append(version)
@@ -197,6 +206,12 @@ def reconcile(reg, src):
         missing = [f for f in expected if f not in listing]
         extra = [f for f in listing if f not in expected]
         for f in missing: stops.append(f"{lane}: register lists `{f}`, not in Drive")
+        for row in reg["rows"]:
+            if row["lane"] != lane or row.get("size") is None or not row["files"]: continue
+            f = row["files"][0]
+            if f in listing and listing[f] != row["size"]:
+                msg = f"{lane}: `{f}` is {listing[f]:,} bytes in Drive; the register says {row['size']:,}"
+                (stops if lane in INTAKE_LANES else warns).append(msg)
         for f in extra:
             if lane == "07_Question_Banks" and f.startswith("review/"): continue  # derived, regenerated
             (stops if lane in INTAKE_LANES else warns).append(f"{lane}: `{f}` is in Drive but not in the register")

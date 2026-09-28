@@ -4,7 +4,7 @@ import json, shutil, sys, re
 from pathlib import Path
 import os
 SRC = Path(os.environ.get("SAD_PACKAGES", "/home/claude/sad_in"))  # folder of SAD chapter packages + front matter
-def build(root, register_overrides=None, escaped=False):
+def build(root, register_overrides=None, escaped=False, layout="artifact-version"):
     root = Path(root); shutil.rmtree(root, ignore_errors=True)
     L = {k: root / k for k in ["00_Front_Matter", "01_Speaker_Notes", "02_Lecture_Decks", "03_Studio_Packs",
                                "04_Chapters", "05_Compiled", "06_Tooling", "07_Question_Banks"]}
@@ -98,6 +98,17 @@ def build(root, register_overrides=None, escaped=False):
 
 ## 1. Version scheme
 """
+    if layout == "file-bytes":  # synthetic fixture matching the SAD v6.18 Lane | File | Bytes | Status layout
+        head, rest = reg.split("### Current version of every artifact", 1)
+        tail = rest.split("\n---\n", 1)[1]
+        head = head.replace("| Publisher | **Flexee Publishing** |", "| Publisher | **Flexee Publishing** |\n| Series | **Five Zero Books** |\n| Title | **Analysis and Design of Information Systems** |")
+        rows = ["| Lane | File | Bytes | Status |", "|---|---|---|---|"]
+        for lane in sorted(L):
+            for fp in sorted(L[lane].rglob("*")):
+                rel = fp.relative_to(L[lane])
+                if fp.is_file() and not any(x.startswith("Archive") for x in rel.parts):
+                    rows.append(f"| `{lane}` | `{rel.as_posix()}` | {fp.stat().st_size:,} | CURRENT |")
+        reg = head + "### Current version of every artifact\n\nOne row per file.\n\n" + "\n".join(rows) + "\n\n---\n" + tail
     if escaped:  # the form Drive's text export produces
         reg = re.sub(r"([_*`#])", r"\\\1", reg)
     (root / "STATE_OF_RECORD.md").write_text(reg)
