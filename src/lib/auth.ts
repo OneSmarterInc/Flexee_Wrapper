@@ -36,14 +36,38 @@ export async function destroySession() {
   jar.delete(COOKIE);
 }
 
+function missingSystemRole(error: unknown): boolean {
+  let current = error;
+  for (let depth = 0; depth < 3 && current && typeof current === "object"; depth++) {
+    const candidate = current as { code?: unknown; message?: unknown; cause?: unknown };
+    if (candidate.code === "42703" && typeof candidate.message === "string" &&
+        candidate.message.includes("system_role")) return true;
+    current = candidate.cause;
+  }
+  return false;
+}
+
 export async function currentUser() {
   const id = (await cookies()).get(COOKIE)?.value;
   if (!id) return null;
-  const rows = await db()
-    .select({ id: users.id, displayName: users.displayName, systemRole: users.systemRole })
-    .from(sessions)
-    .innerJoin(users, eq(users.id, sessions.userId))
-    .where(and(eq(sessions.id, id), gt(sessions.expiresAt, new Date())))
-    .limit(1);
-  return rows[0] ?? null;
+  const activeSession = and(eq(sessions.id, id), gt(sessions.expiresAt, new Date()));
+  try {
+    const rows = await db()
+      .select({ id: users.id, displayName: users.displayName, systemRole: users.systemRole })
+      .from(sessions)
+      .innerJoin(users, eq(users.id, sessions.userId))
+      .where(activeSession)
+      .limit(1);
+    return rows[0] ?? null;
+  } catch (error) {
+    if (!missingSystemRole(error)) throw error;
+    // Existing sessions can read while migration 0012 is pending; no admin access is granted.
+    const rows = await db()
+      .select({ id: users.id, displayName: users.displayName })
+      .from(sessions)
+      .innerJoin(users, eq(users.id, sessions.userId))
+      .where(activeSession)
+      .limit(1);
+    return rows[0] ? { ...rows[0], systemRole: "user" } : null;
+  }
 }
