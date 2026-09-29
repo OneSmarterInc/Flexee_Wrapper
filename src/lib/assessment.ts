@@ -56,6 +56,17 @@ export async function questionCounts(bookId: string) {
   return { total: rows.length, chapters, count: (ch: number, diff: string) => by.get(`c${ch}:${diff}`) ?? 0 };
 }
 
+// Faculty-only pages call this after checking their class enrolment. Keep the
+// answer-bearing bank on the server; no public asset route exposes it.
+export async function questionBankForChapter(bookId: string, chapter: number) {
+  return db().select({
+    id: questions.id, chapter: questions.chapter, section: questions.section,
+    type: questions.type, difficulty: questions.difficulty, stem: questions.stem,
+    optionsJson: questions.optionsJson, points: questions.points, metaJson: questions.metaJson,
+  }).from(questions).where(and(eq(questions.bookId, bookId), eq(questions.chapter, chapter)))
+    .orderBy(questions.id);
+}
+
 // ---- exams (instructor) ----
 export async function createExam(sectionId: string, v: { title: string; blueprint: Blueprint; feedback: string; timeLimitMin: number | null; attemptLimit: number }) {
   const [row] = await db().insert(exams).values({
