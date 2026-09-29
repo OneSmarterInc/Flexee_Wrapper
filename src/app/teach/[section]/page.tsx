@@ -11,6 +11,7 @@ import LogoutButton from "@/components/LogoutButton";
 import ClassBookPanel from "@/components/ClassBookPanel";
 import { classBookState } from "@/lib/publish";
 import { listBooks } from "@/lib/content";
+import PortalNav from "@/components/PortalNav";
 
 export const dynamic = "force-dynamic";
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
@@ -30,7 +31,8 @@ export default async function SectionDashboard({ params, searchParams }: { param
   return (
     <main className="catalog">
       <LogoutButton />
-      <p className="ui"><Link href="/teach">← Teaching</Link></p>
+      <PortalNav active="faculty" isAdmin={user.systemRole === "admin"} canTeach />
+      <p className="ui"><Link href="/faculty">← My teaching</Link></p>
       <h1>{sec.name}</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>{book.title}</p>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}

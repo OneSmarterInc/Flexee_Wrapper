@@ -8,6 +8,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   return (
     <main className="catalog" style={{ maxWidth: "24rem" }}>
       <h1>Create an account</h1>
+      <p className="ui" style={{ color: "var(--muted)" }}>Use one account for learning or teaching. An administrator adds faculty and students to classes.</p>
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
       <form action={signup} className="ui" style={{ display: "grid", gap: ".7rem" }}>
         <input type="hidden" name="next" value={sp.next ?? "/"} />

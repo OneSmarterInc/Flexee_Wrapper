@@ -28,8 +28,8 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
     <main className="catalog course-home" style={{ maxWidth: "44rem" }}>
       <LogoutButton />
       <div className="back-strip ui">
-        <BackButton fallbackHref="/" />
-        <Link className="nav-button ghost" href="/">All books</Link>
+        <BackButton fallbackHref="/student" />
+        <Link className="nav-button ghost" href="/student">My learning</Link>
         <Link className="nav-button secondary" href={`/${book}/exams`}>Exams</Link>
         <Link className="nav-button secondary" href={`/${book}/assignments`}>Assignments</Link>
       </div>

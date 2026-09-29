@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users, identities } from "@/db/schema";
 import { hashPassword, verifyPassword, createSession, destroySession, currentUser } from "@/lib/auth";
 import { enrolmentForBook } from "@/lib/enrolment";
-import { createSection, ownedSection, regenerateJoinCode, removeEnrolment, enrollByCode, claimInvites } from "@/lib/roster";
+import { ownedSection, regenerateJoinCode, removeEnrolment, enrollByCode, claimInvites } from "@/lib/roster";
 
 const clean = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 
@@ -63,19 +63,6 @@ export async function enrollByCodeAction(formData: FormData) {
   const c = clean(formData.get("code"));
   const sec = await enrollByCode(user!.id, c);
   redirect(sec ? `/${sec.bookId}` : `/?error=${encodeURIComponent("No section found for that code.")}`);
-}
-
-export async function createSectionAction(formData: FormData) {
-  const user = await currentUser();
-  if (!user) redirect("/login?next=/teach");
-  // Classes are created by administrators (see /admin); an admin creating one here teaches it.
-  if (user!.systemRole !== "admin") redirect(`/teach?error=${encodeURIComponent("Classes are set up by an administrator. Ask one to create your class and add you as its faculty.")}`);
-  const bookId = clean(formData.get("bookId"));
-  const name = clean(formData.get("name"));
-  if (!bookId || !name) redirect(`/teach?error=${encodeURIComponent("Pick a book and name the section.")}`);
-  const term = clean(formData.get("term")) || undefined;
-  const sec = await createSection(user!.id, bookId, name, term);
-  redirect(`/teach/${sec.id}`);
 }
 
 export async function regenerateCodeAction(formData: FormData) {

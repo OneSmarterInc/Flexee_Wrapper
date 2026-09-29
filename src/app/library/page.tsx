@@ -7,6 +7,7 @@ import UploadForm from "@/app/library/UploadForm";
 import { STATUS } from "@/lib/library-status";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import PortalNav from "@/components/PortalNav";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,10 @@ export default async function Library() {
     <main className="catalog teach-home">
       {busy && <meta httpEquiv="refresh" content="10" />}
       <LogoutButton />
+      <PortalNav isAdmin={user.systemRole === "admin"} canTeach />
       <div className="back-strip ui">
-        <BackButton fallbackHref="/teach" />
-        <Link className="nav-button ghost" href="/teach">My teaching</Link>
+        <BackButton fallbackHref="/faculty" />
+        <Link className="nav-button ghost" href="/faculty">My teaching</Link>
       </div>
       <div className="page-kicker ui">Library</div>
       <h1>Books</h1>
