@@ -18,7 +18,9 @@ export function parseLocal(value: string | null | undefined, tz = APP_TZ): Date 
   const guess = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
   let at = new Date(guess - offsetMinutes(new Date(guess), tz) * 60000);
   at = new Date(guess - offsetMinutes(at, tz) * 60000); // settle across a daylight-saving change
-  return at;
+  // A spring-forward time such as 02:30 never occurs; Date.UTC also normalizes impossible
+  // calendar dates. Refuse either instead of silently moving the deadline.
+  return toLocalInput(at, tz) === v ? at : new Date(NaN);
 }
 
 /** An instant -> "2027-02-01T23:59" in the institution's zone, for a date-time field. */

@@ -6,6 +6,7 @@ import { db, schema } from "@/db";
 import { parsePeople } from "@/lib/admin";
 import { createSection, commitRoster } from "@/lib/roster";
 import { gradebook } from "@/lib/gradebook";
+import { parseLocal, toLocalInput } from "@/lib/time";
 import {
   createAssignment, updateAssignment, deleteAssignment, addAssignmentFiles, classAssignments, assignmentForFaculty,
   submissionForFaculty, gradeSubmission, reopenSubmission, studentAssignments, assignmentForStudent, submit,
@@ -16,6 +17,19 @@ const { users, identities } = schema;
 let passed = 0; const t = async (name: string, fn: () => Promise<void> | void) => {
   try { await fn(); passed++; console.log("  ✓", name); } catch (e) { console.log("  ✗", name); throw e; }
 };
+await t("winter and summer due dates use the institution's time zone", () => {
+  assert.equal(parseLocal("2027-02-01T23:59")?.toISOString(), "2027-02-02T04:59:00.000Z");
+  assert.equal(parseLocal("2027-07-01T23:59")?.toISOString(), "2027-07-02T03:59:00.000Z");
+});
+await t("due dates round-trip on the spring clock change", () => {
+  for (const value of ["2027-03-14T01:59", "2027-03-14T03:00"]) {
+    assert.equal(toLocalInput(parseLocal(value)), value);
+  }
+});
+await t("nonexistent local times and calendar dates are rejected", () => {
+  assert.ok(Number.isNaN(parseLocal("2027-03-14T02:30")?.getTime()));
+  assert.ok(Number.isNaN(parseLocal("2027-02-31T23:59")?.getTime()));
+});
 async function account(name: string, email: string) {
   const [u] = await db().insert(users).values({ displayName: name }).returning();
   await db().insert(identities).values({ userId: u.id, provider: "password", subject: email, passwordHash: "x" });
