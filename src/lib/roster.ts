@@ -61,7 +61,25 @@ export async function sectionRoster(sectionId: string) {
 }
 
 export async function pendingInvites(sectionId: string) {
-  return db().select().from(rosterInvites).where(eq(rosterInvites.sectionId, sectionId));
+  const where = eq(rosterInvites.sectionId, sectionId);
+  try {
+    return await db().select().from(rosterInvites).where(where);
+  } catch (error) {
+    let current = error;
+    for (let depth = 0; depth < 3 && current && typeof current === "object"; depth++) {
+      const candidate = current as { code?: unknown; message?: unknown; cause?: unknown };
+      if (candidate.code === "42703" && typeof candidate.message === "string" && candidate.message.includes("role")) {
+        // Migration 0012 has not run yet. Older invites were all for students.
+        const rows = await db().select({
+          id: rosterInvites.id, sectionId: rosterInvites.sectionId, email: rosterInvites.email,
+          name: rosterInvites.name, createdAt: rosterInvites.createdAt,
+        }).from(rosterInvites).where(where);
+        return rows.map((row) => ({ ...row, role: "student" }));
+      }
+      current = candidate.cause;
+    }
+    throw error;
+  }
 }
 
 export async function regenerateJoinCode(sectionId: string) {
