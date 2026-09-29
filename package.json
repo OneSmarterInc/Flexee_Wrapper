@@ -16,6 +16,7 @@
     "lti:register": "node --env-file-if-exists=.env --experimental-strip-types scripts/lti-register.ts",
     "merge:user": "node --env-file-if-exists=.env --experimental-strip-types scripts/merge-user.ts",
     "db:deploy": "node --env-file-if-exists=.env --experimental-strip-types scripts/migrate.ts",
+    "db:auto-init": "node --env-file-if-exists=.env --experimental-strip-types scripts/auto-init.ts",
     "db:setup": "node --env-file-if-exists=.env --experimental-strip-types scripts/setup.ts",
     "intake": "python3 tools/flexee_intake.py",
     "aol:load-program": "node --env-file-if-exists=.env --experimental-strip-types scripts/aol-load-program.ts",

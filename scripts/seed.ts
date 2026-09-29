@@ -11,7 +11,7 @@ import { sections, chapterVersions, sectionContentPins } from "../src/db/schema.
 const CONTENT_DIR = process.env.CONTENT_DIR || path.join(process.cwd(), "content");
 const url = process.env.DATABASE_URL;
 if (!url) { console.error("Set DATABASE_URL (e.g. in .env)."); process.exit(1); }
-const sql = postgres(url);
+const sql = postgres(url, { prepare: false });
 const db = drizzle(sql, { schema: { sections, chapterVersions, sectionContentPins } });
 
 const dirs = await readdir(CONTENT_DIR, { withFileTypes: true });

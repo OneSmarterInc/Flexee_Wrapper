@@ -12,7 +12,7 @@ const CONTENT_DIR = process.env.CONTENT_DIR || path.join(process.cwd(), "content
 const url = process.env.DATABASE_URL;
 if (!url) { console.error("Set DATABASE_URL"); process.exit(1); }
 const errata = process.argv.includes("--errata");
-const sql = postgres(url);
+const sql = postgres(url, { prepare: false });
 const db = drizzle(sql, { schema: { chapterVersions, sectionContentPins, sections } });
 
 const books = (await readdir(CONTENT_DIR, { withFileTypes: true })).filter((d) => d.isDirectory());
