@@ -5,7 +5,7 @@ import { listBooks } from "@/lib/content";
 import { allClasses } from "@/lib/admin";
 import { createClassAction } from "@/app/admin/actions";
 import LogoutButton from "@/components/LogoutButton";
-import BackButton from "@/components/BackButton";
+import PortalNav from "@/components/PortalNav";
 
 export const dynamic = "force-dynamic";
 const field = { padding: ".55rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
@@ -20,13 +20,10 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   return (
     <main className="catalog teach-home">
       <LogoutButton />
-      <div className="back-strip ui">
-        <BackButton fallbackHref="/" />
-        <Link className="nav-button ghost" href="/teach">My teaching</Link>
-        <Link className="nav-button ghost" href="/library">Library</Link>
-      </div>
-      <div className="page-kicker ui">Administration</div>
+      <PortalNav active="admin" isAdmin canTeach />
+      <div className="page-kicker ui">Administrator portal</div>
       <h1>Classes</h1>
+      <p className="ui" style={{ color: "var(--muted)" }}>Create classes, add faculty and students, and publish each class&apos;s book. <Link href="/library">Manage book library</Link></p>
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
       {classes.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>No classes yet. Create the first one below.</p>}

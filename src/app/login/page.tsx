@@ -8,6 +8,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="catalog" style={{ maxWidth: "24rem" }}>
       <h1>Sign in</h1>
+      <p className="ui" style={{ color: "var(--muted)" }}>One sign-in for students, faculty, and administrators. Your class or administrator role opens the right portal.</p>
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
       {sp.reset && <p className="ui" style={{ color: "#2a7d3f" }}>Password updated — sign in with your new password.</p>}
       {sp.verified && <p className="ui" style={{ color: "#2a7d3f" }}>Email confirmed.</p>}

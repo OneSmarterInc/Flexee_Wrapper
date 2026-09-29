@@ -8,6 +8,7 @@ import { addPeopleAction, removePersonAction, removeInviteAction } from "@/app/a
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
 import ClassBookPanel from "@/components/ClassBookPanel";
+import PortalNav from "@/components/PortalNav";
 import { listBooks } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,7 @@ export default async function AdminClass({ params, searchParams }: {
   return (
     <main className="catalog teach-home">
       <LogoutButton />
+      <PortalNav active="admin" isAdmin canTeach />
       <div className="back-strip ui">
         <BackButton fallbackHref="/admin" />
         <Link className="nav-button ghost" href="/admin">All classes</Link>
