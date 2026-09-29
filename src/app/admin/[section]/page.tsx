@@ -7,6 +7,8 @@ import { sectionRoster, pendingInvites } from "@/lib/roster";
 import { addPeopleAction, removePersonAction, removeInviteAction } from "@/app/admin/actions";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import ClassBookPanel from "@/components/ClassBookPanel";
+import { listBooks } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
 const field = { padding: ".55rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
@@ -67,8 +69,8 @@ export default async function AdminClass({ params, searchParams }: {
   if (user!.systemRole !== "admin") redirect("/?error=" + encodeURIComponent("That page is for administrators."));
   const cls = await classById(sectionId);
   if (!cls) redirect("/admin?error=" + encodeURIComponent("That class no longer exists."));
-  const [roster, invites, book] = await Promise.all([
-    sectionRoster(sectionId), pendingInvites(sectionId), getBook(cls!.bookId).catch(() => null),
+  const [roster, invites, book, library] = await Promise.all([
+    sectionRoster(sectionId), pendingInvites(sectionId), getBook(cls!.bookId).catch(() => null), listBooks(),
   ]);
   const by = (role: string) => roster.filter((r) => r.role === role).map((r) => ({ enrolmentId: r.enrolmentId, name: r.name, email: r.email }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -87,6 +89,9 @@ export default async function AdminClass({ params, searchParams }: {
       </p>
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
+      <ClassBookPanel sectionId={sectionId} back={`/admin/${sectionId}`} bookId={cls!.bookId}
+        published={!!cls!.bookPublishedAt} publishedAt={cls!.bookPublishedAt ?? null}
+        library={library.map((b) => ({ id: b.id, title: b.title }))} />
       <People title="Faculty" role="instructor" sectionId={sectionId} people={by("instructor")} invites={inv("instructor")} />
       <People title="Students" role="student" sectionId={sectionId} people={by("student")} invites={inv("student")} />
     </main>

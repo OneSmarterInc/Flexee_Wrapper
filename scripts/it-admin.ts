@@ -52,7 +52,8 @@ const setup = await createSection(vikram.id, "sad", "MIS 3250, Section 01", "202
 const mine = await createSection(vikram.id, "mis3000", "MIS 3000, Section 02", "2027 Spring", { teach: true });
 await t("an admin can create a class without teaching it", async () => {
   assert.equal(await roleOf(setup.id, vikram.id), null);
-  assert.ok(setup.joinCode && setup.bookPublishedAt);
+  assert.ok(setup.joinCode);
+  assert.equal(setup.bookPublishedAt, null, "a new class's book starts hidden from students");
 });
 await t("…or create one and teach it", async () => { assert.equal(await roleOf(mine.id, vikram.id), "instructor"); });
 
@@ -105,7 +106,7 @@ await t("every class is listed with its faculty, student count and pending invit
   const list = await allClasses();
   const a = list.find((c) => c.id === setup.id)!, b = list.find((c) => c.id === mine.id)!;
   assert.deepEqual(a.instructors.sort(), ["Chuck Nemer", "New Prof", "Sam Student"]);
-  assert.equal(a.students, 1); assert.equal(a.pendingInvites, 0); assert.equal(a.bookPublished, true);
+  assert.equal(a.students, 1); assert.equal(a.pendingInvites, 0); assert.equal(a.bookPublished, false);
   assert.deepEqual(b.instructors, ["Vikram Sethi"]); assert.equal(b.pendingInvites, 1);
   const roster = await sectionRoster(setup.id);
   assert.ok(roster.find((r) => r.name === "Ann Lee")?.email === "ann@wright.edu");

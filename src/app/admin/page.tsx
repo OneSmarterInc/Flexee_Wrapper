@@ -23,6 +23,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
       <div className="back-strip ui">
         <BackButton fallbackHref="/" />
         <Link className="nav-button ghost" href="/teach">My teaching</Link>
+        <Link className="nav-button ghost" href="/library">Library</Link>
       </div>
       <div className="page-kicker ui">Administration</div>
       <h1>Classes</h1>
