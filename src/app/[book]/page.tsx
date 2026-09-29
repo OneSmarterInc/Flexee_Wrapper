@@ -31,6 +31,7 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
         <BackButton fallbackHref="/" />
         <Link className="nav-button ghost" href="/">All books</Link>
         <Link className="nav-button secondary" href={`/${book}/exams`}>Exams</Link>
+        <Link className="nav-button secondary" href={`/${book}/assignments`}>Assignments</Link>
       </div>
       <h1>{manifest.title}</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>{manifest.subtitle ?? ""}</p>

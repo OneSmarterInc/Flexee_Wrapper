@@ -137,6 +137,63 @@ export const libraryUploads = pgTable(
   (t) => [index("library_uploads_book_idx").on(t.bookId, t.createdAt)],
 );
 
+// Assignments and case studies (migration 0014). A graded submission's score is stored in the
+// gradebook under the assignment's line item (kind 'assignment', refId = assignment id).
+export const assignments = pgTable(
+  "assignments",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().default("assignment"), // 'assignment' | 'case_study'
+    title: text("title").notNull(),
+    instructions: text("instructions").notNull().default(""),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    points: integer("points").notNull(),
+    allowLate: boolean("allow_late").notNull().default(true),
+    published: boolean("published").notNull().default(false),
+    createdBy: text("created_by").references((): any => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("assignments_section_idx").on(t.sectionId, t.dueAt)],
+);
+
+export const assignmentFiles = pgTable("assignment_files", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  assignmentId: text("assignment_id").notNull().references(() => assignments.id, { onDelete: "cascade" }),
+  blobPath: text("blob_path").notNull(),
+  fileName: text("file_name").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    assignmentId: text("assignment_id").notNull().references(() => assignments.id, { onDelete: "cascade" }),
+    enrolmentId: text("enrolment_id").notNull().references(() => enrolments.id, { onDelete: "cascade" }),
+    text: text("text").notNull().default(""),
+    status: text("status").notNull().default("submitted"), // 'submitted' | 'graded'
+    late: boolean("late").notNull().default(false),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+    score: real("score"),
+    feedback: text("feedback"),
+    gradedBy: text("graded_by").references((): any => users.id, { onDelete: "set null" }),
+    gradedAt: timestamp("graded_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("submissions_assignment_enrolment_uq").on(t.assignmentId, t.enrolmentId)],
+);
+
+export const submissionFiles = pgTable("submission_files", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  submissionId: text("submission_id").notNull().references(() => submissions.id, { onDelete: "cascade" }),
+  blobPath: text("blob_path").notNull(),
+  fileName: text("file_name").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const rosterInvites = pgTable(
   "roster_invites",
   {
