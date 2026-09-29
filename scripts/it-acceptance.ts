@@ -1,17 +1,13 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
 import { and, eq, inArray, count } from "drizzle-orm";
-import * as schema from "../src/db/schema.ts";
+import { db as testDb, schema } from "@/db";
+import { startAttempt } from "@/lib/assessment";
 const { questions, learningObjectives, sections, users, enrolments, exams, examAttempts, examResponses } = schema;
 
-const client = new PGlite();
-const db = drizzle(client, { schema });
-for (const f of readdirSync("drizzle").filter((x) => x.endsWith(".sql")).map((x) => x.slice(0, -4)).sort()) // every migration, so this test never goes stale
-  for (const s of readFileSync(`drizzle/${f}.sql`,"utf8").split("--> statement-breakpoint")) { const t=s.trim(); if(t) await client.exec(t); }
+const db = testDb();
 
-const CD = process.env.CONTENT_DIR || "/home/claude/content";
+const CD = process.env.CONTENT_DIR || "content";
 const opts=(q:any)=>JSON.parse(q.optionsJson); const correctId=(q:any)=>opts(q).find((o:any)=>o.correct).id; const wrongId=(q:any)=>opts(q).find((o:any)=>!o.correct).id;
 
 async function ingest() {
@@ -102,8 +98,11 @@ const attAfter=(await db.select({c:count()}).from(examAttempts))[0].c;
 console.log(`responses before/after resync ${before}/${after} ${P(before===after)} | attempts intact=${attAfter} ${P(attAfter>0)}`);
 
 console.log("\n== DRAW POOL TOO SMALL (gap check) ==");
-// assemble mirrors assessment.ts: request more than available for a (chapter,difficulty)
 const recallC4=await db.select({id:questions.id}).from(questions).where(and(eq(questions.bookId,"mis3000"),eq(questions.chapter,4),eq(questions.difficulty,"recall")));
 const requested=10, available=recallC4.length;
-const served=recallC4.slice(0,requested).length; // assemble uses slice(0,count)
-console.log(`requested ${requested} recall from ch4, available ${available}, assemble() serves ${served} -> ${served<requested?"UNDER-SERVES SILENTLY (gap vs spec's 'explicit error')":"ok"}`);
+const [drawExam]=await db.insert(exams).values({sectionId:sec.id,title:"Too large draw",blueprintJson:JSON.stringify({mode:"draw",rules:[{chapter:4,difficulty:"recall",count:requested}]}),status:"open"}).returning();
+let refused=false;
+try { await startAttempt(drawExam.id,A.id); } catch (error) { refused=/Not enough questions to draw/.test(String(error)); }
+const created=(await db.select({c:count()}).from(examAttempts).where(eq(examAttempts.examId,drawExam.id)))[0].c;
+console.log(`requested ${requested} recall from ch4, available ${available}; explicit error ${P(refused)} | no partial attempt ${P(created===0)}`);
+if (!refused || created!==0) throw new Error("An undersized draw must be rejected without creating an attempt.");
