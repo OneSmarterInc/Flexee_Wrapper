@@ -10,7 +10,7 @@ import { questions, learningObjectives } from "../src/db/schema.ts";
 const CONTENT_DIR = process.env.CONTENT_DIR || path.join(process.cwd(), "content");
 const url = process.env.DATABASE_URL;
 if (!url) { console.error("Set DATABASE_URL"); process.exit(1); }
-const sql = postgres(url);
+const sql = postgres(url, { prepare: false });
 const db = drizzle(sql, { schema: { questions, learningObjectives } });
 
 let nq = 0, no = 0;
