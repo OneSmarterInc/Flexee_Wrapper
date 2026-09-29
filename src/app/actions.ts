@@ -4,16 +4,28 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { users, identities } from "@/db/schema";
 import { hashPassword, verifyPassword, createSession, destroySession, currentUser } from "@/lib/auth";
-import { enrolmentForBook } from "@/lib/enrolment";
+import { enrolmentForBook, userClasses } from "@/lib/enrolment";
 import { ownedSection, regenerateJoinCode, removeEnrolment, enrollByCode, claimInvites } from "@/lib/roster";
+import { landingPortal } from "@/lib/portal";
 
 const clean = (v: FormDataEntryValue | null) => String(v ?? "").trim();
+const safeNext = (v: FormDataEntryValue | null) => {
+  const path = clean(v);
+  return path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") ? path : "/";
+};
+
+async function signInDestination(userId: string, role: string, requested: string) {
+  if (requested !== "/") return requested;
+  if (role === "admin") return "/admin";
+  const classes = await userClasses(userId);
+  return `/${landingPortal(role, classes.some((c) => c.role === "instructor"))}`;
+}
 
 export async function signup(formData: FormData) {
   const name = clean(formData.get("name"));
   const email = clean(formData.get("email")).toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const next = clean(formData.get("next")) || "/";
+  const next = safeNext(formData.get("next"));
   if (!name || !email || password.length < 8)
     redirect(`/signup?error=${encodeURIComponent("Name, email, and an 8+ character password are required.")}`);
   const existing = await db().select({ id: identities.id }).from(identities)
@@ -28,23 +40,24 @@ export async function signup(formData: FormData) {
     const { headers } = await import("next/headers"); const h = await headers();
     await sendVerification(user.id, email, `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`);
   } catch {}
-  redirect(next);
+  redirect(await signInDestination(user.id, user.systemRole, next));
 }
 
 export async function login(formData: FormData) {
   const email = clean(formData.get("email")).toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const next = clean(formData.get("next")) || "/";
+  const next = safeNext(formData.get("next"));
   const { rateLimit } = await import("@/lib/recovery");
   if (!(await rateLimit(`login:${email}`, 8, 900)))
     redirect(`/login?error=${encodeURIComponent("Too many attempts — wait a few minutes.")}&next=${encodeURIComponent(next)}`);
-  const row = (await db().select({ userId: identities.userId, hash: identities.passwordHash }).from(identities)
+  const row = (await db().select({ userId: identities.userId, hash: identities.passwordHash, systemRole: users.systemRole }).from(identities)
+    .innerJoin(users, eq(users.id, identities.userId))
     .where(and(eq(identities.provider, "password"), eq(identities.subject, email))).limit(1))[0];
   if (!row?.hash || !(await verifyPassword(password, row.hash)))
     redirect(`/login?error=${encodeURIComponent("Wrong email or password.")}&next=${encodeURIComponent(next)}`);
   await createSession(row.userId);
   await claimInvites(row.userId, email);
-  redirect(next);
+  redirect(await signInDestination(row.userId, row.systemRole, next));
 }
 
 export async function logout() {
@@ -62,7 +75,7 @@ export async function enrollByCodeAction(formData: FormData) {
   if (!user) redirect("/login");
   const c = clean(formData.get("code"));
   const sec = await enrollByCode(user!.id, c);
-  redirect(sec ? `/${sec.bookId}` : `/?error=${encodeURIComponent("No section found for that code.")}`);
+  redirect(sec ? "/student?joined=1" : `/student?error=${encodeURIComponent("No class found for that code.")}`);
 }
 
 export async function regenerateCodeAction(formData: FormData) {

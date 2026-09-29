@@ -6,7 +6,7 @@ import { classAssignments } from "@/lib/assignments";
 import { formatLocal } from "@/lib/time";
 import { createAssignmentAction } from "@/app/assignment-actions";
 import AssignmentFields from "@/components/AssignmentFields";
-import LogoutButton from "@/components/LogoutButton";
+import WorkspaceShell from "@/components/WorkspaceShell";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +18,12 @@ export default async function Assignments({ params, searchParams }: { params: Pr
   if (!sec) redirect("/teach");
   const list = (await classAssignments(user!.id, section))!;
   return (
-    <main className="catalog">
-      <LogoutButton />
-      <p className="ui"><Link href={`/teach/${section}`}>← {sec!.name}</Link></p>
-      <h1>Assignments and case studies</h1>
+    <WorkspaceShell active="faculty" isAdmin={user.systemRole === "admin"} canTeach displayName={user.displayName}
+      links={[{ href: `/teach/${section}`, label: "Class workspace" }, { href: "#assignments", label: "Assignments" }, { href: "#new-assignment", label: "Create assignment" }]}>
+      <header className="workspace-heading"><div><Link className="ui" href={`/teach/${section}`}>← {sec.name}</Link><div className="page-kicker ui" style={{ marginTop: ".8rem" }}>Faculty · Coursework</div><h1>Assignments and case studies</h1><p className="ui">Create work, set its due date, and review student submissions.</p></div><Link className="nav-button primary" href="#new-assignment">Create assignment</Link></header>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      <section className="workspace-panel ui" id="assignments"><h2>Class assignments</h2>
       {list.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>None yet.</p>}
       {list.map((a) => (
         <Link key={a.id} href={`/teach/${section}/assignments/${a.id}`} className="book-card section-card">
@@ -36,12 +36,14 @@ export default async function Assignments({ params, searchParams }: { params: Pr
           </span>
         </Link>
       ))}
-      <h2 style={{ color: "var(--navy)", marginTop: "2rem" }}>New assignment or case study</h2>
+      </section>
+      <section className="workspace-panel ui" id="new-assignment"><h2>New assignment or case study</h2>
       <form action={createAssignmentAction} className="ui" style={{ display: "grid", gap: ".55rem", maxWidth: "40rem" }}>
         <input type="hidden" name="sectionId" value={section} />
         <AssignmentFields />
         <button className="nav-button primary" type="submit">Create</button>
       </form>
-    </main>
+      </section>
+    </WorkspaceShell>
   );
 }

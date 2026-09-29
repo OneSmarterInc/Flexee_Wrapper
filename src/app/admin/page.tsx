@@ -4,60 +4,98 @@ import { currentUser } from "@/lib/auth";
 import { listBooks } from "@/lib/content";
 import { allClasses } from "@/lib/admin";
 import { createClassAction } from "@/app/admin/actions";
-import LogoutButton from "@/components/LogoutButton";
-import PortalNav from "@/components/PortalNav";
+import WorkspaceShell from "@/components/WorkspaceShell";
 
 export const dynamic = "force-dynamic";
-const field = { padding: ".55rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/login?next=/admin");
-  if (user!.systemRole !== "admin") redirect("/?error=" + encodeURIComponent("That page is for administrators."));
+  if (user.systemRole !== "admin") redirect("/?error=" + encodeURIComponent("That page is for administrators."));
   const [classes, books, sp] = await Promise.all([allClasses(), listBooks(), searchParams]);
   const titles = new Map(books.map((b) => [b.id, b.title]));
-  const terms = [...new Set(classes.map((c) => c.term))];
+  const published = classes.filter((c) => c.bookPublished).length;
+  const students = classes.reduce((total, c) => total + c.students, 0);
+
   return (
-    <main className="catalog teach-home">
-      <LogoutButton />
-      <PortalNav active="admin" isAdmin canTeach />
-      <div className="page-kicker ui">Administrator portal</div>
-      <h1>Classes</h1>
-      <p className="ui" style={{ color: "var(--muted)" }}>Create classes, add faculty and students, and publish each class&apos;s book. <Link href="/library">Manage book library</Link></p>
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
-      {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {classes.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>No classes yet. Create the first one below.</p>}
-      {terms.map((term) => (
-        <section key={term} style={{ marginTop: "1.4rem" }}>
-          <h2 className="ui" style={{ color: "var(--muted)", fontSize: ".9rem", borderBottom: "1px solid var(--rule)", paddingBottom: ".3rem" }}>{term}</h2>
-          {classes.filter((c) => c.term === term).map((c) => (
-            <Link key={c.id} className="book-card section-card" href={`/admin/${c.id}`}>
-              <div>
-                <div className="t">{c.name}</div>
-                <div className="s">
-                  {titles.get(c.bookId) ?? c.bookId} · {c.instructors.length ? `Faculty: ${c.instructors.join(", ")}` : "No faculty yet"}
-                  {" · "}{c.students} student{c.students === 1 ? "" : "s"}
-                  {c.pendingInvites ? ` · ${c.pendingInvites} invited` : ""}
-                </div>
-              </div>
-              <span className="nav-button secondary">Manage</span>
-            </Link>
-          ))}
-        </section>
-      ))}
-      <h2 style={{ color: "var(--navy)", marginTop: "2rem" }}>Create a class</h2>
-      <form action={createClassAction} className="ui create-section-form">
-        <select name="bookId" required style={field}>
-          <option value="">Choose a book...</option>
-          {books.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
-        </select>
-        <input name="name" placeholder="Class name (e.g. MIS 3250, Section 01)" required style={field} />
-        <input name="term" placeholder="Term (e.g. 2027 Spring)" style={field} />
-        <label className="ui" style={{ display: "flex", gap: ".4rem", alignItems: "center" }}>
-          <input type="checkbox" name="teach" /> I teach this class
-        </label>
-        <button type="submit" className="nav-button primary">Create class</button>
-      </form>
-    </main>
+    <WorkspaceShell active="admin" isAdmin canTeach displayName={user.displayName}
+      links={[{ href: "#classes", label: "All classes" }, { href: "#new-class", label: "Create a class" }, { href: "/library", label: "Book library" }]}>
+      <header className="workspace-heading">
+        <div>
+          <div className="page-kicker ui">Administrator dashboard</div>
+          <h1>Run your classes</h1>
+          <p className="ui">Set up a class, add its faculty and students, then publish its book. Open any class below to complete those steps.</p>
+        </div>
+        <Link className="nav-button primary" href="#new-class">Create a class</Link>
+      </header>
+      {sp.error && <p className="workspace-alert error ui" role="alert">{sp.error}</p>}
+      {sp.ok && <p className="workspace-alert ui" role="status">{sp.ok}</p>}
+
+      <div className="workspace-stats ui" aria-label="Class summary">
+        <div className="workspace-stat"><strong>{classes.length}</strong><span>Classes</span></div>
+        <div className="workspace-stat"><strong>{published}</strong><span>Books published to classes</span></div>
+        <div className="workspace-stat"><strong>{students}</strong><span>Student enrolments</span></div>
+      </div>
+
+      <section className="workspace-panel ui" aria-labelledby="setup-heading">
+        <h2 id="setup-heading">How class setup works</h2>
+        <ol className="workspace-steps">
+          <li><b>1. Create a class</b><span>Choose its book, name, and term.</span></li>
+          <li><b>2. Add people</b><span>Open the class and add faculty and students by email or CSV.</span></li>
+          <li><b>3. Publish the book</b><span>Students can read it only after you publish it to their class.</span></li>
+        </ol>
+      </section>
+
+      <section className="workspace-panel ui" id="classes" aria-labelledby="classes-heading">
+        <div className="workspace-section-heading" style={{ marginTop: 0 }}>
+          <h2 id="classes-heading">All classes</h2>
+          <span style={{ color: "var(--muted)", fontSize: ".82rem" }}>{classes.length} total</span>
+        </div>
+        {classes.length === 0 ? (
+          <p>No classes yet. Use the form below to create the first one.</p>
+        ) : (
+          <div className="workspace-table-wrap">
+            <table className="workspace-table">
+              <thead><tr><th>Class</th><th>Book</th><th>Faculty</th><th>Students</th><th>Book access</th><th></th></tr></thead>
+              <tbody>
+                {classes.map((c) => (
+                  <tr key={c.id}>
+                    <td><Link href={`/admin/${c.id}`}>{c.name}</Link><div style={{ color: "var(--muted)", fontSize: ".76rem", fontWeight: 400 }}>{c.term}</div></td>
+                    <td>{titles.get(c.bookId) ?? c.bookId}</td>
+                    <td>{c.instructors.length ? c.instructors.join(", ") : <span className="workspace-status waiting">Add faculty</span>}</td>
+                    <td>{c.students}{c.pendingInvites ? <div style={{ color: "var(--muted)", fontSize: ".76rem" }}>{c.pendingInvites} invited</div> : null}</td>
+                    <td><span className={`workspace-status${c.bookPublished ? "" : " waiting"}`}>{c.bookPublished ? "Published" : "Not published"}</span></td>
+                    <td><Link className="nav-button secondary" href={`/admin/${c.id}`}>Set up class</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="workspace-panel ui" id="new-class" aria-labelledby="new-class-heading">
+        <h2 id="new-class-heading">Create a class</h2>
+        <p>After creation you will be taken to the class page to add people and publish its book.</p>
+        {books.length === 0 ? <p>No books are in the library yet. <Link href="/library">Add a book first</Link>.</p> : (
+          <form action={createClassAction} className="ui workspace-form-grid">
+            <label>Book
+              <select name="bookId" required defaultValue="">
+                <option value="">Select a book</option>
+                {books.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
+              </select>
+            </label>
+            <label>Class name
+              <input name="name" placeholder="e.g. MIS 3250, Section 01" required />
+            </label>
+            <label>Term
+              <input name="term" placeholder="e.g. Spring 2027" />
+            </label>
+            <label className="checkbox-label"><input type="checkbox" name="teach" /> I will teach this class</label>
+            <button type="submit" className="nav-button primary wide">Create class and continue</button>
+          </form>
+        )}
+      </section>
+    </WorkspaceShell>
   );
 }
