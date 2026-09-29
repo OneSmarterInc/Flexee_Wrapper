@@ -53,7 +53,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
 
       <div className="book-card ui" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div><div className="t" style={{ fontSize: "1rem" }}>Course home</div><div className="s">Announcements · syllabus · what's due when</div></div>
-        <div style={{ display: "flex", gap: "1rem" }}><Link href={`/teach/${section}/announcements`}>Announcements →</Link><Link href={`/teach/${section}/syllabus`}>Syllabus →</Link><Link href={`/teach/${section}/schedule`}>Schedule →</Link><Link href={`/teach/${section}/aol`}>Assurance of learning →</Link></div>
+        <div style={{ display: "flex", gap: "1rem" }}><Link href={`/teach/${section}/assignments`}>Assignments →</Link><Link href={`/teach/${section}/announcements`}>Announcements →</Link><Link href={`/teach/${section}/syllabus`}>Syllabus →</Link><Link href={`/teach/${section}/schedule`}>Schedule →</Link><Link href={`/teach/${section}/aol`}>Assurance of learning →</Link></div>
       </div>
 
       <div className="book-card ui" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
