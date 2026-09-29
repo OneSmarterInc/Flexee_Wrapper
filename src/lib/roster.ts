@@ -20,7 +20,7 @@ export async function createSection(userId: string, bookId: string, name: string
   const teach = opts.teach ?? true;
   const [sec] = await db().insert(sections).values({
     bookId, name, term: term ?? null, joinCode: code(), createdBy: userId,
-    bookPublishedAt: new Date(), // until the book library (step 2), a class's book is live when the class is created
+    bookPublishedAt: null, // a new class's book stays hidden from students until its faculty publish it
   }).returning();
   if (teach) await db().insert(enrolments).values({ sectionId: sec.id, userId, role: "instructor" }).onConflictDoNothing();
   await pinSectionToLatest(sec.id, bookId); // snapshot the reading set at adoption

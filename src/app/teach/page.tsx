@@ -20,6 +20,7 @@ export default async function Teach({ searchParams }: { searchParams: Promise<{ 
       <div className="back-strip ui">
         <BackButton fallbackHref="/" />
         <Link className="nav-button ghost" href="/">Reading home</Link>
+        <Link className="nav-button ghost" href="/library">Library</Link>
         {user!.systemRole === "admin" && <Link className="nav-button ghost" href="/admin">Administration</Link>}
       </div>
       <div className="page-kicker ui">Teaching & records</div>

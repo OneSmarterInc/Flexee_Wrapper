@@ -114,6 +114,29 @@ export const bookmarks = pgTable(
 // they have an account. On sign-in, invites matching the user's email become
 // enrolments (see lib/roster.claimInvites). Self-enrolment by join code is the
 // other route; both end as an `enrolments` row.
+// Book uploads into the library (migration 0013). The intake runs in GitHub Actions and writes back here.
+export const libraryUploads = pgTable(
+  "library_uploads",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    bookId: text("book_id").notNull(),
+    uploadedBy: text("uploaded_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+    blobPath: text("blob_path").notNull(),
+    fileName: text("file_name").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    status: text("status").notNull().default("checking"), // checking | ready | stopped | failed | publishing | published
+    report: text("report"),
+    registerVersion: text("register_version"),
+    runUrl: text("run_url"),
+    message: text("message"),
+    publishedBy: text("published_by").references(() => users.id, { onDelete: "set null" }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("library_uploads_book_idx").on(t.bookId, t.createdAt)],
+);
+
 export const rosterInvites = pgTable(
   "roster_invites",
   {

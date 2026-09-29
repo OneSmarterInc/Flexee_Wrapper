@@ -3,14 +3,17 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { enrolments, sections, bookmarks } from "@/db/schema";
 
+// The enrolment through which this user may open this book, or null if they may not.
+// Faculty can always open their class's book (to prepare it); a student only once the class's
+// faculty have published it. Every book page goes through here.
 export async function enrolmentForBook(userId: string, bookId: string) {
   const rows = await db()
-    .select({ id: enrolments.id, role: enrolments.role, sectionId: sections.id })
+    .select({ id: enrolments.id, role: enrolments.role, sectionId: sections.id, publishedAt: sections.bookPublishedAt })
     .from(enrolments)
     .innerJoin(sections, eq(sections.id, enrolments.sectionId))
-    .where(and(eq(enrolments.userId, userId), eq(sections.bookId, bookId)))
-    .limit(1);
-  return rows[0] ?? null;
+    .where(and(eq(enrolments.userId, userId), eq(sections.bookId, bookId)));
+  const pick = rows.find((r) => r.role === "instructor") ?? rows.find((r) => r.role !== "instructor" && r.publishedAt);
+  return pick ? { id: pick.id, role: pick.role, sectionId: pick.sectionId } : null;
 }
 
 export async function userEnrolments(userId: string) {
@@ -19,6 +22,18 @@ export async function userEnrolments(userId: string) {
     .from(enrolments)
     .innerJoin(sections, eq(sections.id, enrolments.sectionId))
     .where(eq(enrolments.userId, userId));
+}
+
+/** The user's classes, for their home page: what the class is, their role, and whether its book is open. */
+export async function userClasses(userId: string) {
+  const rows = await db()
+    .select({ sectionId: sections.id, name: sections.name, term: sections.term, bookId: sections.bookId,
+              role: enrolments.role, publishedAt: sections.bookPublishedAt })
+    .from(enrolments)
+    .innerJoin(sections, eq(sections.id, enrolments.sectionId))
+    .where(eq(enrolments.userId, userId));
+  return rows.map((r) => ({ ...r, published: !!r.publishedAt, canOpen: r.role === "instructor" || !!r.publishedAt }))
+    .sort((a, b) => (b.term ?? "").localeCompare(a.term ?? "") || a.name.localeCompare(b.name));
 }
 
 // Enrol into the (first) section that adopts this book — the cheap "one section,

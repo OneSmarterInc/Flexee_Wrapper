@@ -1,0 +1,36 @@
+# Book uploads: started by the app (src/lib/library.ts) when someone uploads a book ("check") or adds a
+# checked book to the library ("publish"). Runs the tested intake and writes the result back to the app.
+# Secrets: DATABASE_URL_DIRECT (Supabase session pooler, port 5432), BLOB_READ_WRITE_TOKEN (the Blob store).
+name: Library intake
+on:
+  workflow_dispatch:
+    inputs:
+      upload_id: { description: "Upload id (from the app)", required: true }
+      book_id: { description: "Book id (serializes changes to this book)", required: true }
+      action: { description: "check or publish", required: true, default: check }
+concurrency:
+  group: library-intake-${{ inputs.book_id }}
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_DIRECT }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      INTAKE_UPLOAD_ID: ${{ inputs.upload_id }}
+      INTAKE_BOOK_ID: ${{ inputs.book_id }}
+      INTAKE_ACTION: ${{ inputs.action }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install Pillow
+      - name: Run the intake (${{ inputs.action }})
+        run: node --import ./scripts/run-support/register.mjs --experimental-strip-types scripts/library-intake.ts --upload "$INTAKE_UPLOAD_ID" --action "$INTAKE_ACTION"
+      - name: Report a failure back to the app
+        if: failure()
+        run: node --import ./scripts/run-support/register.mjs --experimental-strip-types scripts/library-intake.ts --upload "$INTAKE_UPLOAD_ID" --action fail

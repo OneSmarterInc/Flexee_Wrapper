@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { users, identities } from "@/db/schema";
 import { hashPassword, verifyPassword, createSession, destroySession, currentUser } from "@/lib/auth";
-import { enrolInBook, enrolmentForBook } from "@/lib/enrolment";
+import { enrolmentForBook } from "@/lib/enrolment";
 import { createSection, ownedSection, regenerateJoinCode, removeEnrolment, enrollByCode, claimInvites } from "@/lib/roster";
 
 const clean = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -52,12 +52,9 @@ export async function logout() {
   redirect("/login");
 }
 
-export async function enroll(formData: FormData) {
-  const user = await currentUser();
-  const bookId = clean(formData.get("bookId"));
-  if (!user) redirect(`/login?next=${encodeURIComponent("/" + bookId)}`);
-  await enrolInBook(user!.id, bookId);
-  redirect(`/${bookId}`);
+// Self-enrolment into a book is retired: students join a class with its code, or an admin adds them.
+export async function enroll(_formData: FormData) {
+  redirect(`/?error=${encodeURIComponent("Join your class with the code your instructor gave you.")}`);
 }
 
 export async function enrollByCodeAction(formData: FormData) {

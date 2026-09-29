@@ -22,7 +22,7 @@ for (const d of dirs) {
   let sec = (await db.select().from(sections).where(eq(sections.bookId, bm.id)).limit(1))[0];
   if (!sec) {
     const code = `${String(bm.id).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-    [sec] = await db.insert(sections).values({ bookId: bm.id, name: `${bm.title} — Default section`, joinCode: code }).returning();
+    [sec] = await db.insert(sections).values({ bookId: bm.id, name: `${bm.title} — Default section`, joinCode: code, bookPublishedAt: new Date() }).returning();
     console.log(`✓ created section for ${bm.id} (join code ${code})`);
   } else console.log(`· section already exists for ${bm.id}`);
   // pin to latest versions (if content has been synced)

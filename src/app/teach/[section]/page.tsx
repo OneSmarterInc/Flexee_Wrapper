@@ -8,17 +8,21 @@ import { syncRosterAction, resetStudentPasswordAction } from "@/app/actions";
 import { getBook } from "@/lib/content";
 import { regenerateCodeAction, removeStudentAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
+import ClassBookPanel from "@/components/ClassBookPanel";
+import { classBookState } from "@/lib/publish";
+import { listBooks } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
 
-export default async function SectionDashboard({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ synced?: string; seen?: string; sync_error?: string; pwreset?: string; temp?: string; pwreset_error?: string }> }) {
+export default async function SectionDashboard({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ synced?: string; seen?: string; sync_error?: string; pwreset?: string; temp?: string; pwreset_error?: string; ok?: string; error?: string }> }) {
   const { section } = await params;
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}`)}`);
   const sec = await ownedSection(user!.id, section);
   if (!sec) redirect("/teach");
   const [book, roster, invites, content, hasNrps, sp] = await Promise.all([getBook(sec.bookId), sectionRoster(section), pendingInvites(section), sectionContentStatus(section, sec.bookId), sectionHasNrps(section), searchParams]);
+  const [bookState, library] = await Promise.all([classBookState(section), listBooks()]);
   const updates = content.filter((c) => c.hasUpdate).length;
   const students = roster.filter((r) => r.role === "student");
   const instructors = roster.filter((r) => r.role === "instructor");
@@ -29,6 +33,11 @@ export default async function SectionDashboard({ params, searchParams }: { param
       <p className="ui"><Link href="/teach">← Teaching</Link></p>
       <h1>{sec.name}</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>{book.title}</p>
+      {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
+      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {bookState && <ClassBookPanel sectionId={section} back={`/teach/${section}`} bookId={bookState.bookId}
+        published={bookState.published} publishedAt={bookState.publishedAt}
+        library={library.map((b) => ({ id: b.id, title: b.title }))} />}
 
       <div className="book-card ui">
         <div className="s">Join code — share with students, or import a roster</div>
