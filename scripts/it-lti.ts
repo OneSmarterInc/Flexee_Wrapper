@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { and, eq, count } from "drizzle-orm";
@@ -10,7 +10,7 @@ const C="https://purl.imsglobal.org/spec/lti/claim/";
 const AGS="https://purl.imsglobal.org/spec/lti-ags/claim/endpoint";
 
 const client=new PGlite(); const db=drizzle(client,{schema});
-for(const f of ["0000_init","0001_section_owner_and_invites","0002_content_versioning","0003_assessment","0004_learning_objectives","0005_gradebook","0006_lti"])
+for(const f of readdirSync("drizzle").filter((x) => x.endsWith(".sql")).sort().map((x) => x.slice(0, -4)))
   for(const s of readFileSync(`drizzle/${f}.sql`,"utf8").split("--> statement-breakpoint")){const t=s.trim(); if(t) await client.exec(t);}
 
 console.log("== 1. LAUNCH id_token: sign (platform) & validate (tool) ==");

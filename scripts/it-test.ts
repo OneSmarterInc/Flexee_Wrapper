@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import bcrypt from "bcryptjs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -9,13 +9,14 @@ const { users, identities, sessions, sections, enrolments, bookmarks } = schema;
 const client = new PGlite();
 const db = drizzle(client, { schema });
 
-// apply the generated migration
-const sqlText = readFileSync("drizzle/0000_init.sql", "utf8");
-for (const stmt of sqlText.split("--> statement-breakpoint")) {
-  const s = stmt.trim();
-  if (s) await client.exec(s);
+// Apply the current schema; later tests use columns introduced after 0000.
+for (const file of readdirSync("drizzle").filter((x) => x.endsWith(".sql")).sort()) {
+  for (const stmt of readFileSync(`drizzle/${file}`, "utf8").split("--> statement-breakpoint")) {
+    const s = stmt.trim();
+    if (s) await client.exec(s);
+  }
 }
-console.log("migration applied");
+console.log("migrations applied");
 
 // seed a section (as scripts/seed.ts would)
 const [sec] = await db.insert(sections).values({ bookId: "mis3000", name: "Introduction to MIS — Default section", joinCode: "MIS3000-AB12" }).returning();
