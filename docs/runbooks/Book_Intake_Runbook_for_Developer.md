@@ -1,5 +1,10 @@
 # Loading the Books into the Flexee Wrapper — Developer Runbook
 
+> **Superseded for normal use (29 Sep 2026).** Books are now loaded by faculty and admins through the
+> **Library** page (`docs/changes/07_Library_Upload.md`). Keep this runbook as a fallback for loading a
+> book from a developer's machine; where it says Supabase, use the Neon database's **unpooled** address
+> (`DATABASE_URL_UNPOOLED`).
+
 **For:** Akshay · **From:** Vikram · **Version 1.0 — 27 September 2026**
 
 This runbook loads the two finished books into the live Wrapper:
@@ -59,11 +64,11 @@ appear on your computer under `G:\My Drive\` (the drive letter may differ on you
 for the latest file. The older version cannot read the MIS 3000 register.
 
 **0.4 Database address.** Create a file named `.env` in the repository root (it is git-ignored)
-containing the Supabase **session pooler** connection string (port **5432**, not the 6543
+containing the Neon database's **unpooled** connection string (`DATABASE_URL_UNPOOLED` in Vercel — not the pooled
 transaction pooler):
 
 ```
-DATABASE_URL=postgres://postgres.xxxx:PASSWORD@aws-0-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require
+DATABASE_URL=postgres://USER:PASSWORD@ep-xxxx.us-east-2.aws.neon.tech/neondb?sslmode=require
 ```
 
 The loading scripts read this file automatically.
@@ -197,7 +202,7 @@ Send the list to Vikram.
 | `STOPPED` — validator errors on a question | A question file fails the shared validator. Send the report to Vikram. |
 | `no validator` | The `--validator` path is wrong. Check Step 0.5. |
 | `python` not found | Use `py` instead of `python` on Windows. |
-| `db:sync-*` cannot connect | `.env` is missing, or uses the 6543 transaction pooler instead of the 5432 session pooler. |
+| `db:sync-*` cannot connect | `.env` is missing, or uses the pooled address instead of `DATABASE_URL_UNPOOLED`. |
 | MIS 3000 register cannot be read | You have the old intake. See Step 0.3. |
 
 ---

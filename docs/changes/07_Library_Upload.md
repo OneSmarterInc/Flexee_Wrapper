@@ -42,7 +42,7 @@ no Git commit.
 
 | Secret | Value |
 |---|---|
-| `DATABASE_URL_DIRECT` | Supabase **session pooler** string (port 5432) — may already exist |
+| `DATABASE_URL_DIRECT` | **The same Neon database's unpooled address** — the value of `DATABASE_URL_UNPOOLED` in the Vercel project. If it names another database, uploaded books never appear on the site |
 | `BLOB_READ_WRITE_TOKEN` | The Blob store's read-write token (Vercel → Storage → the store → `.env.local` tab) |
 
 **3. A token the app uses to start the workflow.** GitHub → Settings → Developer settings →

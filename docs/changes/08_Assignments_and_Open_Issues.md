@@ -125,8 +125,8 @@ older `it-*` scripts. The app builds cleanly with the seven new pages and routes
 
 | # | Issue | Why it matters | Action |
 |---|---|---|---|
-| 8 | **Docs say Supabase; the site runs on Neon.** The GitHub secret `DATABASE_URL_DIRECT` must be the **same Neon database's unpooled address** (`DATABASE_URL_UNPOOLED`) | If it points elsewhere, uploaded books are loaded into the wrong database and never appear | Akshay: check the secret; change "Supabase" to "Neon" in `docs/changes/07_Library_Upload.md` and `deploy/vercel/Vercel_Deployment_Runbook.md` |
-| 9 | **Windows line endings** throughout the repository | Every future comparison shows whole files as changed, hiding real edits | Akshay: add `.gitattributes` with `* text=auto eol=lf`, then `git add --renormalize .` and commit once |
+| 8 | **Resolved in docs 29 Sep (change 9); secret still to confirm.** **Docs said Supabase; the site runs on Neon.** The GitHub secret `DATABASE_URL_DIRECT` must be the **same Neon database's unpooled address** (`DATABASE_URL_UNPOOLED`) | If it points elsewhere, uploaded books are loaded into the wrong database and never appear | Akshay: check the secret; change "Supabase" to "Neon" in `docs/changes/07_Library_Upload.md` and `deploy/vercel/Vercel_Deployment_Runbook.md` |
+| 9 | **Resolved 29 Sep:** files normalized by Akshay; `.gitattributes` added in change 9 so it cannot recur. **Windows line endings** throughout the repository | Every future comparison shows whole files as changed, hiding real edits | Akshay: add `.gitattributes` with `* text=auto eol=lf`, then `git add --renormalize .` and commit once |
 | 10 | The **two finished books are not yet in the library** | Students would still see the mid-September versions | Vikram: upload SAD and MIS 3000 through **Library**; Akshay: then set `CONTENT_STORE=blob`, `CONTENT_PREFIX=live/`, `CONTENT_BLOB_ACCESS=private` |
 
 ### Open — before real students (January)

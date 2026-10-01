@@ -1,138 +1,101 @@
 # Flexee Wrapper — Vercel Deployment Runbook
 
-**For:** Akshay · **From:** Vikram · **Version 1.0 — 26 September 2026**
-
-This puts the Flexee Wrapper online at `https://learn.flexee.org` for the Spring 2027 sections of
-MIS 3000 and MIS 3250, on **Vercel Pro** with the database on **Supabase** — the same pairing the
-MVCFN simulation already uses. There is no server to maintain.
-
-Expected effort is two to three hours. Everything is in `flexee-reader.zip`. The Vercel-specific
-pieces are already in the code:
-
-| File | What it does |
-|---|---|
-| `next.config.mjs` | Bundles the book content (`content/`) into the deployment, since Vercel has no persistent disk |
-| `src/db/index.ts` | Works with Supabase's connection pooler; `DB_POOL_MAX` caps connections per instance |
-| `.github/workflows/flexee-intake.yml` | Runs the book intake and database jobs from GitHub, since Vercel only serves the app |
-
-(The `deploy/aws/` folder is an alternative AWS setup. It is not used here.)
-
----
+**Version 1.1 — 29 September 2026** · replaces v1.0 (26 Sep), which described Supabase and loading books
+by Git commit. This version describes the site as it actually runs.
 
 ## How it fits together
 
-- **Vercel** serves the app. Every push to `main` deploys automatically.
-- **Supabase** holds the database: accounts, sections, exams, grades.
-- **GitHub Actions** runs the jobs that are not web requests: first-time database setup,
-  migrations, and loading a new version of a book from Google Drive.
-- **Book content lives in the repository** under `content/`. Loading a new book version is:
-  run the intake, approve it, and the workflow commits the new content, which Vercel then deploys.
+| Piece | Service | What it holds or does |
+|---|---|---|
+| The app | **Vercel** (Pro) | Every push to `main` deploys |
+| Database | **Neon** Postgres, connected through Vercel Storage | Accounts, classes, questions, exams, grades, assignments |
+| Books and files | **Vercel Blob**, private | Published books (`live/<book>/`), their archives, book uploads, assignment attachments, student submissions |
+| Book intake | **GitHub Actions** (`library-intake.yml`) | Checks an uploaded book and publishes it to Blob; started by the app |
+| Database setup | `scripts/auto-init.ts`, run by every production build (`vercel.json`) | Applies database migrations; loads the books bundled in `content/` **only into an empty database**; never re-pins an existing class |
 
----
+Books are loaded by faculty and admins through the **Library** page (see `docs/changes/07_Library_Upload.md`),
+not by committing to Git.
 
-## Part A — GitHub repository
+## Part A — Repository
 
-1. Create a **private** repository, `OneSmarterInc/flexee-wrapper`.
-2. Unzip `flexee-reader.zip`, then push its contents to `main`. The `.gitignore` already leaves out
-   `node_modules/`, `.next/`, `.env` files and the intake's archive and staging folders.
-   **Do commit `content/`** — the books are part of the deployment.
+Private repository `OneSmarterInc/Flexee_Wrapper`, branch `main`. Keep `.gitattributes` (line endings
+normalized to LF) so diffs show only real changes.
 
-## Part B — Supabase
+## Part B — Database: Neon
 
-1. New project `flexee-wrapper` in the **East US (Ohio)** region. Generate a strong database password
-   and keep it in your password manager.
-2. From **Connect**, copy two connection strings:
-   - **Transaction pooler** (port **6543**) — for Vercel, where every request is short-lived.
-   - **Session pooler** (port **5432**) — for GitHub Actions. Use this rather than the "direct
-     connection", which is IPv6-only and cannot be reached from GitHub's runners.
-   Append `?sslmode=require` to both.
-3. Backups: Supabase Pro keeps daily backups for 7 days. Point-in-time recovery is optional.
+1. Vercel project → **Storage** → create or connect a **Neon** Postgres database, for Production (and
+   Preview if wanted). Vercel adds the connection variables to the project, including:
+   - `DATABASE_URL` — the **pooled** address, used by the running site;
+   - `DATABASE_URL_UNPOOLED` — the **direct** address, used for migrations and bulk loads.
+2. Nothing else is needed for setup: the next production build runs `auto-init`, which applies every
+   migration and, on an empty database, loads the bundled books and creates their default classes.
+   It refuses to run if the two addresses point at different databases.
+3. Backups: use Neon's point-in-time restore (the window depends on the Neon plan). Before any risky
+   change, create a Neon **branch** as a snapshot.
 
-## Part C — Google Drive access for the intake
+## Part C — Blob storage
 
-1. In Google Cloud Console, create a project `flexee-intake` and enable the **Google Drive API**.
-2. Create a service account `flexee-intake` (no roles needed) and download a **JSON key**.
-3. **Send Vikram the service account's email address**
-   (`flexee-intake@<project>.iam.gserviceaccount.com`). He shares `MIS3250_v2_CURRENT` and
-   `Flexee_Standards` with it as **Viewer** and sends you both folder ids.
+**Storage → Create → Blob**, private, connected to the project. Vercel adds `BLOB_READ_WRITE_TOKEN`.
 
-## Part D — GitHub secrets
+## Part D — Vercel environment variables
 
-In the repository: **Settings → Secrets and variables → Actions → New repository secret**.
+| Variable | Value |
+|---|---|
+| `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | set by Vercel when Neon is connected |
+| `BLOB_READ_WRITE_TOKEN` | set by Vercel when Blob is connected |
+| `DB_POOL_MAX` | `3` |
+| `GITHUB_DISPATCH_TOKEN` | fine-grained token, this repository only, **Actions: Read and write** |
+| `GITHUB_REPO` | `OneSmarterInc/Flexee_Wrapper` |
+| `GITHUB_REF` | `main` |
+| `CONTENT_STORE`, `CONTENT_PREFIX`, `CONTENT_BLOB_ACCESS` | `blob`, `live/`, `private` — **only after** the books have been added through Library (Part G) |
+| `CONTENT_CACHE_SECONDS` | `300` |
+| `APP_TIMEZONE` | optional; default `America/New_York` (due dates) |
+
+Function region: **Washington, D.C. (iad1)** or **Cleveland (cle1)**, close to the Neon region.
+
+## Part E — GitHub repository secrets (for the book intake)
 
 | Secret | Value |
 |---|---|
-| `DATABASE_URL_DIRECT` | The Supabase **session pooler** string (port 5432) |
-| `GOOGLE_SA_JSON` | The entire contents of the service account's JSON key |
+| `DATABASE_URL_DIRECT` | **the same Neon database's `DATABASE_URL_UNPOOLED` value.** If it names another database, uploaded books are loaded where the site never looks |
+| `BLOB_READ_WRITE_TOKEN` | the Blob store's read-write token (Storage → the store → `.env.local` tab) |
 
-Also check **Settings → Actions → General → Workflow permissions** is set to **Read and write**,
-so the workflow can commit an admitted book. Then delete the downloaded key file from your machine.
+## Part F — Domain
 
-## Part E — First-time database setup
+**Settings → Domains → Add** `learn.flexee.org`; create the CNAME Vercel shows. HTTPS is automatic.
 
-**Actions → Flexee intake → Run workflow**, action **`setup`**.
+## Part G — First administrator and the books
 
-This creates the tables, loads the books already in `content/`, loads their question banks, and
-creates one default section per book. **Note the join codes** it prints in the log.
+1. Vikram signs up on the site. From a machine with `DATABASE_URL_UNPOOLED` in `.env` (as
+   `DATABASE_URL`): `npm run admin:set -- <his email>`.
+2. Vikram → **Library** → upload `MIS3250_v2_CURRENT` (zipped from Drive) as book `sad`; read the
+   report; **Add to library**. Then `MIS3000_v1_CURRENT` as `mis3000`.
+3. Set the three `CONTENT_*` variables in Part D and redeploy. The site now reads books from Blob.
+4. Check: both books open; MIS 3000's title is *Technology and the Organization*; SAD Figure 1.4 reads
+   "Communicate, Model, Judge".
 
-## Part F — Vercel project
+## Part H — Monitoring
 
-1. **Add New → Project**, import `OneSmarterInc/flexee-wrapper`. Framework: Next.js (detected).
-2. **Environment variables** (Production):
+- Vercel: deployment-failure notifications to Vikram and the developer.
+- Neon: usage and storage alerts.
+- GitHub: notifications for failed **Library intake** runs.
+- An external uptime check on the live address.
 
-   | Name | Value |
-   |---|---|
-   | `DATABASE_URL` | The Supabase **transaction pooler** string (port 6543) |
-   | `DB_POOL_MAX` | `3` |
+## Part I — Updating
 
-3. **Settings → Functions → Function Region:** **Cleveland, USA (cle1)**, next to the Ohio database.
-4. Deploy. Open the preview address and confirm the library page loads and a chapter opens with its
-   figures.
+- **Code:** push to `main`. Migrations are applied by `auto-init` on the production build.
+- **A new book version:** upload it through **Library**.
 
-## Part G — Domain
+## Handover checklist
 
-**Settings → Domains → Add** `learn.flexee.org`, and create the DNS record Vercel shows (a CNAME to
-`cname.vercel-dns.com`). The HTTPS certificate is issued and renewed automatically.
-
-## Part H — Load the current SAD book
-
-1. **Actions → Flexee intake → Run workflow**: action **`report`**, book id **`sad`**, and the two
-   folder ids from Vikram.
-2. The report appears in the run's **Summary**. **Send it to Vikram and wait for his go-ahead.**
-   A red run means the intake **STOPPED**: nothing was changed, and the report names the exact
-   problem for the book team. Do not work around it.
-3. When Vikram approves, run the workflow again with action **`approve`** and the same inputs.
-   It re-checks, admits the book, commits it (Vercel redeploys within a minute or two), and loads
-   the chapters and 288 questions into the database.
-
-## Part I — Monitoring
-
-- Vercel: turn on **Deployment notifications** (failed deployments) for you and Vikram.
-- An external uptime check on `https://learn.flexee.org`.
-- Supabase: turn on the usage and disk alerts under **Settings → Billing / Usage**.
-
-## Part J — Updating later
-
-- **App changes:** push to `main`. If the change includes a new database migration, run the
-  workflow with action **`migrate`** right after pushing.
-- **A new book version:** repeat Part H.
-
----
-
-## Handover — send Vikram these when done
-
-1. The live address, with the HTTPS padlock showing.
-2. The service account email (Part C3) — needed before Part H.
-3. The join codes from the `setup` run.
-4. The SAD intake report from the `report` run.
-5. Who has access to the Supabase project, the Vercel project and the repository secrets.
+1. The live address, HTTPS showing.
+2. `DATABASE_URL_DIRECT` confirmed to be the site's own Neon database (unpooled).
+3. A successful **Library** upload of each book, and the `CONTENT_*` switch made.
+4. Who has access to the Vercel project, the Neon database, the Blob store and the repository secrets.
 
 ## Not part of this deployment
 
-- **Email** ("forgot password"): not needed for Spring; instructors reset passwords from the
-  section roster.
-- **D2L / LTI:** dormant until Wright State registers the Wrapper, which needs the HTTPS address
-  this deployment creates.
-- **The MVCFN simulation** (SAD Thursdays) is a separate application.
-- **Before real students sign in,** Vikram is confirming with Wright State that storing student
-  names and grades with Vercel and Supabase is acceptable. Do not invite students until he says so.
+- **Email** ("forgot password", notifications): not yet; instructors reset passwords from the roster.
+- **D2L / LTI:** dormant until Wright State registers the Wrapper.
+- **Before real students sign in:** Wright State must approve storing student names, grades and
+  submitted work with Vercel, Neon and Vercel Blob. Do not invite students until Vikram says so.

@@ -4,7 +4,7 @@
 
 ## Why this change
 
-We are moving to: **Vercel + Supabase for testing, AWS for production**, with books kept in
+We are moving to: **Vercel + a hosted Postgres for testing, AWS for production** (the database turned out to be **Neon**, not Supabase as first planned), with books kept in
 **Amazon S3** in both, loaded through an upload page in the admin area. This is step 1: the app
 can now read books either from its own `content/` folder (as today) or from an S3 bucket, chosen
 by a setting. Nothing else in the app knows or cares where books live.
