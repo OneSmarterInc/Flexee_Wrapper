@@ -1,37 +1,83 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
+// Integration test: the starter gradebook (lib/gradebook, applyGradebookStarter) — the editable
+// floor a class begins with, per book. Imports the real function so the starter sets themselves are
+// under test, not a copy of them.
+import assert from "node:assert/strict";
 import { and, eq } from "drizzle-orm";
-import * as schema from "../src/db/schema.ts";
+import { db, schema } from "@/db";
+import { applyGradebookStarter, listLineItems, setWeight, addManualItem } from "@/lib/gradebook";
+
 const { sections, lineItems } = schema;
-const P=(b:boolean)=>b?"PASS":"*** FAIL ***";
-const client=new PGlite(); const db=drizzle(client,{schema});
-for (const f of readdirSync("drizzle").filter((x) => x.endsWith(".sql")).map((x) => x.slice(0, -4)).sort()) // every migration, so this test never goes stale
-  for (const s of readFileSync(`drizzle/${f}.sql`,"utf8").split("--> statement-breakpoint")) { const t=s.trim(); if(t) await client.exec(t); }
+let passed = 0; const t = async (name: string, fn: () => Promise<void> | void) => {
+  try { await fn(); passed++; console.log("  ✓", name); } catch (e) { console.log("  ✗", name); throw e; }
+};
 
-const STARTERS:Record<string,{title:string;weight:number}[]>={mis3000:[{title:"Excel worksheets",weight:1},{title:"Book & exams",weight:1}],sad:[{title:"Book",weight:1},{title:"MVCFN simulation",weight:1}]};
-async function applyStarter(sectionId:string,bookId:string){const st=STARTERS[bookId];if(!st)return;const ex=await db.select().from(lineItems).where(and(eq(lineItems.sectionId,sectionId),eq(lineItems.kind,"manual")));if(ex.length)return;let p=0;for(const s of st)await db.insert(lineItems).values({sectionId,kind:"manual",title:s.title,maxPoints:100,weight:s.weight,position:p++});}
+let n = 0;
+async function section(bookId: string, name: string) {
+  const [s] = await db().insert(sections).values({ bookId, name, joinCode: `GB${n++}` }).returning();
+  return s;
+}
+const columns = (sectionId: string) =>
+  db().select().from(lineItems).where(eq(lineItems.sectionId, sectionId));
 
-const [mis]=await db.insert(sections).values({bookId:"mis3000",name:"MIS",joinCode:"G1"}).returning();
-const [sad]=await db.insert(sections).values({bookId:"sad",name:"SAD",joinCode:"G2"}).returning();
-await applyStarter(mis.id,"mis3000"); await applyStarter(sad.id,"sad");
+await t("MIS 3000 starts with two 50/50 columns", async () => {
+  const sec = await section("mis3000", "MIS");
+  await applyGradebookStarter(sec.id, "mis3000");
+  const cols = await columns(sec.id);
+  assert.equal(cols.length, 2);
+  assert.deepEqual(cols.map((c) => c.title).sort(), ["Book & exams", "Excel worksheets"]);
+  assert.ok(cols.every((c) => c.weight === 1), "equal weights");
+  assert.ok(cols.every((c) => c.maxPoints === 100), "out of 100");
+  assert.ok(cols.every((c) => c.kind === "manual"), "manual columns faculty can edit");
+  assert.deepEqual(cols.sort((a, b) => a.position - b.position).map((c) => c.title),
+    ["Excel worksheets", "Book & exams"], "in the order the starter lists them");
+});
 
-const misCols=await db.select().from(lineItems).where(eq(lineItems.sectionId,mis.id));
-const sadCols=await db.select().from(lineItems).where(eq(lineItems.sectionId,sad.id));
-console.log("MIS 3000 starter:", misCols.map(c=>`${c.title}@${c.weight}`).join(", "));
-console.log(`  two 50/50 columns ${P(misCols.length===2 && misCols.every(c=>c.weight===1) && misCols.some(c=>c.title==="Excel worksheets") && misCols.some(c=>c.title==="Book & exams"))}`);
-console.log("SAD starter:", sadCols.map(c=>`${c.title}@${c.weight}`).join(", "));
-console.log(`  Book + MVCFN columns ${P(sadCols.length===2 && sadCols.some(c=>c.title==="MVCFN simulation"))}`);
+await t("SAD starts with its book and its simulation", async () => {
+  const sec = await section("sad", "SAD");
+  await applyGradebookStarter(sec.id, "sad");
+  const cols = await columns(sec.id);
+  assert.equal(cols.length, 2);
+  assert.deepEqual(cols.map((c) => c.title).sort(), ["Book", "MVCFN simulation"]);
+});
 
-// idempotent
-await applyStarter(mis.id,"mis3000");
-console.log(`re-apply is idempotent ${P((await db.select().from(lineItems).where(eq(lineItems.sectionId,mis.id))).length===2)}`);
-// editable: re-weight Excel to 3 (75/25)
-const excel=misCols.find(c=>c.title==="Excel worksheets")!;
-await db.update(lineItems).set({weight:3}).where(eq(lineItems.id,excel.id));
-const w=(await db.select().from(lineItems).where(eq(lineItems.id,excel.id)))[0].weight;
-console.log(`faculty can re-weight (Excel -> 3) ${P(w===3)}`);
-// unknown book gets no starter
-const [x]=await db.insert(sections).values({bookId:"otherbook",name:"X",joinCode:"G3"}).returning();
-await applyStarter(x.id,"otherbook");
-console.log(`unknown book -> empty gradebook (faculty fills) ${P((await db.select().from(lineItems).where(eq(lineItems.sectionId,x.id))).length===0)}`);
+await t("re-applying the starter changes nothing", async () => {
+  const sec = await section("mis3000", "Twice");
+  await applyGradebookStarter(sec.id, "mis3000");
+  await applyGradebookStarter(sec.id, "mis3000");
+  assert.equal((await columns(sec.id)).length, 2);
+});
+
+await t("a class that already has manual columns is never re-seeded", async () => {
+  const sec = await section("mis3000", "Edited");
+  await addManualItem(sec.id, "Faculty's own column", 50, 1);
+  await applyGradebookStarter(sec.id, "mis3000");
+  const cols = await columns(sec.id);
+  assert.equal(cols.length, 1);
+  assert.equal(cols[0].title, "Faculty's own column");
+});
+
+await t("faculty can re-weight a starter column", async () => {
+  const sec = await section("mis3000", "Reweighted");
+  await applyGradebookStarter(sec.id, "mis3000");
+  const excel = (await columns(sec.id)).find((c) => c.title === "Excel worksheets")!;
+  await setWeight(sec.id, excel.id, 3); // 75/25
+  const after = (await columns(sec.id)).find((c) => c.id === excel.id)!;
+  assert.equal(after.weight, 3);
+});
+
+await t("faculty can delete a starter column", async () => {
+  const sec = await section("mis3000", "Pruned");
+  await applyGradebookStarter(sec.id, "mis3000");
+  const book = (await columns(sec.id)).find((c) => c.title === "Book & exams")!;
+  await db().delete(lineItems).where(and(eq(lineItems.sectionId, sec.id), eq(lineItems.id, book.id)));
+  assert.deepEqual((await columns(sec.id)).map((c) => c.title), ["Excel worksheets"]);
+});
+
+await t("a book with no starter set opens an empty gradebook for faculty to fill", async () => {
+  const sec = await section("otherbook", "X");
+  await applyGradebookStarter(sec.id, "otherbook");
+  assert.equal((await columns(sec.id)).length, 0);
+  assert.equal((await listLineItems(sec.id)).length, 0);
+});
+
+console.log(`\n${passed} passed`);

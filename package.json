@@ -29,6 +29,8 @@
     "test:publish": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-publish.ts",
     "test:library": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-library.ts",
     "test:assignments": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-assignments.ts",
+    "test:gradebook": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-gradebook.ts",
+    "test:gb-starter": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-gb-starter.ts",
     "test:sims": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-sims.ts"
   },
   "keywords": [],
