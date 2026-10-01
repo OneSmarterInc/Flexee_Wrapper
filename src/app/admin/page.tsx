@@ -19,7 +19,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
 
   return (
     <WorkspaceShell active="admin" isAdmin canTeach displayName={user.displayName}
-      links={[{ href: "#classes", label: "All classes" }, { href: "#new-class", label: "Create a class" }, { href: "/library", label: "Book library" }]}>
+      links={[{ href: "#classes", label: "All classes" }, { href: "#new-class", label: "Create a class" }, { href: "/library", label: "Book library" }, { href: "/admin/sims", label: "Simulations" }]}>
       <header className="workspace-heading">
         <div>
           <div className="page-kicker ui">Administrator dashboard</div>

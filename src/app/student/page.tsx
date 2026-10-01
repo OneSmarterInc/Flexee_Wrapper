@@ -53,6 +53,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
                     <>
                       <Link className="nav-button primary" href={`/${c.bookId}`}>Open course</Link>
                       {c.role === "student" && <Link className="nav-button secondary" href={`/${c.bookId}/assignments`}>Assignments</Link>}
+                      {c.role === "student" && <Link className="nav-button secondary" href={`/${c.bookId}/sims`}>Simulations</Link>}
                       <Link className="nav-button secondary" href={`/${c.bookId}/exams`}>Exams</Link>
                     </>
                   ) : <p className="ui" style={{ color: "var(--muted)", margin: 0 }}>Your class&apos;s book will appear after it is published.</p>}

@@ -194,6 +194,60 @@ export const submissionFiles = pgTable("submission_files", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// RapidSims behind the front door (migration 0015; Flexee Systems Map, contract C2).
+export const sims = pgTable("sims", {
+  id: text("id").primaryKey(),                       // the sim's own id, as in its launch passes
+  number: integer("number"),
+  title: text("title").notNull(),
+  tagline: text("tagline"),
+  description: text("description"),
+  minutes: integer("minutes"),
+  launchUrl: text("launch_url"),
+  published: boolean("published").notNull().default(false),
+  detail: text("detail"),                            // JSON: the sim's own catalogue detail, plus _edited and _source_revision
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export const simPreviews = pgTable("sim_previews", {
+  simId: text("sim_id").notNull().references(() => sims.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  grantedBy: text("granted_by").references((): any => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("sim_previews_pk").on(t.simId, t.userId)]);
+export const classSims = pgTable("class_sims", {
+  sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
+  simId: text("sim_id").notNull().references(() => sims.id, { onDelete: "cascade" }),
+  addedBy: text("added_by").references((): any => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("class_sims_pk").on(t.sectionId, t.simId)]);
+export const simLaunches = pgTable("sim_launches", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  simId: text("sim_id").notNull().references(() => sims.id, { onDelete: "cascade" }),
+  sectionId: text("section_id").references(() => sections.id, { onDelete: "set null" }),
+  asRole: text("as_role").notNull(),                 // student | faculty | faculty_preview
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export const simCompletions = pgTable("sim_completions", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  simId: text("sim_id").notNull().references(() => sims.id, { onDelete: "cascade" }),
+  sectionId: text("section_id").references(() => sections.id, { onDelete: "set null" }),
+  durationSeconds: integer("duration_seconds"),
+  summary: text("summary"),
+  metrics: text("metrics"),                          // JSON, at most 12 keys
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export const simTranscripts = pgTable("sim_transcripts", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  simId: text("sim_id").notNull().references(() => sims.id, { onDelete: "cascade" }),
+  sectionId: text("section_id").references(() => sections.id, { onDelete: "set null" }),
+  simVersion: text("sim_version"),
+  envelope: text("envelope").notNull(),              // JSON, opaque; never carries a character's words
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const rosterInvites = pgTable(
   "roster_invites",
   {

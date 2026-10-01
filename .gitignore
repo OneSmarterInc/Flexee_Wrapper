@@ -10,3 +10,7 @@ content/_staging/
 
 tools/__pycache__/
 tsconfig.tsbuildinfo
+
+# Python bytecode, anywhere
+__pycache__/
+*.pyc

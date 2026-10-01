@@ -56,6 +56,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
         <p>Open the tool you need to prepare lessons, assess students, or review progress.</p>
         <div className="workspace-actions">
           <Link className="workspace-action" href={`/teach/${section}/assignments`}><strong>Assignments</strong><span>Create work, set due dates, and review submissions.</span></Link>
+          <Link className="workspace-action" href={`/teach/${section}/sims`}><strong>Simulations</strong><span>Add simulations to this class and see who has played.</span></Link>
           <Link className="workspace-action" href={`/teach/${section}/exams`}><strong>Exams</strong><span>Build exams from the question bank and review attempts.</span></Link>
           <Link className="workspace-action" href={`/teach/${section}/questions`}><strong>Question bank</strong><span>Browse chapter questions and answer keys imported with this book.</span></Link>
           <Link className="workspace-action" href={`/teach/${section}/gradebook`}><strong>Gradebook</strong><span>See totals, record scores, and export grades.</span></Link>
