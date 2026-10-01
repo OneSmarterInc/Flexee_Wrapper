@@ -3,26 +3,59 @@ names as they stand in Drive, a question bank, and a register whose section-0 ta
 import json, shutil, sys, re
 from pathlib import Path
 import os
-SRC = Path(os.environ.get("SAD_PACKAGES", "/home/claude/sad_in"))  # folder of SAD chapter packages + front matter
+
+# Where the real SAD source lives. Set SAD_PACKAGES to either:
+#   * a shelf root, holding 04_Chapters/ and 00_Front_Matter/ (a Drive copy of MIS3250_v2_CURRENT), or
+#   * one flat folder holding the Chapter_NN_Package_*.zip files and the front matter together.
+# Both layouts are read directly; nothing is written back to the source.
+SAD_PACKAGES_HELP = (
+    "Set SAD_PACKAGES to the SAD source folder before running this test. That is either a copy of\n"
+    "MIS3250_v2_CURRENT (holding 04_Chapters and 00_Front_Matter), or one flat folder holding the\n"
+    "Chapter_NN_Package_*.zip files and Book_Front_Matter_v*.md together. For example:\n"
+    '  SAD_PACKAGES="G:/My Drive/Flexee/Flexee-SAD/MIS3250_v2_CURRENT" npm run test:intake'
+)
+SRC = Path(os.environ.get("SAD_PACKAGES", "/home/claude/sad_in"))
+
+
+def _sources(src: Path):
+    """The chapter packages and the front matter, from either supported layout."""
+    if not src.exists():
+        raise SystemExit(f"SAD source folder not found: {src}\n\n{SAD_PACKAGES_HELP}")
+    # a shelf root keeps them in their lanes; a flat folder keeps them side by side
+    chapters_dir = src / "04_Chapters" if (src / "04_Chapters").is_dir() else src
+    front_dir = src / "00_Front_Matter" if (src / "00_Front_Matter").is_dir() else src
+    packages = sorted(chapters_dir.glob("Chapter_*_Package_*.zip"))
+    # any version — Drive's front matter moves on (v1.5, v1.7, …) and the newest is the one to use
+    fronts = sorted(front_dir.glob("Book_Front_Matter_v*.md"))
+    if not packages:
+        raise SystemExit(f"No Chapter_NN_Package_*.zip found in {chapters_dir}\n\n{SAD_PACKAGES_HELP}")
+    if not fronts:
+        raise SystemExit(f"No Book_Front_Matter_v*.md found in {front_dir}\n\n{SAD_PACKAGES_HELP}")
+    ver = lambda p: [int(x) for x in re.search(r"_v([\d.]+)\.md$", p.name).group(1).split(".")]
+    return packages, max(fronts, key=ver)
+
+
 def build(root, register_overrides=None, escaped=False, layout="artifact-version"):
+    packages, front_matter = _sources(SRC)
     root = Path(root); shutil.rmtree(root, ignore_errors=True)
     L = {k: root / k for k in ["00_Front_Matter", "01_Speaker_Notes", "02_Lecture_Decks", "03_Studio_Packs",
                                "04_Chapters", "05_Compiled", "06_Tooling", "07_Question_Banks"]}
     for d in L.values(): d.mkdir(parents=True)
-    # 00 and 04 — real content, at the versions Drive now holds
-    (L["00_Front_Matter"] / "Book_Front_Matter_v1.6.md").write_bytes((SRC / "Book_Front_Matter_v1.5.md").read_bytes())
+    # 00 and 04 — real content, at the versions Drive now holds. The shelf's own file name stays
+    # v1.6 because that is what the register states; only the bytes come from the source.
+    (L["00_Front_Matter"] / "Book_Front_Matter_v1.6.md").write_bytes(front_matter.read_bytes())
     vers = {1: "1.3", 2: "1.2", 3: "1.2", 5: "1.2", 6: "1.2"}
-    for f in sorted(SRC.glob("Chapter_*_Package_*.zip")):
+    for f in packages:
         n = int(re.search(r"Chapter_(\d+)", f.name).group(1))
         shutil.copy(f, L["04_Chapters"] / f"Chapter_{n:02d}_Package_v{vers.get(n, '1.1')}.zip")
     # 01, 02, 03, 05, 06 — the names in Drive (content is irrelevant to intake)
-    touch = lambda d, n: (L[d] / n).write_text("x")
+    touch = lambda d, n: (L[d] / n).write_text("x", encoding="utf-8")
     for w in (9, 11, 12, 13, 14): touch("01_Speaker_Notes", f"MIS3250_Week{w:02d}_Notes_v2.2.md")
     touch("01_Speaker_Notes", "MIS3250_Week10_Notes_v2.1.md"); touch("01_Speaker_Notes", "MIS3250_Week09_Studio_Notes_v2.0.md")
     for w, v in {1: "1.0", 2: "1.0", 7: "1.0", 3: "1.2", 5: "1.2", 6: "1.1", 4: "1.2", 9: "2.2", 11: "2.2",
                  12: "2.2", 13: "2.2", 14: "2.2", 10: "2.1"}.items():
         touch("02_Lecture_Decks", f"MIS3250_Week{w:02d}_Lecture_v{v}.pptx")
-    (L["02_Lecture_Decks"] / "Archive_pre_editorial").mkdir(); (L["02_Lecture_Decks"] / "Archive_pre_editorial" / "old.pptx").write_text("x")
+    (L["02_Lecture_Decks"] / "Archive_pre_editorial").mkdir(); (L["02_Lecture_Decks"] / "Archive_pre_editorial" / "old.pptx").write_text("x", encoding="utf-8")
     for w in (1, 2, 3, 4, 5, 6, 7, 11): touch("03_Studio_Packs", f"MIS3250_Week{w:02d}_Studio_v1.0.pptx")
     for w in (10, 12, 13, 14): touch("03_Studio_Packs", f"MIS3250_Week{w:02d}_Studio_v1.1.pptx")
     touch("03_Studio_Packs", "MIS3250_Week09_Studio_v2.0.pptx")
@@ -39,9 +72,9 @@ def build(root, register_overrides=None, escaped=False, layout="artifact-version
             qs.append({"id": f"sad-c{c:02d}-{i:03d}", "book": "sad", "chapter": c, "objective": "x", "objectiveId": f"sad-c{c:02d}-o{i}",
                        "difficulty": "apply", "stem": f"Stem {c}.{i}", "points": 1, **json.loads(json.dumps(meta)),
                        "options": [{"id": k, "text": f"Option {k}", "correct": k == "abcd"[i % 4], "rationale": "r"} for k in "abcd"]})
-        (qb / "questions" / f"ch{c:02d}.json").write_text("[\n" + ",\n".join(json.dumps(q) for q in qs) + "\n]\n")
-        (qb / "review" / f"ch{c:02d}_review.md").write_text("x")
-    (qb / "objectives.json").write_text(json.dumps(objs, indent=2))
+        (qb / "questions" / f"ch{c:02d}.json").write_text("[\n" + ",\n".join(json.dumps(q) for q in qs) + "\n]\n", encoding="utf-8")
+        (qb / "review" / f"ch{c:02d}_review.md").write_text("x", encoding="utf-8")
+    (qb / "objectives.json").write_text(json.dumps(objs, indent=2), encoding="utf-8")
     # register — section-0 table as the corrected v6.17 will state it
     o = {"reg": "6.17", "status": "READY FOR INTAKE", "ch_rows": "| `04_Chapters` | Chapter 1 | **v1.3** | CURRENT |\n| `04_Chapters` | Chapters 2, 3, 5, 6 | **v1.2** | CURRENT |\n| `04_Chapters` | Chapters 4, 7–12 | **v1.1** | CURRENT |",
          "compiled": "1.7", "objectives": "60", "fm": "1.6"}
@@ -111,6 +144,6 @@ def build(root, register_overrides=None, escaped=False, layout="artifact-version
         reg = head + "### Current version of every artifact\n\nOne row per file.\n\n" + "\n".join(rows) + "\n\n---\n" + tail
     if escaped:  # the form Drive's text export produces
         reg = re.sub(r"([_*`#])", r"\\\1", reg)
-    (root / "STATE_OF_RECORD.md").write_text(reg)
+    (root / "STATE_OF_RECORD.md").write_text(reg, encoding="utf-8")
     return root
 if __name__ == "__main__": build(sys.argv[1])

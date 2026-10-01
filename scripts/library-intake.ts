@@ -73,7 +73,12 @@ function registerVersion(shelf: string) {
 }
 
 function intake(args: string[]) {
-  const r = spawnSync("python3", [path.join(REPO, "tools/flexee_intake.py"), ...args], { encoding: "utf8", cwd: REPO });
+  // PYTHONIOENCODING: the intake's report carries arrows and dashes, which a Windows console's
+  // cp1252 stdout cannot encode — without this the tool dies printing its own report and the job
+  // reads that as a stopped intake. A no-op where stdout is already UTF-8, as in CI.
+  const r = spawnSync("python3", [path.join(REPO, "tools/flexee_intake.py"), ...args], {
+    encoding: "utf8", cwd: REPO, env: { ...process.env, PYTHONIOENCODING: "utf-8" },
+  });
   return { code: r.status ?? 1, out: (r.stdout || "") + (r.stderr || "") };
 }
 

@@ -1,21 +1,40 @@
 """Integration test: the intake against a shelf that mirrors Drive, including the failures found by hand on 26 Sep."""
-import subprocess, sys, json, shutil, re
+import subprocess, sys, json, shutil, re, tempfile
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "fixtures"))
-from make_sad_shelf import build
+from make_sad_shelf import build, SAD_PACKAGES_HELP, SRC
 TOOL = Path(__file__).parent.parent / "tools" / "flexee_intake.py"
 import os
-VAL = os.environ.get("VALIDATOR", "/home/claude/standards/Tools/build_questions.py")  # Flexee_Standards/Tools/build_questions.py
+# The validator ships in this repository. VALIDATOR still overrides it, for running against another
+# copy of Flexee_Standards/Tools/build_questions.py.
+VAL = os.environ.get("VALIDATOR") or str(Path(__file__).parent.parent / "tools" / "build_questions.py")
+if not Path(VAL).exists():
+    raise SystemExit(f"Validator not found: {VAL}\nSet VALIDATOR to a copy of build_questions.py.")
+if not SRC.exists():
+    raise SystemExit(f"SAD source folder not found: {SRC}\n\n{SAD_PACKAGES_HELP}")
+# The intake resizes chapter figures, so Pillow is a prerequisite (as in both CI workflows and
+# docs/runbooks/Book_Intake_Runbook_for_Developer.md). Said once, up front, rather than as a
+# ModuleNotFoundError buried in six separate case failures.
+try:
+    import PIL  # noqa: F401
+except ModuleNotFoundError:
+    raise SystemExit(f"Pillow is not installed for {sys.executable}.\nInstall it with:\n  "
+                     f'"{sys.executable}" -m pip install Pillow')
+# the system temp folder, so this runs on Windows as well as in a container
+TMP = Path(tempfile.mkdtemp(prefix="flexee_intake_it_"))
 results = []
 def run(name, shelf, expect_ok, must_contain=(), must_not=()):
-    out = Path("/tmp/it_out") / re.sub(r"\W+", "_", name); shutil.rmtree(out, ignore_errors=True)
+    out = TMP / "out" / re.sub(r"\W+", "_", name); shutil.rmtree(out, ignore_errors=True)
+    # PYTHONIOENCODING: the tool prints arrows and dashes, which a Windows console's cp1252
+    # stdout cannot encode — it would die on its own output rather than on anything under test.
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     r = subprocess.run([sys.executable, str(TOOL), "--book-id", "sad", "--local", str(shelf), "--out", str(out), "--validator", VAL],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
     txt = r.stdout + r.stderr
     ok = (r.returncode == 0) == expect_ok and all(s in txt for s in must_contain) and not any(s in txt for s in must_not)
     results.append((name, ok)); print(("PASS " if ok else "FAIL ") + name)
     if not ok: print(txt[-2500:])
-S = Path("/tmp/it_shelf")
+S = TMP / "shelf"
 
 # 1. corrected register, shelf as Drive holds it now
 run("clean shelf admits", build(S), True, ["READY TO APPROVE", "all 74 files", "60 objectives vs register 60"])

@@ -118,13 +118,45 @@ with zipfile.ZipFile(sys.argv[3], 'w') as z:
 
 // ---- the job, end to end -------------------------------------------------------------------------
 const REPO = process.cwd();
+// Paths reach Python through the environment, never interpolated into its source. A Windows path
+// embedded in a Python string literal is read as escape sequences and fails to parse.
+const BUILD_SHELF = [
+  "import os, sys",
+  "sys.path.insert(0, os.environ['FIXTURES_DIR'])",
+  "from make_sad_shelf import build",
+  "build(os.environ['SHELF_ROOT'], layout='file-bytes')",
+].join("\n");
+
+// One file into a zip, under its own basename.
+const ZIP_ONE = [
+  "import os, zipfile",
+  "src, out = os.environ['ZIP_IN'], os.environ['ZIP_OUT']",
+  "with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:",
+  "    z.write(src, os.path.basename(src))",
+].join("\n");
+
+// Zipped with Python's zipfile rather than the `zip` binary, which Windows has no copy of.
+const ZIP_DIR = [
+  "import os, zipfile",
+  "root, out = os.environ['ZIP_ROOT'], os.environ['ZIP_OUT']",
+  "base = os.path.basename(root)",
+  "with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:",
+  "    for dirpath, _dirs, files in os.walk(root):",
+  "        for f in files:",
+  "            full = os.path.join(dirpath, f)",
+  "            rel = os.path.join(base, os.path.relpath(full, root))",
+  "            z.write(full, rel.replace(os.sep, '/'))",
+].join("\n");
+
 function shelfZip(name: string, mutate?: (root: string) => void) {
   const dir = mkdtempSync(path.join(tmpdir(), "shelf-"));
   const root = path.join(dir, "MIS3250_v2_CURRENT"); // Drive zips a folder with the folder itself inside
-  execFileSync("python3", ["-c", `import sys; sys.path.insert(0, "${REPO}/scripts/fixtures"); from make_sad_shelf import build; build("${root}", layout="file-bytes")`]);
+  execFileSync("python3", ["-c", BUILD_SHELF], {
+    env: { ...process.env, FIXTURES_DIR: path.join(REPO, "scripts", "fixtures"), SHELF_ROOT: root },
+  });
   mutate?.(root);
   const zip = path.join(dir, name);
-  execFileSync("zip", ["-qr", zip, "MIS3250_v2_CURRENT"], { cwd: dir });
+  execFileSync("python3", ["-c", ZIP_DIR], { env: { ...process.env, ZIP_ROOT: root, ZIP_OUT: zip } });
   return readFileSync(zip);
 }
 async function uploaded(name: string, bytes: Uint8Array, who = prof.id) {
@@ -186,7 +218,7 @@ await t("a file that is not a zip, or a zip with no register, fails with a plain
   assert.equal(await runJob({ uploadId: notZip, action: "check", blob, syncDb }), "failed");
   assert.match((await getUpload(notZip))!.message!, /not a readable zip/);
   const dir = mkdtempSync(path.join(tmpdir(), "noreg-")); writeFileSync(path.join(dir, "readme.txt"), "hello");
-  execFileSync("zip", ["-q", path.join(dir, "n.zip"), "readme.txt"], { cwd: dir });
+  execFileSync("python3", ["-c", ZIP_ONE], { env: { ...process.env, ZIP_IN: path.join(dir, "readme.txt"), ZIP_OUT: path.join(dir, "n.zip") } });
   const noReg = await uploaded("noreg.zip", readFileSync(path.join(dir, "n.zip")));
   assert.equal(await runJob({ uploadId: noReg, action: "check", blob, syncDb }), "failed");
   assert.match((await getUpload(noReg))!.message!, /no STATE_OF_RECORD\.md/);

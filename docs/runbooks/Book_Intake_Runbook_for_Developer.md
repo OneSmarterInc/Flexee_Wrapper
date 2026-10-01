@@ -59,6 +59,18 @@ appear on your computer under `G:\My Drive\` (the drive letter may differ on you
   npm ci
   ```
 
+**0.2a Running the intake tests.** `npm run test:intake` and `npm run test:library` build a test shelf
+from the real SAD chapter packages, so they need `SAD_PACKAGES` pointing at the source. That is either
+a copy of `MIS3250_v2_CURRENT` (holding `04_Chapters` and `00_Front_Matter`) or one flat folder holding
+the `Chapter_NN_Package_*.zip` files and `Book_Front_Matter_v*.md` together. With Drive for Desktop:
+
+```
+SAD_PACKAGES="G:/My Drive/Flexee/Flexee-SAD/MIS3250_v2_CURRENT" npm run test:intake
+```
+
+Both read the source only and never write back to Drive. The validator defaults to this repository's
+`tools/build_questions.py`; set `VALIDATOR` to point at another copy. Pillow is required, as above.
+
 **0.3 Check you have the current intake.** Open `tools/flexee_intake.py` and search for
 `lead_int`. It must be there. If it is not, you have an older version: pull again, or ask Vikram
 for the latest file. The older version cannot read the MIS 3000 register.

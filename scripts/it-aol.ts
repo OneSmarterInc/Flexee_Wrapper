@@ -7,6 +7,9 @@ import { createExam, setExamStatus, startAttempt, submitAttempt, attemptResult }
 import { addOutcome, mapOutcome } from "@/lib/mastery";
 import { addManualItem, setScore } from "@/lib/gradebook";
 import { setSettings, loadProgramOutcomes, toggleProgramMap, setEvidence, aolReport, reportMarkdown, reportCsv } from "@/lib/aol";
+import path from "node:path";
+import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 
 let fails = 0; const P = (ok: boolean, msg: string) => { if (!ok) fails++; console.log(`${ok ? "PASS" : "*** FAIL ***"}  ${msg}`); };
 const d = db();
@@ -105,4 +108,7 @@ P(md.includes("## Results by course outcome") && md.includes("## Results by prog
 P(!/S[1-6]\b/.test(md) && !md.includes("Prof"), "report names no individual");
 P(csv.split("\n").filter(Boolean).length === 1 + 1 + 3 + 1, `CSV: header + A(1) + B(3) + C(1) rows   [got ${csv.split("\n").filter(Boolean).length}]`);
 console.log(`\n${fails ? `${fails} FAILED` : "ALL PASSED"}`);
-import("node:fs").then((fs) => fs.writeFileSync("/tmp/aol_sample.md", md));
+// a sample of the report, for eyeballing — in the system temp folder, so this runs anywhere
+const samplePath = path.join(tmpdir(), "aol_sample.md");
+writeFileSync(samplePath, md);
+console.log(`sample report written to ${samplePath}`);
