@@ -24,3 +24,6 @@ try { await startAttempt(ex2.id, e.id); P(false, "draw of 3 should fail"); } cat
 const ex3 = await run("fixed", { mode: "fixed", ids: ["mb-c01-001", "mb-c01-002", "mb-c01-003"] });
 try { await startAttempt(ex3.id, e.id); P(false, "fixed with draft should fail"); } catch (x: any) { P(x.message.includes("mb-c01-002 (not yet approved") && x.message.includes("mb-c01-003 (marked for practice only)"), `a fixed exam naming a draft and a practice question is refused, naming both`); }
 console.log(fails ? `${fails} FAILED` : "ALL PASSED");
+// a failed check has to fail the suite, not just print: this ran green in CI however many
+// checks were failing, because printing "*** FAIL ***" still exits 0
+if (fails) process.exitCode = 1;

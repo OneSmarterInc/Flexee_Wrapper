@@ -112,3 +112,6 @@ console.log(`\n${fails ? `${fails} FAILED` : "ALL PASSED"}`);
 const samplePath = path.join(tmpdir(), "aol_sample.md");
 writeFileSync(samplePath, md);
 console.log(`sample report written to ${samplePath}`);
+// a failed check has to fail the suite, not just print: this ran green in CI however many
+// checks were failing, because printing "*** FAIL ***" still exits 0
+if (fails) process.exitCode = 1;
