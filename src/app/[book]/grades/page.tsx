@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/auth";
 import { enrolmentForBook } from "@/lib/enrolment";
 import { gradesForStudent } from "@/lib/gradebook";
 import { show } from "@/lib/grading";
+import { formatLocal } from "@/lib/time";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
 
@@ -27,10 +28,14 @@ export default async function MyGrades({ params }: { params: Promise<{ book: str
       <div className="back-strip ui"><BackButton fallbackHref={`/${book}`} /><Link className="nav-button ghost" href={`/${book}`}>Course home</Link></div>
       <h1>My grades</h1>
 
-      {!g || g.graded.length === 0 ? (
+      {!g || (g.graded.length === 0 && g.participation.length === 0) ? (
         <p className="ui" style={{ color: "var(--muted)" }}>Nothing has been graded yet. Your grade appears here as work is marked.</p>
       ) : (
         <>
+        {g.graded.length === 0 && (
+          <p className="ui" style={{ color: "var(--muted)" }}>Nothing has been graded yet. Your grade appears here as work is marked.</p>
+        )}
+          {g.graded.length > 0 && <>
           <div className="book-card featured-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div className="t">{g.total == null ? "—" : `${show(g.total)}%`}</div>
@@ -86,6 +91,31 @@ export default async function MyGrades({ params }: { params: Promise<{ book: str
             <p className="ui" style={{ color: "var(--muted)", fontSize: ".82rem" }}>
               Letter scale: {g.bands.map((b) => `${b.letter} ≥ ${show(b.min)}`).join(" · ")}.
             </p>
+          )}
+          </>}
+
+          {g.participation.length > 0 && (
+            <>
+              <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Participation</h2>
+              <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>
+                These are recorded as done or not done. They carry no marks and do not count towards your grade.
+              </p>
+              <table className="ui" style={{ width: "100%", borderCollapse: "collapse", fontSize: ".9rem" }}>
+                <thead><tr><th style={cell}>Simulation</th><th style={cell}>Status</th></tr></thead>
+                <tbody>
+                  {g.participation.map((p) => (
+                    <tr key={p.id}>
+                      <td style={cell}>{p.title}</td>
+                      <td style={cell}>
+                        {p.completedAt
+                          ? <>Completed<div style={{ color: "var(--muted)", fontSize: ".78rem" }}>{formatLocal(p.completedAt)}</div></>
+                          : <span style={{ color: "var(--muted)" }}>Not yet</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
         </>
       )}

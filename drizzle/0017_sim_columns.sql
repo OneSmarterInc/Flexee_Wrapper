@@ -1,0 +1,12 @@
+-- Spec 12: simulation results in the gradebook. A sim in a class gets its own gradebook column,
+-- which starts as a participation record and becomes graded only when faculty say so.
+--
+-- score_rule applies to kind = 'sim' columns:
+--   report      (the default) a participation record: no points, no category, out of every total
+--   completion  faculty-set points, awarded in full on completion
+--   manual      faculty enter the marks; the completion date shows beside them
+--
+-- It lives here rather than on class_sims because removing a sim from a class keeps the column and
+-- its scores; a rule on the membership row would be deleted with it and the grades would vanish.
+-- NULL means "not a sim column", and every existing row is NULL.
+ALTER TABLE "line_items" ADD COLUMN IF NOT EXISTS "score_rule" text;

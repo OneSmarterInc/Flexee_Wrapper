@@ -33,5 +33,32 @@ export async function addClassSimAction(f: FormData) {
 }
 export async function removeClassSimAction(f: FormData) {
   const section = s(f, "sectionId"); const u = await me(`/teach/${section}/sims`);
-  back(`/teach/${section}/sims`, await removeSimFromClass(u.id, section, s(f, "simId")), "Removed from the class. Past results are kept.");
+  back(`/teach/${section}/sims`, await removeSimFromClass(u.id, section, s(f, "simId")),
+    "Removed from the class. Its gradebook column and any marks are kept.");
+}
+
+// --- Spec 12: how a sim's column is graded ---
+
+/** Both of these are faculty-only: ownedSection is checked here, and again by section id in the library. */
+export async function setSimRuleAction(f: FormData) {
+  const section = s(f, "sectionId"); const u = await me(`/teach/${section}/sims`);
+  const { ownedSection } = await import("@/lib/roster");
+  if (!(await ownedSection(u.id, section))) redirect("/teach");
+  const { setSimRule, SIM_RULES } = await import("@/lib/gradebook");
+  const rule = s(f, "rule") as any;
+  if (!SIM_RULES.includes(rule)) back(`/teach/${section}/sims`, { ok: false, error: "Unknown grading rule." }, "");
+  try { await setSimRule(section, s(f, "lineItemId"), rule); }
+  catch (e: any) { back(`/teach/${section}/sims`, { ok: false, error: e?.message ?? "Could not change that." }, ""); }
+  back(`/teach/${section}/sims`, { ok: true },
+    rule === "report" ? "Now a participation record — it counts towards nothing." : "Grading rule saved.");
+}
+
+export async function setSimPointsAction(f: FormData) {
+  const section = s(f, "sectionId"); const u = await me(`/teach/${section}/sims`);
+  const { ownedSection } = await import("@/lib/roster");
+  if (!(await ownedSection(u.id, section))) redirect("/teach");
+  const { setSimPoints } = await import("@/lib/gradebook");
+  try { await setSimPoints(section, s(f, "lineItemId"), Number(f.get("points"))); }
+  catch (e: any) { back(`/teach/${section}/sims`, { ok: false, error: e?.message ?? "Could not save the points." }, ""); }
+  back(`/teach/${section}/sims`, { ok: true }, "Points saved.");
 }

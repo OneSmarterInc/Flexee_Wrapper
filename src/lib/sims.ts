@@ -105,8 +105,14 @@ export async function grantPreview(adminId: string, simId: string, userId: strin
 // ---- sims in a class -------------------------------------------------------------------------------
 export async function addSimToClass(userId: string, sectionId: string, simId: string): Promise<R> {
   if (!(await ownedSection(userId, sectionId))) return fail("Only this class's faculty can add simulations.", 403);
-  if (!(await visibleSims(userId)).some((s) => s.id === simId)) return fail("That simulation is not available to you.", 403);
+  const sim = (await visibleSims(userId)).find((x) => x.id === simId);
+  if (!sim) return fail("That simulation is not available to you.", 403);
   await db().insert(classSims).values({ sectionId, simId, addedBy: userId }).onConflictDoNothing();
+  // Spec 12: the sim gets its own gradebook column, as a participation record. Students who have
+  // already played it in this class show as completed straight away, because the column reads the
+  // completions rather than storing scores.
+  const { ensureSimLineItem } = await import("@/lib/gradebook");
+  await ensureSimLineItem(sectionId, simId, sim.title);
   return { ok: true };
 }
 export async function removeSimFromClass(userId: string, sectionId: string, simId: string): Promise<R> {

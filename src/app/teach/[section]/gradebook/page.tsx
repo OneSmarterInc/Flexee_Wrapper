@@ -5,6 +5,8 @@ import { ownedSection } from "@/lib/roster";
 import { gradebook } from "@/lib/gradebook";
 import { sectionHasLtiLink } from "@/lib/lti";
 import { show, DEFAULT_LETTER_BANDS } from "@/lib/grading";
+import { isParticipation } from "@/lib/gradebook";
+import { formatLocal } from "@/lib/time";
 import {
   setWeightsAction, addLineItemAction, setScoreAction, pushGradesAction,
   setCategoriesAction, applyStarterCategoriesAction, setColumnCategoryAction, setLetterBandsAction,
@@ -44,7 +46,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
               <thead>
                 <tr>
                   <th style={cell}>Student</th>
-                  {items.map((it) => <th key={it.id} style={num}>{it.title}<div style={{ fontWeight: 400, color: "var(--muted)" }}>/ {it.maxPoints} · {it.kind}</div></th>)}
+                  {items.map((it) => <th key={it.id} style={num}>{it.title}<div style={{ fontWeight: 400, color: "var(--muted)" }}>{isParticipation(it) ? "participation" : `/ ${it.maxPoints} · ${it.kind}`}</div></th>)}
                   {categorised && categories.map((c) => (
                     <th key={c.id} style={{ ...num, background: "var(--mark)" }}>{c.name}<div style={{ fontWeight: 400, color: "var(--muted)" }}>{show(c.weight)}%{c.dropLowest > 0 ? ` · drop ${c.dropLowest}` : ""}</div></th>
                   ))}
@@ -53,7 +55,9 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                 </tr>
                 <tr>
                   <th style={{ ...cell, color: "var(--muted)", fontWeight: 400 }}>weight →</th>
-                  {items.map((it) => <th key={it.id} style={num}><input name={`weight_${it.id}`} defaultValue={it.weight} style={field} type="number" min={0} step="0.5" /></th>)}
+                  {items.map((it) => <th key={it.id} style={num}>{isParticipation(it)
+                    ? <span style={{ color: "var(--muted)" }}>—</span>
+                    : <input name={`weight_${it.id}`} defaultValue={it.weight} style={field} type="number" min={0} step="0.5" />}</th>)}
                   {categorised && categories.map((c) => <th key={c.id} style={num} />)}
                   <th style={num}><button type="submit" style={{ ...field, width: "auto", cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Save</button></th>
                   {categorised && <th style={num} />}
@@ -66,7 +70,14 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                     <td style={cell}>{s.name}<div style={{ color: "var(--muted)", fontSize: ".78rem" }}>{s.email}</div></td>
                     {items.map((it) => {
                       const c = s.cells[it.id];
-                      if (it.kind === "manual") return (
+                      if (isParticipation(it)) return (
+                        <td key={it.id} style={num}>
+                          {c.completedAt
+                            ? <span title={formatLocal(c.completedAt)}>Completed<div style={{ fontWeight: 400, color: "var(--muted)", fontSize: ".72rem" }}>{formatLocal(c.completedAt)}</div></span>
+                            : <span style={{ color: "var(--muted)" }}>—</span>}
+                        </td>
+                      );
+                      if (it.kind === "manual" || it.kind === "sim") return (
                         <td key={it.id} style={num}>
                           <form action={setScoreAction} style={{ display: "inline-flex", gap: ".2rem" }}>
                             <input type="hidden" name="sectionId" value={section} /><input type="hidden" name="lineItemId" value={it.id} /><input type="hidden" name="enrolmentId" value={s.enrolmentId} />

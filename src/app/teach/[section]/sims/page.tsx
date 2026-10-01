@@ -4,12 +4,14 @@ import { currentUser } from "@/lib/auth";
 import { ownedSection } from "@/lib/roster";
 import { simsForClass, visibleSims, classCompletions } from "@/lib/sims";
 import { formatLocal } from "@/lib/time";
-import { addClassSimAction, removeClassSimAction } from "@/app/sim-actions";
+import { simColumnsFor, categoriesFor, SIM_RULES, SIM_RULE_LABELS, isParticipation, type SimRule } from "@/lib/gradebook";
+import { addClassSimAction, removeClassSimAction, setSimRuleAction, setSimPointsAction } from "@/app/sim-actions";
 import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".4rem .6rem", textAlign: "left" } as const;
 const mins = (s: number | null) => (s == null ? "" : `${Math.round(s / 60)} min`);
+const field = { padding: ".35rem .45rem", border: "1px solid var(--rule)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function ClassSims({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const [{ section }, sp] = await Promise.all([params, searchParams]);
@@ -17,7 +19,11 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}/sims`)}`);
   const sec = await ownedSection(user!.id, section);
   if (!sec) redirect("/teach");
-  const [inClass, available, played] = await Promise.all([simsForClass(section, false), visibleSims(user!.id), classCompletions(user!.id, section)]);
+  const [inClass, available, played, columns, cats] = await Promise.all([
+    simsForClass(section, false), visibleSims(user!.id), classCompletions(user!.id, section),
+    simColumnsFor(section), categoriesFor(section),
+  ]);
+  const hasSimsCategory = cats.some((c) => c.name.trim().toLowerCase() === "simulations");
   const addable = available.filter((s) => !inClass.some((c) => c.id === s.id));
   const title = new Map(available.concat(inClass).map((s) => [s.id, s.title]));
   const launch = (sim: string, extra = "") => `/sims/launch?sim=${encodeURIComponent(sim)}&section=${encodeURIComponent(section)}${extra}`;
@@ -41,6 +47,49 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
             <form action={removeClassSimAction}><input type="hidden" name="sectionId" value={section} /><input type="hidden" name="simId" value={s.id} />
               <button className="nav-button ghost" type="submit">Remove</button></form>
           </div>
+          {(() => {
+            const col = columns.get(s.id);
+            if (!col) return null;
+            const rule = (col.scoreRule ?? "report") as SimRule;
+            const participation = isParticipation(col);
+            return (
+              <div className="ui" style={{ gridColumn: "1 / -1", marginTop: ".7rem", paddingTop: ".7rem", borderTop: "1px solid var(--rule)" }}>
+                <div style={{ display: "flex", gap: ".6rem", flexWrap: "wrap", alignItems: "end" }}>
+                  <form action={setSimRuleAction} style={{ display: "grid", gap: ".2rem" }}>
+                    <input type="hidden" name="sectionId" value={section} />
+                    <input type="hidden" name="lineItemId" value={col.id} />
+                    <span style={{ color: "var(--muted)", fontSize: ".78rem" }}>In the gradebook</span>
+                    <span style={{ display: "flex", gap: ".3rem" }}>
+                      <select name="rule" defaultValue={rule} style={{ ...field, width: "15rem" }}>
+                        {SIM_RULES.map((r) => <option key={r} value={r}>{SIM_RULE_LABELS[r]}</option>)}
+                      </select>
+                      <button className="nav-button secondary" type="submit">Save</button>
+                    </span>
+                  </form>
+                  {!participation && (
+                    <form action={setSimPointsAction} style={{ display: "grid", gap: ".2rem" }}>
+                      <input type="hidden" name="sectionId" value={section} />
+                      <input type="hidden" name="lineItemId" value={col.id} />
+                      <span style={{ color: "var(--muted)", fontSize: ".78rem" }}>Points</span>
+                      <span style={{ display: "flex", gap: ".3rem" }}>
+                        <input name="points" type="number" min={1} defaultValue={col.maxPoints} style={{ ...field, width: "5rem" }} />
+                        <button className="nav-button secondary" type="submit">Save</button>
+                      </span>
+                    </form>
+                  )}
+                  <Link className="nav-button ghost" href={`/teach/${section}/gradebook`}>Its gradebook column →</Link>
+                </div>
+                <p style={{ color: "var(--muted)", fontSize: ".8rem", margin: ".5rem 0 0" }}>
+                  {participation
+                    ? "A participation record: the gradebook shows who finished it, and it counts towards nothing."
+                    : !col.categoryId
+                      ? <>This is graded but belongs to no category, so <strong>it will not count towards the course grade until you move it</strong>
+                          {hasSimsCategory ? " into Simulations" : ""}. <Link href={`/teach/${section}/gradebook#grading-setup`}>Open grading setup</Link>.</>
+                      : <>Graded out of {col.maxPoints}, counting in its category. <Link href={`/teach/${section}/gradebook#grading-setup`}>Grading setup</Link>.</>}
+                </p>
+              </div>
+            );
+          })()}
         </div>
       ))}
       {addable.length > 0 && (

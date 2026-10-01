@@ -465,6 +465,9 @@ export const lineItems = pgTable(
     // The grading category this column counts in. NULL = not categorised, which is every
     // existing row, and keeps today's whole-gradebook weighting for that class.
     categoryId: text("category_id").references((): any => gradingCategories.id, { onDelete: "set null" }),
+    // Spec 12, for kind 'sim' columns: report | completion | manual. NULL on every other kind.
+    // 'report' is a participation record - no points, no category, out of every total.
+    scoreRule: text("score_rule"),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },

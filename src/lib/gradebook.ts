@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { lineItems, lineItemScores, exams, examAttempts, enrolments, users, identities, gradingCategories, letterScales } from "@/db/schema";
+import { lineItems, lineItemScores, exams, examAttempts, enrolments, users, identities, gradingCategories, letterScales, simCompletions, sims } from "@/db/schema";
 import {
   categoryPercent, coursePercent, countedScore, letterFor, parseBands, show, starterCategoryFor,
   weightsTotal, weightsValid, STARTER_CATEGORIES, type CountedAttempt, type LetterBand, type Scored,
@@ -45,6 +45,28 @@ async function examScores(examId: string, rule: CountedAttempt): Promise<Map<str
   return out;
 }
 
+/**
+ * A sim's first student completion in this class, per enrolment. Only student completions count,
+ * and only ones recorded in this class: faculty and preview launches never grade, and a completion
+ * with no section belongs to no class. The first completion is the one that counts, so a second
+ * never changes the credit.
+ */
+async function simCompletionsFor(simId: string, sectionId: string): Promise<Map<string, Date>> {
+  const rows = await db()
+    .select({ enrolmentId: enrolments.id, at: simCompletions.createdAt })
+    .from(simCompletions)
+    .innerJoin(enrolments, and(
+      eq(enrolments.userId, simCompletions.userId),
+      eq(enrolments.sectionId, sectionId),
+      eq(enrolments.role, "student"),      // a faculty or preview completion never scores
+    ))
+    .where(and(eq(simCompletions.simId, simId), eq(simCompletions.sectionId, sectionId)))
+    .orderBy(simCompletions.createdAt);
+  const first = new Map<string, Date>();
+  for (const r of rows) if (!first.has(r.enrolmentId)) first.set(r.enrolmentId, r.at); // oldest wins
+  return first;
+}
+
 /** Every attempt a student has on an exam, oldest first, with the counted one marked. */
 export async function attemptsForStudent(examId: string, enrolmentId: string, rule: CountedAttempt) {
   const mine = (await db().select().from(examAttempts)
@@ -70,7 +92,19 @@ export async function letterBandsFor(sectionId: string) {
   return parseBands(row?.bandsJson);
 }
 
-export type Cell = { points: number | null; max: number };
+export type SimRule = "report" | "completion" | "manual";
+export const SIM_RULES: SimRule[] = ["report", "completion", "manual"];
+export const SIM_RULE_LABELS: Record<SimRule, string> = {
+  report: "Participation record (not graded)",
+  completion: "Points for completing it",
+  manual: "Faculty enter the marks",
+};
+export const DEFAULT_SIM_POINTS = 10;
+/** A sim column under the `report` rule is a participation record, never part of a total. */
+export const isParticipation = (it: { kind: string; scoreRule: string | null }) =>
+  it.kind === "sim" && (it.scoreRule ?? "report") === "report";
+
+export type Cell = { points: number | null; max: number; completedAt?: Date | null };
 export type CategoryResult = { id: string; name: string; weight: number; dropLowest: number; pct: number | null };
 
 export async function gradebook(sectionId: string) {
@@ -93,6 +127,12 @@ export async function gradebook(sectionId: string) {
     const rule = (examById.get(it.refId)?.countedAttempt ?? "latest") as CountedAttempt;
     derived.set(it.id, await examScores(it.refId, rule));
   }
+  // Spec 12: a sim column's cell comes from the class's student completions, under its own rule.
+  const simDone = new Map<string, Map<string, Date>>(); // lineItemId -> enrolmentId -> first completion
+  for (const it of items) {
+    if (it.kind !== "sim" || !it.refId) continue;
+    simDone.set(it.id, await simCompletionsFor(it.refId, sectionId));
+  }
   const overrides = items.length ? await db().select().from(lineItemScores).where(inArray(lineItemScores.lineItemId, items.map((i) => i.id))) : [];
   const ovMap = new Map<string, number>();
   for (const o of overrides) ovMap.set(`${o.lineItemId}:${o.enrolmentId}`, o.points);
@@ -101,18 +141,27 @@ export async function gradebook(sectionId: string) {
     const cells: Record<string, Cell> = {};
     const scored: { item: typeof items[number]; pct: number }[] = [];
     for (const it of items) {
-      const pts: number | null = ovMap.has(`${it.id}:${s.enrolmentId}`)
-        ? ovMap.get(`${it.id}:${s.enrolmentId}`)!
-        : (it.kind === "exam" ? (derived.get(it.id)?.get(s.enrolmentId) ?? null) : null);
-      cells[it.id] = { points: pts, max: it.maxPoints };
-      if (pts != null && it.maxPoints > 0) scored.push({ item: it, pct: (pts / it.maxPoints) * 100 });
+      const typed = ovMap.has(`${it.id}:${s.enrolmentId}`) ? ovMap.get(`${it.id}:${s.enrolmentId}`)! : null;
+      const completedAt = it.kind === "sim" ? (simDone.get(it.id)?.get(s.enrolmentId) ?? null) : null;
+      // A score faculty typed always wins — that is what keeps a completion from overwriting it.
+      let pts: number | null = typed;
+      if (pts == null && it.kind === "exam") pts = derived.get(it.id)?.get(s.enrolmentId) ?? null;
+      if (pts == null && it.kind === "sim" && (it.scoreRule ?? "report") === "completion") {
+        pts = completedAt ? it.maxPoints : null; // full points for finishing it
+      }
+      // A participation column carries no score at all, however it is stored.
+      if (isParticipation(it)) pts = null;
+      cells[it.id] = { points: pts, max: it.maxPoints, completedAt };
+      // Participation columns are out of every total, and a zero-point column cannot be averaged.
+      if (pts != null && it.maxPoints > 0 && !isParticipation(it)) scored.push({ item: it, pct: (pts / it.maxPoints) * 100 });
     }
-    const graded = items.filter((it) => cells[it.id].points != null).length;
+    const gradeable = items.filter((it) => !isParticipation(it));
+    const graded = gradeable.filter((it) => cells[it.id].points != null).length;
 
     if (!categorised) {
       // No categories: exactly as before — one weighted mean over every graded column.
       const flat: Scored[] = scored.map((c) => ({ pct: c.pct, weight: c.item.weight }));
-      return { ...s, cells, total: categoryPercent(flat), graded, categories: [] as CategoryResult[], letter: null as string | null };
+      return { ...s, cells, total: categoryPercent(flat), graded, gradeableCount: gradeable.length, categories: [] as CategoryResult[], letter: null as string | null };
     }
 
     const perCategory: CategoryResult[] = categories.map((cat) => {
@@ -120,7 +169,7 @@ export async function gradebook(sectionId: string) {
       return { id: cat.id, name: cat.name, weight: cat.weight, dropLowest: cat.dropLowest, pct: categoryPercent(mine, cat.dropLowest) };
     });
     const total = coursePercent(perCategory);
-    return { ...s, cells, total, graded, categories: perCategory, letter: letterFor(total, bands) };
+    return { ...s, cells, total, graded, gradeableCount: gradeable.length, categories: perCategory, letter: letterFor(total, bands) };
   });
   return { items, students, categories, bands, categorised };
 }
@@ -133,16 +182,23 @@ export async function gradesForStudent(sectionId: string, enrolmentId: string) {
   const { items, students, categories, bands, categorised } = await gradebook(sectionId);
   const mine = students.find((s) => s.enrolmentId === enrolmentId);
   if (!mine) return null;
-  const graded = items
+  // Spec 12: participation columns are reported apart from graded work — they carry no mark and
+  // count towards nothing, so mixing them into the graded list would misrepresent the grade.
+  const participation = items.filter(isParticipation).map((it) => ({
+    id: it.id, title: it.title, completedAt: mine.cells[it.id].completedAt ?? null,
+  }));
+  const gradeable = items.filter((it) => !isParticipation(it));
+  const graded = gradeable
     .filter((it) => mine.cells[it.id].points != null)
     .map((it) => ({
       id: it.id, title: it.title, kind: it.kind, weight: it.weight, categoryId: it.categoryId,
       points: mine.cells[it.id].points as number, max: it.maxPoints,
       pct: it.maxPoints > 0 ? ((mine.cells[it.id].points as number) / it.maxPoints) * 100 : null,
+      completedAt: mine.cells[it.id].completedAt ?? null,
     }));
-  const ungradedCount = items.length - graded.length;
+  const ungradedCount = gradeable.length - graded.length;
   return {
-    graded, ungradedCount, categorised, categories,
+    graded, participation, ungradedCount, categorised, categories,
     perCategory: mine.categories, total: mine.total, letter: mine.letter, bands,
   };
 }
@@ -153,6 +209,69 @@ export async function addManualItem(sectionId: string, title: string, maxPoints:
 export async function setWeight(sectionId: string, lineItemId: string, weight: number) {
   if (!Number.isFinite(weight) || weight < 0) throw new Error("A column's weight cannot be negative.");
   await db().update(lineItems).set({ weight }).where(and(eq(lineItems.id, lineItemId), eq(lineItems.sectionId, sectionId)));
+}
+
+// --- Spec 12: sim columns ---
+
+/**
+ * Give a sim in a class its own gradebook column, idempotently. It starts as a participation
+ * record: `report`, no points, no category. Nothing about the class's grades changes by adding a
+ * sim — that only happens when faculty choose a grading rule.
+ */
+export async function ensureSimLineItem(sectionId: string, simId: string, title: string) {
+  const existing = (await db().select().from(lineItems)
+    .where(and(eq(lineItems.sectionId, sectionId), eq(lineItems.refId, simId))).limit(1))[0];
+  if (existing) return existing;
+  const [row] = await db().insert(lineItems)
+    .values({ sectionId, kind: "sim", refId: simId, title, maxPoints: 0, weight: 1, scoreRule: "report" })
+    .onConflictDoNothing().returning();
+  return row ?? (await db().select().from(lineItems)
+    .where(and(eq(lineItems.sectionId, sectionId), eq(lineItems.refId, simId))).limit(1))[0];
+}
+
+/** A class's sim columns, by sim id. */
+export async function simColumnsFor(sectionId: string) {
+  const rows = await db().select().from(lineItems)
+    .where(and(eq(lineItems.sectionId, sectionId), eq(lineItems.kind, "sim")));
+  return new Map(rows.filter((r) => r.refId).map((r) => [r.refId as string, r]));
+}
+
+/**
+ * Switch a sim column between a participation record and a graded column.
+ *
+ * Moving to `completion` or `manual` gives it points (10 unless it already had some) and puts it in
+ * the class's Simulations category when there is one. Moving back to `report` takes it out of every
+ * total — points to 0, out of its category — but never deletes a mark faculty typed: those rows
+ * stay and reappear if the column is graded again.
+ */
+export async function setSimRule(sectionId: string, lineItemId: string, rule: SimRule) {
+  if (!SIM_RULES.includes(rule)) throw new Error("Unknown rule for a simulation column.");
+  const item = (await db().select().from(lineItems)
+    .where(and(eq(lineItems.id, lineItemId), eq(lineItems.sectionId, sectionId))).limit(1))[0];
+  if (!item) throw new Error("No such column in this class.");
+  if (item.kind !== "sim") throw new Error("That rule only applies to a simulation column.");
+  if (rule === "report") {
+    await db().update(lineItems).set({ scoreRule: "report", maxPoints: 0, categoryId: null })
+      .where(eq(lineItems.id, lineItemId));
+    return;
+  }
+  const cats = await categoriesFor(sectionId);  // not `sims` — that is the table
+  const simsCategory = cats.find((c) => c.name.trim().toLowerCase() === "simulations") ?? null;
+  await db().update(lineItems).set({
+    scoreRule: rule,
+    maxPoints: item.maxPoints > 0 ? item.maxPoints : DEFAULT_SIM_POINTS,
+    categoryId: item.categoryId ?? simsCategory?.id ?? null,
+  }).where(eq(lineItems.id, lineItemId));
+}
+
+/** A sim column's points. Only meaningful once it is graded. */
+export async function setSimPoints(sectionId: string, lineItemId: string, points: number) {
+  if (!Number.isFinite(points) || points < 1) throw new Error("A simulation's points must be at least 1.");
+  const item = (await db().select().from(lineItems)
+    .where(and(eq(lineItems.id, lineItemId), eq(lineItems.sectionId, sectionId))).limit(1))[0];
+  if (!item || item.kind !== "sim") throw new Error("No such simulation column in this class.");
+  if ((item.scoreRule ?? "report") === "report") throw new Error("Give this simulation a grading rule before setting its points.");
+  await db().update(lineItems).set({ maxPoints: Math.floor(points) }).where(eq(lineItems.id, lineItemId));
 }
 
 // --- Spec 11: grading setup ---
@@ -243,7 +362,10 @@ export async function exportCsv(sectionId: string, format: string): Promise<stri
   const { items, students, categories, categorised } = await gradebook(sectionId);
   const rows: string[] = [];
   const itemTitles = items.map((i) => i.title);
-  const cellPts = (s: any, it: any) => s.cells[it.id].points == null ? "" : String(s.cells[it.id].points);
+  // Spec 12: a participation column exports as Completed or blank — it has no points to carry.
+  const cellPts = (s: any, it: any) => isParticipation(it)
+    ? (s.cells[it.id].completedAt ? "Completed" : "")
+    : (s.cells[it.id].points == null ? "" : String(s.cells[it.id].points));
   // Spec 11: a class with categories also exports each category's percentage and the letter.
   // Each format's existing total column already carries the course percentage, so it is not
   // repeated. Rounded here, at the edge — never in the stored figures.
@@ -254,8 +376,8 @@ export async function exportCsv(sectionId: string, format: string): Promise<stri
   const letterCell = (s: any) => categorised ? [s.letter ?? ""] : [];
 
   if (format === "canvas") {
-    rows.push(["Student", "ID", "SIS User ID", "SIS Login ID", "Section", ...itemTitles.map((t, i) => `${t} (${items[i].maxPoints})`), ...catHeaders, "Total", ...letterHeader].map(esc).join(","));
-    rows.push(["    Points Possible", "", "", "", "", ...items.map((i) => String(i.maxPoints)), ...catHeaders.map(() => ""), "100", ...letterHeader.map(() => "")].map(esc).join(","));
+    rows.push(["Student", "ID", "SIS User ID", "SIS Login ID", "Section", ...items.map((i) => isParticipation(i) ? `${i.title} (participation)` : `${i.title} (${i.maxPoints})`), ...catHeaders, "Total", ...letterHeader].map(esc).join(","));
+    rows.push(["    Points Possible", "", "", "", "", ...items.map((i) => isParticipation(i) ? "" : String(i.maxPoints)), ...catHeaders.map(() => ""), "100", ...letterHeader.map(() => "")].map(esc).join(","));
     for (const s of students) rows.push([s.name, "", "", s.email ?? "", "", ...items.map((it) => cellPts(s, it)), ...catCells(s), show(s.total), ...letterCell(s)].map(esc).join(","));
   } else if (format === "d2l") {
     // Brightspace/D2L: key column + "Item Points Grade <Numeric MaxPoints:M>" + end-of-line
@@ -274,7 +396,7 @@ export async function exportCsv(sectionId: string, format: string): Promise<stri
       rows.push([first, rest.join(" "), s.email ?? "", ...items.map((it) => cellPts(s, it)), ...catCells(s), show(s.total), ...letterCell(s)].map(esc).join(","));
     }
   } else { // generic
-    rows.push(["Student", "Email", ...itemTitles.map((t, i) => `${t} / ${items[i].maxPoints}`), ...catHeaders, "Weighted total (%)", ...letterHeader].map(esc).join(","));
+    rows.push(["Student", "Email", ...items.map((i) => isParticipation(i) ? `${i.title} (participation)` : `${i.title} / ${i.maxPoints}`), ...catHeaders, "Weighted total (%)", ...letterHeader].map(esc).join(","));
     for (const s of students) rows.push([s.name, s.email ?? "", ...items.map((it) => cellPts(s, it)), ...catCells(s), show(s.total), ...letterCell(s)].map(esc).join(","));
   }
   return rows.join("\r\n") + "\r\n";
