@@ -335,6 +335,10 @@ export const exams = pgTable(
     blueprintJson: text("blueprint_json").notNull(),
     timeLimitMin: integer("time_limit_min"),
     attemptLimit: integer("attempt_limit").notNull().default(1),
+    kind: text("kind").notNull().default("exam"),            // exam | quiz
+    // which attempt reaches the gradebook: highest | latest | average | first.
+    // Existing rows default to latest, which is what the gradebook always used.
+    countedAttempt: text("counted_attempt").notNull().default("latest"),
     feedback: text("feedback").notNull().default("after_close"), // immediate | after_close
     status: text("status").notNull().default("draft"), // draft | open | closed
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -418,6 +422,32 @@ export const outcomeObjectiveMap = pgTable(
 
 // --- Gradebook (line items for anything gradeable) ---
 
+// Spec 11: a class's grading categories — the syllabus's weighted buckets (quizzes 15%, exams 35%,
+// and so on). Weights are percentages and must total 100 to save. `dropLowest` drops that many of a
+// student's weakest columns in the category, by percentage, before averaging. A class with no rows
+// here grades exactly as it did before categories existed.
+export const gradingCategories = pgTable(
+  "grading_categories",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    weight: real("weight").notNull().default(0),
+    dropLowest: integer("drop_lowest").notNull().default(0),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("grading_categories_section_idx").on(t.sectionId)],
+);
+
+// A class's letter scale, as an ordered list of { letter, min } bands in JSON. No row means the
+// default A/B/C/D/F scale, so letters work before faculty touch anything.
+export const letterScales = pgTable("letter_scales", {
+  sectionId: text("section_id").primaryKey().references(() => sections.id, { onDelete: "cascade" }),
+  bandsJson: text("bands_json").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // One gradebook column. An exam registers here as kind 'exam' (refId = exam id);
 // a faculty member can also add kind 'manual' columns (participation, an offline
 // assignment). Weight is per section, set by the adopter — nothing assumes a split.
@@ -427,11 +457,14 @@ export const lineItems = pgTable(
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
-    kind: text("kind").notNull(), // 'exam' | 'manual'
+    kind: text("kind").notNull(), // 'exam' | 'manual' | 'assignment'
     refId: text("ref_id"),        // exam id when kind = 'exam'
     title: text("title").notNull(),
     maxPoints: integer("max_points").notNull(),
     weight: real("weight").notNull().default(1),
+    // The grading category this column counts in. NULL = not categorised, which is every
+    // existing row, and keeps today's whole-gradebook weighting for that class.
+    categoryId: text("category_id").references((): any => gradingCategories.id, { onDelete: "set null" }),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },

@@ -1,7 +1,11 @@
 import "server-only";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { lineItems, lineItemScores, exams, examAttempts, enrolments, users, identities } from "@/db/schema";
+import { lineItems, lineItemScores, exams, examAttempts, enrolments, users, identities, gradingCategories, letterScales } from "@/db/schema";
+import {
+  categoryPercent, coursePercent, countedScore, letterFor, parseBands, show, starterCategoryFor,
+  weightsTotal, weightsValid, STARTER_CATEGORIES, type CountedAttempt, type LetterBand, type Scored,
+} from "@/lib/grading";
 
 function blueprintMax(blueprintJson: string): number {
   const bp = JSON.parse(blueprintJson);
@@ -26,19 +30,49 @@ export async function listLineItems(sectionId: string) {
   return db().select().from(lineItems).where(eq(lineItems.sectionId, sectionId)).orderBy(lineItems.position, lineItems.createdAt);
 }
 
-// Latest submitted attempt score for an exam, per enrolment.
-async function examScores(examId: string): Promise<Map<string, number>> {
+// The score that reaches the gradebook for an exam, per enrolment, under that exam's
+// counted-attempt rule (highest | latest | average | first). Every attempt stays on record;
+// this only chooses which one to read, so changing the rule recomputes the cell.
+async function examScores(examId: string, rule: CountedAttempt): Promise<Map<string, number>> {
   const atts = await db().select().from(examAttempts).where(eq(examAttempts.examId, examId));
-  const byEnr = new Map<string, { score: number; at: Date }>();
-  for (const a of atts) {
-    if (!a.submittedAt || a.score == null) continue;
-    const cur = byEnr.get(a.enrolmentId);
-    if (!cur || a.submittedAt > cur.at) byEnr.set(a.enrolmentId, { score: a.score, at: a.submittedAt });
+  const byEnr = new Map<string, typeof atts>();
+  for (const a of atts) { const l = byEnr.get(a.enrolmentId) ?? []; l.push(a); byEnr.set(a.enrolmentId, l); }
+  const out = new Map<string, number>();
+  for (const [enrolmentId, list] of byEnr) {
+    const counted = countedScore(list, rule);
+    if (counted) out.set(enrolmentId, counted.score);
   }
-  return new Map([...byEnr].map(([k, v]) => [k, v.score]));
+  return out;
+}
+
+/** Every attempt a student has on an exam, oldest first, with the counted one marked. */
+export async function attemptsForStudent(examId: string, enrolmentId: string, rule: CountedAttempt) {
+  const mine = (await db().select().from(examAttempts)
+    .where(and(eq(examAttempts.examId, examId), eq(examAttempts.enrolmentId, enrolmentId))))
+    .sort((a, b) => +(a.submittedAt ?? a.startedAt) - +(b.submittedAt ?? b.startedAt));
+  const counted = countedScore(mine, rule);
+  // "average" is a computed figure, not one of the attempts, so nothing is marked for it
+  let countedId: string | null = null;
+  if (counted && rule !== "average") {
+    const match = mine.find((a) => a.submittedAt && a.score === counted.score && a.maxPoints === counted.maxPoints);
+    countedId = match?.id ?? null;
+  }
+  return { attempts: mine, counted, countedId };
+}
+
+export async function categoriesFor(sectionId: string) {
+  return db().select().from(gradingCategories).where(eq(gradingCategories.sectionId, sectionId))
+    .orderBy(gradingCategories.position, gradingCategories.createdAt);
+}
+
+export async function letterBandsFor(sectionId: string) {
+  const row = (await db().select().from(letterScales).where(eq(letterScales.sectionId, sectionId)).limit(1))[0];
+  return parseBands(row?.bandsJson);
 }
 
 export type Cell = { points: number | null; max: number };
+export type CategoryResult = { id: string; name: string; weight: number; dropLowest: number; pct: number | null };
+
 export async function gradebook(sectionId: string) {
   const items = await listLineItems(sectionId);
   const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject })
@@ -46,35 +80,157 @@ export async function gradebook(sectionId: string) {
     .leftJoin(identities, and(eq(identities.userId, users.id), eq(identities.provider, "password")))
     .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")));
 
-  // derived exam scores + manual/override scores
+  const [categories, bands] = await Promise.all([categoriesFor(sectionId), letterBandsFor(sectionId)]);
+  const categorised = categories.length > 0;
+
+  // derived exam scores (under each exam's own counted-attempt rule) + manual/override scores
+  const examRows = items.some((i) => i.kind === "exam")
+    ? await db().select().from(exams).where(eq(exams.sectionId, sectionId)) : [];
+  const examById = new Map(examRows.map((e) => [e.id, e]));
   const derived = new Map<string, Map<string, number>>(); // lineItemId -> enrolmentId -> points
-  for (const it of items) if (it.kind === "exam" && it.refId) derived.set(it.id, await examScores(it.refId));
+  for (const it of items) {
+    if (it.kind !== "exam" || !it.refId) continue;
+    const rule = (examById.get(it.refId)?.countedAttempt ?? "latest") as CountedAttempt;
+    derived.set(it.id, await examScores(it.refId, rule));
+  }
   const overrides = items.length ? await db().select().from(lineItemScores).where(inArray(lineItemScores.lineItemId, items.map((i) => i.id))) : [];
   const ovMap = new Map<string, number>();
   for (const o of overrides) ovMap.set(`${o.lineItemId}:${o.enrolmentId}`, o.points);
 
   const students = roster.map((s) => {
     const cells: Record<string, Cell> = {};
-    let wsum = 0, wpct = 0;
+    const scored: { item: typeof items[number]; pct: number }[] = [];
     for (const it of items) {
-      let pts: number | null = ovMap.has(`${it.id}:${s.enrolmentId}`)
+      const pts: number | null = ovMap.has(`${it.id}:${s.enrolmentId}`)
         ? ovMap.get(`${it.id}:${s.enrolmentId}`)!
         : (it.kind === "exam" ? (derived.get(it.id)?.get(s.enrolmentId) ?? null) : null);
       cells[it.id] = { points: pts, max: it.maxPoints };
-      if (pts != null && it.maxPoints > 0) { wsum += it.weight; wpct += (pts / it.maxPoints) * it.weight; }
+      if (pts != null && it.maxPoints > 0) scored.push({ item: it, pct: (pts / it.maxPoints) * 100 });
     }
-    const total = wsum > 0 ? Math.round((wpct / wsum) * 1000) / 10 : null; // weighted % over graded items
     const graded = items.filter((it) => cells[it.id].points != null).length;
-    return { ...s, cells, total, graded };
+
+    if (!categorised) {
+      // No categories: exactly as before — one weighted mean over every graded column.
+      const flat: Scored[] = scored.map((c) => ({ pct: c.pct, weight: c.item.weight }));
+      return { ...s, cells, total: categoryPercent(flat), graded, categories: [] as CategoryResult[], letter: null as string | null };
+    }
+
+    const perCategory: CategoryResult[] = categories.map((cat) => {
+      const mine: Scored[] = scored.filter((c) => c.item.categoryId === cat.id).map((c) => ({ pct: c.pct, weight: c.item.weight }));
+      return { id: cat.id, name: cat.name, weight: cat.weight, dropLowest: cat.dropLowest, pct: categoryPercent(mine, cat.dropLowest) };
+    });
+    const total = coursePercent(perCategory);
+    return { ...s, cells, total, graded, categories: perCategory, letter: letterFor(total, bands) };
   });
-  return { items, students };
+  return { items, students, categories, bands, categorised };
+}
+
+/**
+ * Spec 11: one student's own view of their grades. Reuses gradebook() so the arithmetic a
+ * student sees is the same arithmetic their faculty see — never a second implementation.
+ */
+export async function gradesForStudent(sectionId: string, enrolmentId: string) {
+  const { items, students, categories, bands, categorised } = await gradebook(sectionId);
+  const mine = students.find((s) => s.enrolmentId === enrolmentId);
+  if (!mine) return null;
+  const graded = items
+    .filter((it) => mine.cells[it.id].points != null)
+    .map((it) => ({
+      id: it.id, title: it.title, kind: it.kind, weight: it.weight, categoryId: it.categoryId,
+      points: mine.cells[it.id].points as number, max: it.maxPoints,
+      pct: it.maxPoints > 0 ? ((mine.cells[it.id].points as number) / it.maxPoints) * 100 : null,
+    }));
+  const ungradedCount = items.length - graded.length;
+  return {
+    graded, ungradedCount, categorised, categories,
+    perCategory: mine.categories, total: mine.total, letter: mine.letter, bands,
+  };
 }
 
 export async function addManualItem(sectionId: string, title: string, maxPoints: number, weight: number) {
   await db().insert(lineItems).values({ sectionId, kind: "manual", title, maxPoints, weight });
 }
 export async function setWeight(sectionId: string, lineItemId: string, weight: number) {
+  if (!Number.isFinite(weight) || weight < 0) throw new Error("A column's weight cannot be negative.");
   await db().update(lineItems).set({ weight }).where(and(eq(lineItems.id, lineItemId), eq(lineItems.sectionId, sectionId)));
+}
+
+// --- Spec 11: grading setup ---
+
+/** Replace a class's categories. Weights must total 100. Columns in deleted categories fall back
+ *  to uncategorised (ON DELETE SET NULL), which is the no-categories behaviour for them. */
+export async function setCategories(
+  sectionId: string,
+  rows: { id?: string; name: string; weight: number; dropLowest?: number }[],
+) {
+  const kept = rows.filter((r) => r.name.trim() !== "");
+  if (!kept.length) { // clearing the setup returns the class to today's behaviour
+    await db().delete(gradingCategories).where(eq(gradingCategories.sectionId, sectionId));
+    return;
+  }
+  if (kept.some((r) => !Number.isFinite(r.weight) || r.weight < 0)) throw new Error("A category's weight cannot be negative.");
+  if (kept.some((r) => (r.dropLowest ?? 0) < 0)) throw new Error("Drop-lowest cannot be negative.");
+  if (!weightsValid(kept.map((r) => r.weight))) {
+    throw new Error(`Category weights must total 100% — they total ${show(weightsTotal(kept.map((r) => r.weight)))}%.`);
+  }
+  const existing = await categoriesFor(sectionId);
+  const keepIds = new Set(kept.map((r) => r.id).filter(Boolean) as string[]);
+  for (const e of existing) if (!keepIds.has(e.id)) await db().delete(gradingCategories).where(eq(gradingCategories.id, e.id));
+  let pos = 0;
+  for (const r of kept) {
+    const values = { name: r.name.trim(), weight: r.weight, dropLowest: r.dropLowest ?? 0, position: pos++ };
+    if (r.id && existing.some((e) => e.id === r.id)) {
+      await db().update(gradingCategories).set(values).where(and(eq(gradingCategories.id, r.id), eq(gradingCategories.sectionId, sectionId)));
+    } else {
+      await db().insert(gradingCategories).values({ sectionId, ...values });
+    }
+  }
+}
+
+/** Offer the starter set to a class that has none, assigning existing columns by kind. */
+export async function applyStarterCategories(sectionId: string) {
+  if ((await categoriesFor(sectionId)).length) return; // never overwrite a faculty's own setup
+  let pos = 0;
+  for (const c of STARTER_CATEGORIES) {
+    await db().insert(gradingCategories).values({ sectionId, name: c.name, weight: c.weight, dropLowest: 0, position: pos++ });
+  }
+  const cats = await categoriesFor(sectionId);
+  const byName = new Map(cats.map((c) => [c.name, c.id]));
+  const items = await db().select().from(lineItems).where(eq(lineItems.sectionId, sectionId));
+  const examRows = await db().select().from(exams).where(eq(exams.sectionId, sectionId));
+  const examKind = new Map(examRows.map((e) => [e.id, e.kind]));
+  for (const it of items) {
+    if (it.categoryId) continue;
+    const want = starterCategoryFor(it.kind, it.refId ? examKind.get(it.refId) : undefined);
+    const categoryId = want ? byName.get(want) ?? null : null;
+    if (categoryId) await db().update(lineItems).set({ categoryId }).where(eq(lineItems.id, it.id));
+  }
+}
+
+/** Move one column into a category, or out of all of them with null. */
+export async function setColumnCategory(sectionId: string, lineItemId: string, categoryId: string | null) {
+  if (categoryId) {
+    const owned = (await db().select({ id: gradingCategories.id }).from(gradingCategories)
+      .where(and(eq(gradingCategories.id, categoryId), eq(gradingCategories.sectionId, sectionId))).limit(1))[0];
+    if (!owned) throw new Error("That category belongs to another class.");
+  }
+  await db().update(lineItems).set({ categoryId }).where(and(eq(lineItems.id, lineItemId), eq(lineItems.sectionId, sectionId)));
+}
+
+/** Replace a class's letter scale. An empty list restores the default A/B/C/D/F. */
+export async function setLetterBands(sectionId: string, bands: LetterBand[]) {
+  const clean = bands
+    .filter((b) => b.letter.trim() !== "" && Number.isFinite(Number(b.min)))
+    .map((b) => ({ letter: b.letter.trim(), min: Number(b.min) }))
+    .sort((a, b) => b.min - a.min);
+  if (!clean.length) {
+    await db().delete(letterScales).where(eq(letterScales.sectionId, sectionId));
+    return;
+  }
+  if (clean.some((b) => b.min < 0 || b.min > 100)) throw new Error("A letter's minimum must be between 0 and 100.");
+  const bandsJson = JSON.stringify(clean);
+  await db().insert(letterScales).values({ sectionId, bandsJson, updatedAt: new Date() })
+    .onConflictDoUpdate({ target: letterScales.sectionId, set: { bandsJson, updatedAt: new Date() } });
 }
 export async function setScore(lineItemId: string, enrolmentId: string, points: number) {
   await db().insert(lineItemScores).values({ lineItemId, enrolmentId, points, updatedAt: new Date() })
@@ -84,34 +240,42 @@ export async function setScore(lineItemId: string, enrolmentId: string, points: 
 // --- CSV export ---
 const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
 export async function exportCsv(sectionId: string, format: string): Promise<string> {
-  const { items, students } = await gradebook(sectionId);
+  const { items, students, categories, categorised } = await gradebook(sectionId);
   const rows: string[] = [];
   const itemTitles = items.map((i) => i.title);
   const cellPts = (s: any, it: any) => s.cells[it.id].points == null ? "" : String(s.cells[it.id].points);
+  // Spec 11: a class with categories also exports each category's percentage and the letter.
+  // Each format's existing total column already carries the course percentage, so it is not
+  // repeated. Rounded here, at the edge — never in the stored figures.
+  // D2L stays per-item only (decision 4), so it ignores both.
+  const catHeaders = categorised ? categories.map((c) => `${c.name} (%)`) : [];
+  const catCells = (s: any) => categorised ? s.categories.map((c: any) => show(c.pct)) : [];
+  const letterHeader = categorised ? ["Letter"] : [];
+  const letterCell = (s: any) => categorised ? [s.letter ?? ""] : [];
 
   if (format === "canvas") {
-    rows.push(["Student", "ID", "SIS User ID", "SIS Login ID", "Section", ...itemTitles.map((t, i) => `${t} (${items[i].maxPoints})`), "Total"].map(esc).join(","));
-    rows.push(["    Points Possible", "", "", "", "", ...items.map((i) => String(i.maxPoints)), "100"].map(esc).join(","));
-    for (const s of students) rows.push([s.name, "", "", s.email ?? "", "", ...items.map((it) => cellPts(s, it)), s.total ?? ""].map(esc).join(","));
+    rows.push(["Student", "ID", "SIS User ID", "SIS Login ID", "Section", ...itemTitles.map((t, i) => `${t} (${items[i].maxPoints})`), ...catHeaders, "Total", ...letterHeader].map(esc).join(","));
+    rows.push(["    Points Possible", "", "", "", "", ...items.map((i) => String(i.maxPoints)), ...catHeaders.map(() => ""), "100", ...letterHeader.map(() => "")].map(esc).join(","));
+    for (const s of students) rows.push([s.name, "", "", s.email ?? "", "", ...items.map((it) => cellPts(s, it)), ...catCells(s), show(s.total), ...letterCell(s)].map(esc).join(","));
   } else if (format === "d2l") {
     // Brightspace/D2L: key column + "Item Points Grade <Numeric MaxPoints:M>" + end-of-line
     rows.push(["Username", ...items.map((i) => `${i.title} Points Grade <Numeric MaxPoints:${i.maxPoints}>`), "End-of-Line Indicator"].map(esc).join(","));
     for (const s of students) rows.push([s.email ?? s.name, ...items.map((it) => cellPts(s, it)), "#"].map(esc).join(","));
   } else if (format === "blackboard") {
-    rows.push(["Last Name", "First Name", "Username", ...itemTitles, "Weighted Total"].map(esc).join(","));
+    rows.push(["Last Name", "First Name", "Username", ...itemTitles, ...catHeaders, "Weighted Total", ...letterHeader].map(esc).join(","));
     for (const s of students) {
       const [first, ...rest] = (s.name ?? "").split(" "); const last = rest.join(" ") || first;
-      rows.push([last, first, s.email ?? "", ...items.map((it) => cellPts(s, it)), s.total ?? ""].map(esc).join(","));
+      rows.push([last, first, s.email ?? "", ...items.map((it) => cellPts(s, it)), ...catCells(s), show(s.total), ...letterCell(s)].map(esc).join(","));
     }
   } else if (format === "moodle") {
-    rows.push(["First name", "Last name", "Email address", ...itemTitles, "Course total"].map(esc).join(","));
+    rows.push(["First name", "Last name", "Email address", ...itemTitles, ...catHeaders, "Course total", ...letterHeader].map(esc).join(","));
     for (const s of students) {
       const [first, ...rest] = (s.name ?? "").split(" ");
-      rows.push([first, rest.join(" "), s.email ?? "", ...items.map((it) => cellPts(s, it)), s.total ?? ""].map(esc).join(","));
+      rows.push([first, rest.join(" "), s.email ?? "", ...items.map((it) => cellPts(s, it)), ...catCells(s), show(s.total), ...letterCell(s)].map(esc).join(","));
     }
   } else { // generic
-    rows.push(["Student", "Email", ...itemTitles.map((t, i) => `${t} / ${items[i].maxPoints}`), "Weighted total (%)"].map(esc).join(","));
-    for (const s of students) rows.push([s.name, s.email ?? "", ...items.map((it) => cellPts(s, it)), s.total ?? ""].map(esc).join(","));
+    rows.push(["Student", "Email", ...itemTitles.map((t, i) => `${t} / ${items[i].maxPoints}`), ...catHeaders, "Weighted total (%)", ...letterHeader].map(esc).join(","));
+    for (const s of students) rows.push([s.name, s.email ?? "", ...items.map((it) => cellPts(s, it)), ...catCells(s), show(s.total), ...letterCell(s)].map(esc).join(","));
   }
   return rows.join("\r\n") + "\r\n";
 }

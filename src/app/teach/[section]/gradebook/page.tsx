@@ -4,7 +4,11 @@ import { currentUser } from "@/lib/auth";
 import { ownedSection } from "@/lib/roster";
 import { gradebook } from "@/lib/gradebook";
 import { sectionHasLtiLink } from "@/lib/lti";
-import { setWeightsAction, addLineItemAction, setScoreAction, pushGradesAction } from "@/app/actions";
+import { show, DEFAULT_LETTER_BANDS } from "@/lib/grading";
+import {
+  setWeightsAction, addLineItemAction, setScoreAction, pushGradesAction,
+  setCategoriesAction, applyStarterCategoriesAction, setColumnCategoryAction, setLetterBandsAction,
+} from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
@@ -12,13 +16,13 @@ const cell = { border: "1px solid var(--rule)", padding: ".4rem .55rem", textAli
 const num = { ...cell, textAlign: "right", fontVariantNumeric: "tabular-nums" } as const;
 const field = { padding: ".3rem .4rem", border: "1px solid var(--rule)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "4rem" } as const;
 
-export default async function Gradebook({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ pushed?: string; skipped?: string; push_error?: string }> }) {
+export default async function Gradebook({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ pushed?: string; skipped?: string; push_error?: string; grading_ok?: string; grading_error?: string }> }) {
   const { section } = await params;
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}/gradebook`)}`);
   const sec = await ownedSection(user!.id, section);
   if (!sec) redirect("/teach");
-  const { items, students } = await gradebook(section);
+  const { items, students, categories, bands, categorised } = await gradebook(section);
   const [ltiLinked, spx] = await Promise.all([sectionHasLtiLink(section), searchParams]);
 
   return (
@@ -27,7 +31,9 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link></p>
       <h1>Gradebook</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>
-        Weighted total is the average of each column's percentage, weighted per column, over the items a student has been graded on. Exams appear automatically; add manual columns below.
+        {categorised
+          ? "Each category is a weighted mean of its columns' percentages; the course grade is a weighted average of the categories that have graded work. Ungraded work is left out."
+          : "Weighted total is the average of each column's percentage, weighted per column, over the items a student has been graded on. Exams appear automatically; add manual columns below."}
       </p>
 
       {items.length === 0 ? <p className="ui" style={{ color: "var(--muted)" }}>No columns yet — create an exam or add a manual column.</p> : (
@@ -39,16 +45,22 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                 <tr>
                   <th style={cell}>Student</th>
                   {items.map((it) => <th key={it.id} style={num}>{it.title}<div style={{ fontWeight: 400, color: "var(--muted)" }}>/ {it.maxPoints} · {it.kind}</div></th>)}
-                  <th style={num}>Total %</th>
+                  {categorised && categories.map((c) => (
+                    <th key={c.id} style={{ ...num, background: "var(--mark)" }}>{c.name}<div style={{ fontWeight: 400, color: "var(--muted)" }}>{show(c.weight)}%{c.dropLowest > 0 ? ` · drop ${c.dropLowest}` : ""}</div></th>
+                  ))}
+                  <th style={num}>{categorised ? "Course %" : "Total %"}</th>
+                  {categorised && <th style={num}>Letter</th>}
                 </tr>
                 <tr>
                   <th style={{ ...cell, color: "var(--muted)", fontWeight: 400 }}>weight →</th>
                   {items.map((it) => <th key={it.id} style={num}><input name={`weight_${it.id}`} defaultValue={it.weight} style={field} type="number" min={0} step="0.5" /></th>)}
+                  {categorised && categories.map((c) => <th key={c.id} style={num} />)}
                   <th style={num}><button type="submit" style={{ ...field, width: "auto", cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Save</button></th>
+                  {categorised && <th style={num} />}
                 </tr>
               </thead>
               <tbody>
-                {students.length === 0 && <tr><td style={cell} colSpan={items.length + 2}>No students enrolled yet.</td></tr>}
+                {students.length === 0 && <tr><td style={cell} colSpan={items.length + 2 + (categorised ? categories.length + 1 : 0)}>No students enrolled yet.</td></tr>}
                 {students.map((s) => (
                   <tr key={s.enrolmentId}>
                     <td style={cell}>{s.name}<div style={{ color: "var(--muted)", fontSize: ".78rem" }}>{s.email}</div></td>
@@ -64,14 +76,127 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                       );
                       return <td key={it.id} style={num}>{c.points == null ? <span style={{ color: "var(--muted)" }}>—</span> : c.points}</td>;
                     })}
-                    <td style={{ ...num, fontWeight: 600, color: "var(--navy)" }}>{s.total == null ? "—" : `${s.total}%`}<div style={{ fontWeight: 400, color: "var(--muted)", fontSize: ".72rem" }}>{s.graded}/{items.length}</div></td>
+                    {categorised && s.categories.map((c) => (
+                      <td key={c.id} style={{ ...num, background: "var(--mark)" }}>{c.pct == null ? <span style={{ color: "var(--muted)" }}>—</span> : `${show(c.pct)}%`}</td>
+                    ))}
+                    <td style={{ ...num, fontWeight: 600, color: "var(--navy)" }}>{s.total == null ? "—" : `${show(s.total)}%`}<div style={{ fontWeight: 400, color: "var(--muted)", fontSize: ".72rem" }}>{s.graded}/{items.length}</div></td>
+                    {categorised && <td style={{ ...num, fontWeight: 700, color: "var(--navy)" }}>{s.letter ?? "—"}</td>}
                   </tr>
                 ))}
               </tbody>
             </table>
           </form>
-          <p className="ui" style={{ color: "var(--muted)", fontSize: ".8rem" }}>Manual-column cells are editable inline (press Enter to save). Exam columns are the latest submitted attempt.</p>
+          <p className="ui" style={{ color: "var(--muted)", fontSize: ".8rem" }}>Manual-column cells are editable inline (press Enter to save). Exam columns use each quiz or exam's own retake rule.</p>
         </div>
+      )}
+
+      <h2 id="grading-setup" style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Grading setup</h2>
+      {spx.grading_ok && <p className="ui" style={{ color: "#2a7d3f" }}>{spx.grading_ok}</p>}
+      {spx.grading_error && <p className="ui" style={{ color: "#b4451f" }} role="alert">{spx.grading_error}</p>}
+
+      {!categorised ? (
+        <>
+          <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>
+            This class grades by column weight. Set up your syllabus's categories to grade by weighted
+            categories instead — quizzes, exams, assignments and simulations. Nothing changes until you do.
+          </p>
+          <form action={applyStarterCategoriesAction}>
+            <input type="hidden" name="sectionId" value={section} />
+            <button type="submit" style={{ padding: ".55rem 1rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>
+              Set up grading categories
+            </button>
+          </form>
+          <p className="ui" style={{ color: "var(--muted)", fontSize: ".8rem" }}>Starts from Quizzes 15 · Exams 35 · Assignments 30 · Simulations 20, which you can edit or delete.</p>
+        </>
+      ) : (
+        <>
+          <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>
+            Weights must total 100% to save. Clearing every name removes the categories and returns the
+            class to grading by column weight.
+          </p>
+          <form action={setCategoriesAction} className="ui">
+            <input type="hidden" name="sectionId" value={section} />
+            <table className="ui" style={{ borderCollapse: "collapse", fontSize: ".85rem", marginBottom: ".6rem" }}>
+              <thead><tr><th style={cell}>Category</th><th style={num}>Weight %</th><th style={num}>Drop lowest</th></tr></thead>
+              <tbody>
+                {categories.map((c, i) => (
+                  <tr key={c.id}>
+                    <td style={cell}>
+                      <input type="hidden" name={`cat_id_${i}`} value={c.id} />
+                      <input name={`cat_name_${i}`} defaultValue={c.name} style={{ ...field, width: "14rem" }} />
+                    </td>
+                    <td style={num}><input name={`cat_weight_${i}`} type="number" min={0} step="0.5" defaultValue={c.weight} style={field} /></td>
+                    <td style={num}><input name={`cat_drop_${i}`} type="number" min={0} defaultValue={c.dropLowest} style={field} /></td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={cell}><input name={`cat_name_${categories.length}`} placeholder="Add a category…" style={{ ...field, width: "14rem" }} /></td>
+                  <td style={num}><input name={`cat_weight_${categories.length}`} type="number" min={0} step="0.5" defaultValue={0} style={field} /></td>
+                  <td style={num}><input name={`cat_drop_${categories.length}`} type="number" min={0} defaultValue={0} style={field} /></td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th style={{ ...cell, color: "var(--muted)", fontWeight: 400 }}>Running total</th>
+                  <th style={{ ...num, color: Math.abs(categories.reduce((t, c) => t + c.weight, 0) - 100) < 0.01 ? "#2a7d3f" : "#b4451f" }}>
+                    {show(categories.reduce((t, c) => t + c.weight, 0))}%
+                  </th>
+                  <th style={num} />
+                </tr>
+              </tfoot>
+            </table>
+            <button type="submit" style={{ padding: ".5rem .9rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Save categories</button>
+          </form>
+
+          {items.length > 0 && (
+            <>
+              <h3 style={{ color: "var(--navy)", marginTop: "1.2rem", fontSize: "1rem" }}>Which category each column counts in</h3>
+              <form action={setColumnCategoryAction} className="ui">
+                <input type="hidden" name="sectionId" value={section} />
+                <table className="ui" style={{ borderCollapse: "collapse", fontSize: ".85rem", marginBottom: ".6rem" }}>
+                  <thead><tr><th style={cell}>Column</th><th style={cell}>Kind</th><th style={cell}>Category</th></tr></thead>
+                  <tbody>
+                    {items.map((it) => (
+                      <tr key={it.id}>
+                        <td style={cell}>{it.title}</td>
+                        <td style={{ ...cell, color: "var(--muted)" }}>{it.kind}</td>
+                        <td style={cell}>
+                          <select name={`column_cat_${it.id}`} defaultValue={it.categoryId ?? ""} style={{ ...field, width: "12rem" }}>
+                            <option value="">— none —</option>
+                            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button type="submit" style={{ padding: ".5rem .9rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Save assignments</button>
+              </form>
+              <p className="ui" style={{ color: "var(--muted)", fontSize: ".8rem" }}>A column in no category does not count towards the course grade.</p>
+            </>
+          )}
+
+          <h3 style={{ color: "var(--navy)", marginTop: "1.2rem", fontSize: "1rem" }}>Letter scale</h3>
+          <form action={setLetterBandsAction} className="ui" style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", alignItems: "end" }}>
+            <input type="hidden" name="sectionId" value={section} />
+            {bands.map((b, i) => (
+              <span key={i} style={{ display: "inline-flex", gap: ".2rem", alignItems: "center" }}>
+                <input name={`band_letter_${i}`} defaultValue={b.letter} style={{ ...field, width: "3.2rem" }} aria-label="Letter" />
+                <span style={{ color: "var(--muted)" }}>≥</span>
+                <input name={`band_min_${i}`} type="number" min={0} max={100} step="0.1" defaultValue={b.min} style={{ ...field, width: "4.4rem" }} aria-label="Minimum percentage" />
+              </span>
+            ))}
+            <button type="submit" style={{ padding: ".5rem .9rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Save scale</button>
+          </form>
+          <form action={setLetterBandsAction} style={{ marginTop: ".4rem" }}>
+            <input type="hidden" name="sectionId" value={section} />
+            <input type="hidden" name="preset" value="plusminus" />
+            <button type="submit" className="nav-button ghost">Add +/− bands</button>
+          </form>
+          <p className="ui" style={{ color: "var(--muted)", fontSize: ".8rem" }}>
+            Default is {DEFAULT_LETTER_BANDS.map((b) => `${b.letter} ≥ ${b.min}`).join(" · ")}. Clear every letter to restore it.
+          </p>
+        </>
       )}
 
       <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Add a manual column</h2>

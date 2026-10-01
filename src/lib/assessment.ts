@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, inArray, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { questions, exams, examAttempts, examResponses, enrolments, users, identities, sections } from "@/db/schema";
+import { countedScore, type CountedAttempt } from "@/lib/grading";
 
 type Opt = { id: string; text: string; correct: boolean; rationale: string };
 // What a student was served. `snap` freezes the question exactly as it was at that moment, so
@@ -68,16 +69,46 @@ export async function questionBankForChapter(bookId: string, chapter: number) {
 }
 
 // ---- exams (instructor) ----
-export async function createExam(sectionId: string, v: { title: string; blueprint: Blueprint; feedback: string; timeLimitMin: number | null; attemptLimit: number }) {
+export async function createExam(sectionId: string, v: { title: string; blueprint: Blueprint; feedback: string; timeLimitMin: number | null; attemptLimit: number; kind?: "exam" | "quiz"; countedAttempt?: CountedAttempt }) {
+  const kind = v.kind ?? "exam";
+  // Spec 11 defaults: a quiz is retakeable and the best attempt counts; an exam is one sitting.
+  const countedAttempt = v.countedAttempt ?? (kind === "quiz" ? "highest" : "first");
   const [row] = await db().insert(exams).values({
     sectionId, title: v.title, blueprintJson: JSON.stringify(v.blueprint),
     feedback: v.feedback, timeLimitMin: v.timeLimitMin, attemptLimit: v.attemptLimit,
+    kind, countedAttempt,
   }).returning();
   return row;
 }
 export async function setExamStatus(examId: string, status: "draft" | "open" | "closed") {
   await db().update(exams).set({ status }).where(eq(exams.id, examId));
 }
+
+/**
+ * Spec 11: a quiz or exam's retake settings, editable after creation.
+ * Lowering attemptLimit below what a student has already used never removes an attempt — the
+ * limit is only consulted when starting a new one (see startAttempt) — so their work and the
+ * gradebook cell are untouched.
+ */
+export async function setExamRetakeRules(sectionId: string, examId: string, v: { attemptLimit?: number; countedAttempt?: CountedAttempt; kind?: "exam" | "quiz" }) {
+  const patch: Record<string, unknown> = {};
+  if (v.attemptLimit != null) {
+    if (!Number.isFinite(v.attemptLimit) || v.attemptLimit < 1) throw new Error("Attempts allowed must be at least 1.");
+    patch.attemptLimit = Math.floor(v.attemptLimit);
+  }
+  if (v.countedAttempt) {
+    if (!COUNTED_ATTEMPT_RULES.includes(v.countedAttempt)) throw new Error("Unknown retake rule.");
+    patch.countedAttempt = v.countedAttempt;
+  }
+  if (v.kind) patch.kind = v.kind;
+  if (!Object.keys(patch).length) return;
+  await db().update(exams).set(patch).where(and(eq(exams.id, examId), eq(exams.sectionId, sectionId)));
+}
+
+export const COUNTED_ATTEMPT_RULES: CountedAttempt[] = ["highest", "latest", "average", "first"];
+export const COUNTED_ATTEMPT_LABELS: Record<CountedAttempt, string> = {
+  highest: "Highest attempt", latest: "Latest attempt", average: "Average of attempts", first: "First attempt",
+};
 export async function examsForSection(sectionId: string) {
   return db().select().from(exams).where(eq(exams.sectionId, sectionId)).orderBy(desc(exams.createdAt));
 }
@@ -129,8 +160,16 @@ export async function openExamsForSection(sectionId: string, enrolmentId: string
   for (const a of mine) { const l = attemptsByExam.get(a.examId) ?? []; l.push(a); attemptsByExam.set(a.examId, l); }
   return open.map((e) => {
     const as = attemptsByExam.get(e.id) ?? [];
-    const submitted = as.filter((a) => a.submittedAt);
-    return { exam: e, attemptsUsed: submitted.length, canAttempt: submitted.length < e.attemptLimit, lastScore: submitted.at(-1)?.score ?? null, lastMax: submitted.at(-1)?.maxPoints ?? null };
+    // sorted by submission time: row order from the database carries no ordering guarantee,
+    // so .at(-1) on the raw rows could disagree with the gradebook about the latest attempt
+    const submitted = as.filter((a) => a.submittedAt).sort((x, y) => +x.submittedAt! - +y.submittedAt!);
+    const counted = countedScore(submitted, (e.countedAttempt ?? "latest") as CountedAttempt);
+    return {
+      exam: e, attemptsUsed: submitted.length, canAttempt: submitted.length < e.attemptLimit,
+      lastScore: submitted.at(-1)?.score ?? null, lastMax: submitted.at(-1)?.maxPoints ?? null,
+      // what actually counts for this exam, which is not always the last one sat
+      countedScore: counted?.score ?? null, countedMax: counted?.maxPoints ?? null,
+    };
   });
 }
 
@@ -213,7 +252,21 @@ export async function examResults(examId: string) {
   const bank = new Map((byQ.size ? await db().select().from(questions).where(inArray(questions.id, [...byQ.keys()])) : []).map((r) => [r.id, r]));
   const items = [...byQ.entries()].map(([qid, s]) => ({ questionId: qid, stem: bank.get(qid)?.stem ?? qid, served: s.served, correct: s.correct, pct: s.served ? Math.round((s.correct / s.served) * 100) : 0 }))
     .sort((a, b) => a.pct - b.pct);
-  return { students: submitted.map((a) => ({ name: a.name, email: a.email, score: a.score, maxPoints: a.maxPoints })), items };
+  // One row per student, not per attempt: with retakes allowed the same student submits more
+  // than once, which used to list them repeatedly and skew the page's average.
+  const exam = (await db().select({ rule: exams.countedAttempt }).from(exams).where(eq(exams.id, examId)).limit(1))[0];
+  const rule = (exam?.rule ?? "latest") as CountedAttempt;
+  const byEnrolment = new Map<string, typeof submitted>();
+  for (const a of submitted) { const l = byEnrolment.get(a.enrolmentId) ?? []; l.push(a); byEnrolment.set(a.enrolmentId, l); }
+  const perStudent = [...byEnrolment.values()].map((list) => {
+    const counted = countedScore(list, rule);
+    return {
+      name: list[0].name, email: list[0].email, enrolmentId: list[0].enrolmentId,
+      score: counted?.score ?? null, maxPoints: counted?.maxPoints ?? list[0].maxPoints,
+      attempts: list.length,
+    };
+  });
+  return { students: perStudent, items };
 }
 
 export async function attemptEnrolmentId(attemptId: string) {

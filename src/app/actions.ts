@@ -116,10 +116,13 @@ export async function createExamAction(formData: FormData) {
     difficulty: clean(formData.get("difficulty")) || "any",
     count: Math.max(1, Number(formData.get("count")) || 5),
   }] };
+  const kindRaw = clean(formData.get("kind"));
   await createExam(sectionId, {
     title: clean(formData.get("title")) || "Untitled exam",
     blueprint, feedback: clean(formData.get("feedback")) || "after_close",
     timeLimitMin: null, attemptLimit: Math.max(1, Number(formData.get("attemptLimit")) || 1),
+    // Spec 11: a quiz defaults to the highest attempt counting, an exam to the first
+    kind: kindRaw === "quiz" ? "quiz" : "exam",
   });
   redirect(`/teach/${sectionId}/exams`);
 }
@@ -204,6 +207,88 @@ export async function addLineItemAction(formData: FormData) {
   const title = clean(formData.get("title")); const maxPoints = Math.max(1, Number(formData.get("maxPoints")) || 100); const weight = Math.max(0, Number(formData.get("weight")) || 1);
   if (title) await addManualItem(sectionId, title, maxPoints, weight);
   redirect(`/teach/${sectionId}/gradebook`);
+}
+
+// --- Spec 11: grading setup (categories, letter scale, retake rules) ---
+
+const gradingBack = (sectionId: string, msg?: { ok?: string; error?: string }) => {
+  const q = msg?.error ? `?grading_error=${encodeURIComponent(msg.error)}` : msg?.ok ? `?grading_ok=${encodeURIComponent(msg.ok)}` : "";
+  return `/teach/${sectionId}/gradebook${q}#grading-setup`;
+};
+
+export async function setCategoriesAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
+  const { setCategories } = await import("@/lib/gradebook");
+  // rows arrive as cat_name_<i> / cat_weight_<i> / cat_drop_<i> / cat_id_<i>
+  const idx = [...new Set([...formData.keys()].filter((k) => k.startsWith("cat_name_")).map((k) => k.slice(9)))];
+  const rows = idx.map((i) => ({
+    id: clean(formData.get(`cat_id_${i}`)) || undefined,
+    name: clean(formData.get(`cat_name_${i}`)),
+    weight: Number(formData.get(`cat_weight_${i}`)) || 0,
+    dropLowest: Math.max(0, Number(formData.get(`cat_drop_${i}`)) || 0),
+  }));
+  try { await setCategories(sectionId, rows); } catch (e: any) { redirect(gradingBack(sectionId, { error: e?.message ?? "Could not save the categories." })); }
+  redirect(gradingBack(sectionId, { ok: "Grading categories saved." }));
+}
+
+export async function applyStarterCategoriesAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
+  const { applyStarterCategories } = await import("@/lib/gradebook");
+  await applyStarterCategories(sectionId);
+  redirect(gradingBack(sectionId, { ok: "Starter categories added — edit the weights to match your syllabus." }));
+}
+
+export async function setColumnCategoryAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
+  const { setColumnCategory } = await import("@/lib/gradebook");
+  for (const [k, v] of formData.entries()) {
+    if (!k.startsWith("column_cat_")) continue;
+    const categoryId = clean(v) || null;
+    try { await setColumnCategory(sectionId, k.slice(11), categoryId); }
+    catch (e: any) { redirect(gradingBack(sectionId, { error: e?.message ?? "Could not move that column." })); }
+  }
+  redirect(gradingBack(sectionId, { ok: "Columns assigned." }));
+}
+
+export async function setLetterBandsAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
+  const { setLetterBands } = await import("@/lib/gradebook");
+  const { PLUS_MINUS_LETTER_BANDS } = await import("@/lib/grading");
+  if (clean(formData.get("preset")) === "plusminus") {
+    await setLetterBands(sectionId, PLUS_MINUS_LETTER_BANDS);
+    redirect(gradingBack(sectionId, { ok: "Added +/- bands." }));
+  }
+  const idx = [...new Set([...formData.keys()].filter((k) => k.startsWith("band_letter_")).map((k) => k.slice(12)))];
+  const bands = idx.map((i) => ({ letter: clean(formData.get(`band_letter_${i}`)), min: Number(formData.get(`band_min_${i}`)) || 0 }));
+  try { await setLetterBands(sectionId, bands); } catch (e: any) { redirect(gradingBack(sectionId, { error: e?.message ?? "Could not save the letter scale." })); }
+  redirect(gradingBack(sectionId, { ok: "Letter scale saved." }));
+}
+
+export async function setExamRulesAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  const examId = clean(formData.get("examId"));
+  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
+  const { setExamRetakeRules } = await import("@/lib/assessment");
+  const kindRaw = clean(formData.get("kind"));
+  try {
+    await setExamRetakeRules(sectionId, examId, {
+      attemptLimit: formData.get("attemptLimit") != null ? Number(formData.get("attemptLimit")) : undefined,
+      countedAttempt: (clean(formData.get("countedAttempt")) || undefined) as any,
+      kind: kindRaw === "quiz" || kindRaw === "exam" ? kindRaw : undefined,
+    });
+  } catch (e: any) {
+    redirect(`/teach/${sectionId}/exams/${examId}?error=${encodeURIComponent(e?.message ?? "Could not save.")}`);
+  }
+  redirect(`/teach/${sectionId}/exams/${examId}?ok=${encodeURIComponent("Retake rules saved.")}`);
 }
 
 export async function setScoreAction(formData: FormData) {

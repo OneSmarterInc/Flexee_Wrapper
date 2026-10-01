@@ -74,11 +74,16 @@ export default async function Exams({ params }: { params: Promise<{ section: str
             <option value="immediate">feedback immediately</option>
           </select>
           <input name="attemptLimit" type="number" min={1} defaultValue={1} style={{ ...field, width: "6rem" }} title="Attempts allowed" />
+          <select name="kind" style={{ ...field, width: "7rem" }} aria-label="Exam or quiz" title="A quiz counts the highest attempt; an exam counts the first">
+            <option value="exam">Exam</option>
+            <option value="quiz">Quiz</option>
+          </select>
         </div>
-        <button type="submit" style={{ ...field, cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Create exam (draft)</button>
+        <button type="submit" style={{ ...field, cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Create (draft)</button>
       </form>
       <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem", marginTop: ".6rem" }}>
         A draw serves a random selection per student. Create as a draft, then open it when the class is ready.
+        A quiz counts the highest attempt by default and an exam the first; change that on its own page.
       </p>
       </section>
     </WorkspaceShell>
