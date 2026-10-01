@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { getUpload, setStatus } from "@/lib/library";
 
 export interface BlobOps {
@@ -47,7 +48,7 @@ export async function vercelBlob(): Promise<BlobOps> {
 
 const TYPES: Record<string, string> = { ".json": "application/json", ".md": "text/markdown", ".png": "image/png",
   ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".gif": "image/gif", ".webp": "image/webp" };
-const REPO = path.resolve(new URL("../", import.meta.url).pathname);
+const REPO = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 
 function walk(dir: string, base = ""): string[] {
   const out: string[] = [];
@@ -160,7 +161,7 @@ export async function runJob(opts: { uploadId: string; action: "check" | "publis
 }
 
 // ---- command line (the GitHub Action) ------------------------------------------------------------
-if (process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const arg = (n: string) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] : undefined; };
   const uploadId = arg("upload"), action = arg("action");
   if (!uploadId || (action !== "check" && action !== "publish" && action !== "fail")) {
