@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getBook, neighbours } from "@/lib/content";
+import { neighboursWithTitles } from "@/lib/content";
 import { resolveEntryForSection } from "@/lib/versions";
 import { renderEntry } from "@/lib/render";
 import { currentUser } from "@/lib/auth";
@@ -10,6 +10,8 @@ import ProgressBar from "@/components/ProgressBar";
 import Bookmarker from "@/components/Bookmarker";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import PageTurn from "@/components/PageTurn";
+import FigureList from "@/components/FigureList";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +29,8 @@ export default async function EntryPage({ params }: { params: Promise<{ book: st
     notFound();
   }
   const { manifest, markdown } = data!;
-  const bookManifest = await getBook(book);
-  const html = await renderEntry(markdown, manifest, `/api/asset/${book}/${entry}`);
-  const { prev, next } = neighbours(bookManifest, entry);
+  const { html, figures } = await renderEntry(markdown, manifest, `/api/asset/${book}/${entry}`);
+  const { prev, next } = await neighboursWithTitles(book, entry);
 
   return (
     <>
@@ -39,10 +40,17 @@ export default async function EntryPage({ params }: { params: Promise<{ book: st
       <div className="shell">
         <Spine bookId={book} current={entry} />
         <main className="reading">
+          <PageTurn bookId={book} prev={prev} next={next} />
           <div className="reading-inner">
             <div className="reader-toolbar ui">
               <BackButton fallbackHref={`/${book}`} />
               <Link className="nav-button ghost" href={`/${book}`}>Course home</Link>
+              {prev
+                ? <Link className="nav-button secondary" href={`/${book}/${prev.ref}`} aria-label={`Previous: ${prev.label}`} title={prev.label}>‹ Previous</Link>
+                : <span />}
+              {next
+                ? <Link className="nav-button secondary" href={`/${book}/${next.ref}`} aria-label={`Next: ${next.label}`} title={next.label}>Next ›</Link>
+                : <span />}
               <Link className="nav-button secondary" href={`/${book}/exams`}>Exams</Link>
             </div>
             <article>
@@ -54,16 +62,18 @@ export default async function EntryPage({ params }: { params: Promise<{ book: st
                       <li key={s.id}><a href={`#${s.id}`}>{s.title}</a></li>
                     ))}
                   </ol>
+                  <FigureList figures={figures} />
                 </nav>
               )}
+              {manifest.sections.length <= 1 && <FigureList figures={figures} />}
               <div dangerouslySetInnerHTML={{ __html: html }} />
             </article>
             <nav className="entry-nav ui">
               {prev ? (
-                <Link className="prev" href={`/${book}/${prev}`}><span className="dir">Previous</span><span className="t">Back</span></Link>
+                <Link className="prev" href={`/${book}/${prev.ref}`} aria-label={`Previous: ${prev.label}`}><span className="dir">Previous</span><span className="t">Back</span></Link>
               ) : <span />}
               {next ? (
-                <Link className="next" href={`/${book}/${next}`}><span className="dir">Next</span><span className="t">Continue</span></Link>
+                <Link className="next" href={`/${book}/${next.ref}`} aria-label={`Next: ${next.label}`}><span className="dir">Next</span><span className="t">Continue</span></Link>
               ) : <span />}
             </nav>
           </div>

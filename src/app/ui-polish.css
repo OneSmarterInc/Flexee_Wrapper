@@ -373,3 +373,136 @@
     transform: none;
   }
 }
+
+/* ---------------------------------------------------------------- Spec 14: reader frame */
+
+/* One compact line saying which course you are in. Rendered by the course layouts, so it sits
+   above whatever the page draws, including the workspace shell. */
+.course-header {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex-wrap: nowrap;
+  padding: .4rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+  font-size: .8rem;
+  color: var(--muted);
+  overflow: hidden;
+}
+.course-header-book { display: flex; align-items: baseline; gap: .4rem; text-decoration: none; min-width: 0; }
+.course-header-title {
+  color: var(--navy); font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;   /* truncates on a phone */
+  max-width: 48vw;
+}
+.course-header-book:hover .course-header-title { text-decoration: underline; }
+.course-header-sub { color: var(--muted); white-space: nowrap; }
+.course-header-class { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.course-header-role { white-space: nowrap; font-weight: 600; }
+.course-header-sep { color: var(--rule); }
+/* inside the workspace shell the line belongs to the content column, not the sidebar */
+.workspace .course-header { border-radius: 8px 8px 0 0; }
+@media (max-width: 560px) {
+  .course-header { font-size: .74rem; padding: .35rem .7rem; }
+  .course-header-title { max-width: 40vw; }
+  .course-header-sub { display: none; }           /* the full title stays in the tooltip */
+}
+
+/* Side arrows: always in view while reading, in the margin beside the text. */
+.page-turn.side {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 4.5rem;
+  font-size: 2.1rem;
+  line-height: 1;
+  text-decoration: none;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  transition: color .15s ease, background .15s ease;
+}
+.page-turn.side.prev { left: .75rem; }
+.page-turn.side.next { right: .75rem; }
+.page-turn.side:hover { color: var(--navy); background: var(--mark); }
+.page-turn.side:focus-visible { outline: 3px solid var(--navy); outline-offset: 2px; }
+
+/* The fixed Previous/Next bar, for screens with no margin room. */
+.page-turn-bar {
+  display: none;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 30;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .5rem .75rem;
+  background: var(--panel);
+  border-top: 1px solid var(--rule);
+}
+.page-turn-bar .nav-button { min-height: 2.75rem; display: inline-flex; align-items: center; }
+
+@media (max-width: 1100px) {
+  .page-turn.side { display: none; }              /* no margin to put them in */
+  .page-turn-bar { display: flex; }
+  .reading-inner { padding-bottom: 4.5rem; }      /* clear of the fixed bar */
+}
+
+/* The chapter's figures and tables. */
+.fx-list { margin: .9rem 0 0; }
+.sections .fx-list { margin: .95rem 0 0; padding-top: .8rem; border-top: 1px solid var(--rule); }
+.fx-list-heading { font-size: .78rem; color: var(--muted); margin: 0 0 .5rem; font-family: inherit; letter-spacing: .02em; text-transform: uppercase; }
+.fx-list-toggle { display: none; }
+.fx-list ol { margin: 0; padding-left: 1.1rem; }
+.fx-list li { margin: .22rem 0; }
+.fx-list a { text-decoration: none; display: inline-flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; }
+.fx-list a:hover .fx-cap { text-decoration: underline; }
+.fx-list a:focus-visible { outline: 3px solid var(--navy); outline-offset: 2px; border-radius: 3px; }
+.fx-num { font-weight: 700; color: var(--navy); white-space: nowrap; }
+.fx-tag {
+  font-size: .66rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 700;
+  color: var(--muted); background: var(--mark); border: 1px solid var(--rule);
+  border-radius: 4px; padding: 0 .3rem;
+}
+.fx-cap { color: var(--ink); }
+
+@media (max-width: 760px) {
+  .fx-list-toggle {
+    display: inline-flex; align-items: center; min-height: 2.5rem;
+    font: inherit; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
+    color: var(--navy); background: none; border: none; padding: .3rem 0; cursor: pointer;
+  }
+  .fx-list-toggle::after { content: " ▾"; }
+  .fx-list.open .fx-list-toggle::after { content: " ▴"; }
+  .fx-list-heading { display: none; }
+  .fx-list ol { display: none; }
+  .fx-list.open ol { display: block; }
+}
+
+/* In-text "see Figure 4.2" links. */
+.fx-ref { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
+
+/* Jumping to a figure or table: clear of a fixed header, and briefly marked on arrival. */
+.fx-figure, .fx-table { scroll-margin-top: 4.5rem; }
+.fx-table { margin: 1.8rem 0; }
+.fx-table > table { width: 100%; }
+.fx-table figcaption { font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .84rem; color: var(--muted); margin-top: .6rem; line-height: 1.45; }
+.fx-figure:focus, .fx-table:focus { outline: none; }
+.fx-figure:focus-visible, .fx-table:focus-visible { outline: 3px solid var(--navy); outline-offset: 4px; }
+.fx-target { animation: fx-flash 2s ease-out; }
+@keyframes fx-flash {
+  from { background: var(--mark); box-shadow: 0 0 0 6px var(--mark); }
+  to   { background: transparent; box-shadow: 0 0 0 6px transparent; }
+}
+/* Without animation the mark still has to be visible, so show it and leave it. */
+@media (prefers-reduced-motion: reduce) {
+  .fx-target { animation: none; background: var(--mark); box-shadow: 0 0 0 6px var(--mark); }
+  .page-turn.side { transition: none; }
+}

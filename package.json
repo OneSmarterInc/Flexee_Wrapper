@@ -33,6 +33,7 @@
     "test:gb-starter": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-gb-starter.ts",
     "test:grading": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-grading.ts",
     "test:sim-grades": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-sim-grades.ts",
+    "test:reader-frame": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-reader-frame.ts",
     "test:sims": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-sims.ts"
   },
   "keywords": [],
@@ -40,6 +41,8 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
+    "@vercel/blob": "^2.8.0",
     "bcryptjs": "^3.0.3",
     "diff": "^9.0.0",
     "drizzle-orm": "^0.45.2",
@@ -57,9 +60,7 @@
     "remark-rehype": "^11.1.2",
     "server-only": "^0.0.1",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0",
-    "@aws-sdk/client-s3": "^3.1141.0",
-    "@vercel/blob": "^2.8.0"
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -68,9 +69,12 @@
     "@types/node": "20.17.6",
     "@types/papaparse": "^5.5.2",
     "@types/react": "19.3.0",
+    "aws-sdk-client-mock": "^4.1.0",
+    "axe-core": "^4.13.0",
     "drizzle-kit": "^0.31.10",
-    "typescript": "5.8.2",
-    "aws-sdk-client-mock": "^4.1.0"
+    "esbuild": "^0.28.2",
+    "jsdom": "^29.1.1",
+    "typescript": "5.8.2"
   },
   "overrides": {
     "postcss": "^8.5.28"

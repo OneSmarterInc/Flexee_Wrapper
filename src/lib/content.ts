@@ -93,3 +93,28 @@ export function neighbours(book: BookManifest, entryId: string) {
     next: i >= 0 && i < book.spine.length - 1 ? book.spine[i + 1].ref : null,
   };
 }
+
+/**
+ * Spec 14: the neighbours with their titles, so a page-turn link can name where it goes
+ * ("Next: Chapter 3, Emerging Technologies"). The spine is one flat reading order, so this crosses
+ * chapter boundaries exactly as the existing next/previous links do.
+ */
+export type Neighbour = { ref: string; title: string; label: string } | null;
+export async function neighboursWithTitles(
+  bookId: string,
+  entryId: string,
+): Promise<{ prev: Neighbour; next: Neighbour }> {
+  const book = await getBook(bookId);
+  const { prev, next } = neighbours(book, entryId);
+  const load = async (ref: string | null): Promise<Neighbour> => {
+    if (!ref) return null;
+    try {
+      const m = await readJson<EntryManifest>(`${bookId}/${ref}/manifest.json`);
+      return { ref, title: m.title, label: m.number != null ? `Chapter ${m.number}, ${m.title}` : m.title };
+    } catch {
+      return { ref, title: ref, label: ref };  // an unreadable spine entry still turns the page
+    }
+  };
+  const [p, n] = await Promise.all([load(prev), load(next)]);
+  return { prev: p, next: n };
+}
