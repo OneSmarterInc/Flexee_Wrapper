@@ -158,6 +158,7 @@ export async function runJob(opts: { uploadId: string; action: "check" | "publis
       message: `In the library. ${current.length ? `The previous version is archived under archive/${up.bookId}/${stamp}/.` : ""}` });
     return "published";
   } catch (e: any) {
+    console.error(`Library intake failed: ${String(e?.message ?? e).slice(0, 600)}`);
     await setStatus(uploadId, "failed", { runUrl, message: `The job failed: ${String(e?.message ?? e).slice(0, 600)}` });
     return "failed";
   } finally {
@@ -174,7 +175,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   }
   const runUrl = process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : undefined;
   if (action === "fail") { // the workflow's safety net if the job died before reporting
-    await setStatus(uploadId!, "failed", { runUrl: runUrl ?? null, message: "The intake job stopped unexpectedly. See the run log." });
+    const up = await getUpload(uploadId!);
+    // Keep the specific error already recorded by runJob; only report an unhandled interruption.
+    if (up && (up.status === "checking" || up.status === "publishing")) {
+      await setStatus(uploadId!, "failed", { runUrl: runUrl ?? null, message: "The intake job stopped unexpectedly. See the run log." });
+    }
     process.exit(0);
   }
   const status = await runJob({ uploadId: uploadId!, action: action as "check" | "publish", blob: await vercelBlob(), runUrl });
