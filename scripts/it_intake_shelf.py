@@ -90,5 +90,36 @@ with open(pkg, "ab") as fh: fh.write(b"\0")          # same name, one byte longe
 run("a file whose size differs from the register stops", b, False,
     ["Chapter_05_Package_v1.2.zip` is", "the register says", "STOPPED"])
 
+# 14. Google Drive for Desktop writes desktop.ini into most lanes it syncs, and Finder and Windows
+# leave their own metadata. None of it is book content or in the register, and none must stop a book.
+b = build(S)
+for lane in ("00_Front_Matter", "02_Lecture_Decks", "03_Studio_Packs", "04_Chapters", "05_Compiled", "07_Question_Banks"):
+    (b / lane / "desktop.ini").write_text("[.ShellClassInfo]\n", encoding="utf-8")
+(b / "04_Chapters" / "Thumbs.db").write_text("x", encoding="utf-8")
+(b / "02_Lecture_Decks" / ".DS_Store").write_text("x", encoding="utf-8")
+(b / "04_Chapters" / "._Chapter_01_Package_v1.3.zip").write_text("x", encoding="utf-8")
+(b / "07_Question_Banks" / "questions" / "desktop.ini").write_text("x", encoding="utf-8")  # nested: depth must not matter
+(b / "01_Speaker_Notes" / "Thumbs.DB").write_text("x", encoding="utf-8")                   # a different case, in its own lane
+try:  # Windows forbids control characters in filenames, so this one is best-effort
+    (b / "03_Studio_Packs" / ("Icon" + chr(13))).write_text("x", encoding="utf-8")
+except OSError:
+    pass
+run("operating-system metadata files are ignored; the shelf still admits", b, True,
+    ["READY TO APPROVE", "files the register lists are in Drive"],
+    ["desktop.ini", "Thumbs.db", ".DS_Store", "._Chapter"])
+
+# 15. the ignore list is narrow: a genuinely unlisted file still stops, even beside ignored metadata
+b = build(S)
+(b / "04_Chapters" / "desktop.ini").write_text("x", encoding="utf-8")
+(b / "04_Chapters" / "All.zip").write_text("x", encoding="utf-8")
+run("an unlisted file still stops, beside ignored metadata", b, False,
+    ["`All.zip` is in Drive but not in the register", "STOPPED"], ["desktop.ini"])
+
+# 16. a file that merely looks like metadata is still book content, and still stops
+b = build(S)
+(b / "04_Chapters" / "mydesktop.ini").write_text("x", encoding="utf-8")
+run("a lookalike name is not ignored", b, False,
+    ["`mydesktop.ini` is in Drive but not in the register", "STOPPED"])
+
 print(f"\n{sum(ok for _, ok in results)}/{len(results)} passed")
 sys.exit(0 if all(ok for _, ok in results) else 1)

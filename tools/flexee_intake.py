@@ -25,6 +25,24 @@ from pathlib import Path
 
 FIGURE_MAX_WIDTH = 1500
 
+# Operating-system metadata files. Google Drive for Desktop writes desktop.ini into most folders it
+# syncs, and Finder leaves .DS_Store and ._ resource forks; Windows leaves Thumbs.db. None of them is
+# book content, none is ever listed in the register, and none should stop an intake. Matched on the
+# file's own name, so this applies at any depth, and case-insensitively, because Windows and Drive
+# are both inconsistent about capitalisation. Nothing else is ignored: an unlisted file that is not
+# on this list still stops the intake, which is the whole point of the register-first gate.
+_OS_METADATA_NAMES = {
+    "desktop.ini",
+    "thumbs.db",
+    ".ds_store",
+    "icon" + chr(13),  # classic Mac custom-icon file: the name ends in a carriage return
+}
+
+def is_os_metadata(name):
+    """True for an operating-system metadata file, by its own name (not its path)."""
+    n = str(name).lower()
+    return n in _OS_METADATA_NAMES or n.startswith("._")
+
 # ---------------------------------------------------------------- sources
 class LocalSource:
     """A book shelf on disk: <root>/<lane>/... exactly as in Drive. Used for tests and fixtures."""
@@ -40,12 +58,14 @@ class LocalSource:
             return self.root  # legacy flat fixture
         return d
     def list_lane(self, lane):
-        """Every file in a lane, by path relative to the lane, skipping any Archive folder."""
+        """Every file in a lane, by path relative to the lane, skipping any Archive folder
+        and any operating-system metadata file."""
         d = self._lane_dir(lane); out = {}
         if not d.exists(): return None
         for f in d.rglob("*"):
             rel = f.relative_to(d)
             if f.is_file() and not any(part.startswith("Archive") for part in rel.parts):
+                if is_os_metadata(f.name): continue
                 if d == self.root and not rel.name.startswith("Chapter_"): continue
                 out[rel.as_posix()] = f.stat().st_size
         return out
@@ -92,6 +112,8 @@ class DriveSource:
             for c in self._children(fid):
                 if c["mimeType"] == "application/vnd.google-apps.folder":
                     if not c["name"].startswith("Archive"): walk(c["id"], prefix + c["name"] + "/")
+                elif is_os_metadata(c["name"]):
+                    continue  # Drive for Desktop syncs desktop.ini up into most lanes
                 else:
                     rel = prefix + c["name"]; out[rel] = int(c.get("size", 0)); self._ids[(lane, rel)] = c["id"]
         walk(lane_f["id"], ""); return out
