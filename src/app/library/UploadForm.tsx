@@ -10,7 +10,7 @@ const field = { padding: ".55rem .7rem", border: "1px solid var(--rule)", border
 // which starts the intake. The book id says which library book this is a version of.
 export default function UploadForm({ books }: { books: { id: string; title: string }[] }) {
   const router = useRouter();
-  const [bookId, setBookId] = useState(books[0]?.id ?? "");
+  const [bookId, setBookId] = useState(books[0]?.id ?? "__new");
   const [newId, setNewId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
