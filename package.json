@@ -24,6 +24,7 @@
     "test:aol": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-aol.ts",
     "test:meta": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-meta.ts",
     "test:intake": "python3 scripts/it_intake_shelf.py",
+    "test:book-titles": "python3 scripts/it_book_titles.py",
     "test:storage": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-storage.ts",
     "admin:set": "node --env-file-if-exists=.env --experimental-strip-types scripts/set-admin.ts",
     "test:admin": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-admin.ts",

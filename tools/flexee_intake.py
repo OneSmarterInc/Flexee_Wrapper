@@ -130,6 +130,20 @@ class DriveSource:
 def clean(md):  # the Drive text export escapes markdown; normalize either form
     return md.replace("\\", "").replace("**", "")
 
+# Spec 15: for comparing a register's Title and Subtitle with the words on the title page, where the
+# two are written differently on purpose — the register bolds its values, the page sets the title as
+# a heading, and either may carry curly quotes. Used by that check ONLY. Publisher, author, editor
+# and year keep matching exactly as they always have, so this cannot change whether a book that
+# passed before passes now.
+_QUOTES = {ord(c): d for c, d in zip("‘’‚‛“”„‟",
+                                     "''''" + '""""')}
+def fold(s):
+    """Case, whitespace, emphasis marks, backslashes and curly quotes, all folded away."""
+    if not s: return ""
+    s = str(s).translate(_QUOTES).replace("\\", "")
+    s = re.sub(r"[*_]+", "", s)          # **bold**, *italic*, _underscores_
+    return re.sub(r"\s+", " ", s).strip().lower()
+
 INTAKE_LANES = {"00_Front_Matter", "04_Chapters", "07_Question_Banks"}  # what the Wrapper actually reads
 
 def _nums(s):
@@ -182,6 +196,12 @@ def parse_register(text):
     ed = cell("Edition") or ""
     r["imprint"] = {"publisher": cell("Publisher"), "author": cell("Author"), "editor": cell("Editor"),
                     "year": (re.search(r"\d{4}", ed) or [None])[0]}
+    # Spec 15: the book's own title, from the register's imprint table. The register is the only
+    # source; nothing splits a title at a colon, so a subtitle is its own row or absent. Rows the
+    # intake does not know about stay ignored, as before.
+    r["title"] = cell("Title")
+    r["subtitle"] = cell("Subtitle")
+    r["series"] = cell("Series")
     def lead_int(v):  # "25 — counted in the packages…" -> 25
         m = re.match(r"\s*(\d[\d,]*)", v or ""); return int(m.group(1).replace(",", "")) if m else None
     r["chapter_count"] = lead_int(cell("Chapters"))
@@ -413,6 +433,15 @@ def run(args):
 
     imp = reg.get("imprint", {})
     gate("Imprint recorded in the register", all(imp.values()), imp)
+    # Spec 15: a missing Title is a warning, never a stop. The book still goes in; it shows its id
+    # until the register gains the row.
+    if reg.get("title"):
+        gate("Title recorded in the register", True,
+             reg["title"] + (f": {reg['subtitle']}" if reg.get("subtitle") else "")
+             + (f" · {reg['series']}" if reg.get("series") else ""))
+    else:
+        gate("Title recorded in the register", False,
+             f"the register has no Title row; the book will show its id ({book.upper()})", "warn")
     fm_list = src.list_lane("00_Front_Matter") or {}
     fm_files = {n: src.read("00_Front_Matter", n) for n in fm_list if re.match(r"Book_Front_Matter_v[\d.]+\.md$", n)}
     fm_entries = []
@@ -436,6 +465,18 @@ def run(args):
         for k in ("author", "editor", "year"):
             if imp.get(k) and imp[k] not in fm: probs.append(f"{k} '{imp[k]}' not found")
         gate("Imprint on the pages", not probs, probs or "publisher, author, editor and year all match the register")
+
+        # Spec 15: the register's Title, and Subtitle when given, must be on the title page. Folded
+        # on both sides, because the register bolds its values and the page sets the title as a
+        # heading. A missing title stops the intake, as a wrong publisher does. Skipped entirely
+        # when the register names no Title — that case warns on its own, below.
+        if reg.get("title"):
+            folded = fold(fm)
+            missing = [f"{label} '{val}' is not on the title page"
+                       for label, val in (("Title", reg.get("title")), ("Subtitle", reg.get("subtitle")))
+                       if val and fold(val) not in folded]
+            gate("Title on the pages", not missing,
+                 missing or f"the title page states the register's title" + (" and subtitle" if reg.get("subtitle") else ""))
         vs = re.search(r"\*\*Version ([\d.]+)\*\*", fm)
         if vs and reg.get("book_version") and vs.group(1) != reg["book_version"]:
             gate("Version stated on copyright page", False, f"page says Version {vs.group(1)}; register says the book is v{reg['book_version']}", "warn")
@@ -501,9 +542,14 @@ def run(args):
                      f"{approved} approved" + (f", {drafts} still draft — drafts are loaded but never served" if drafts else ""), "warn")
 
     meta = f"{imp.get('author')} · {imp.get('publisher')} · First edition {imp.get('year')}"
-    prev_book = out / book / "book.manifest.json"
-    base = json.loads(prev_book.read_text()) if prev_book.exists() else {}
-    bm = {"schemaVersion": 2, "id": book, "title": base.get("title", book.upper()), "subtitle": base.get("subtitle"),
+    # Spec 15: the register is the only source of the title. The previous manifest's title and
+    # subtitle used to be carried forward here, because nothing else supplied them — but that never
+    # fired in the Library job, which builds in a fresh temp directory, so every book fell back to
+    # its id in capitals. Carrying it forward would also let an old value outlive the register.
+    bm = {"schemaVersion": 2, "id": book,
+          "title": reg.get("title") or book.upper(),       # no Title row: the id, with a warning above
+          "subtitle": reg.get("subtitle"),
+          "series": reg.get("series"),
           "meta": meta, "copyright": imp.get("publisher"), "license": "read-only",
           "defaultEntry": spine[0]["ref"] if spine else None, "spine": spine,
           "admittedFromRegister": reg.get("register_version")}

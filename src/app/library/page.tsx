@@ -30,7 +30,9 @@ export default async function Library() {
       <section className="workspace-panel ui" id="books"><h2>Books in the library</h2>
       {books.length === 0 && <p>No books have been added yet.</p>}
       <ul className="ui" style={{ listStyle: "none", padding: 0 }}>
-        {books.map((b) => <li key={b.id} style={{ padding: ".3rem 0", borderBottom: "1px solid var(--rule)" }}><strong>{b.title}</strong> <span style={{ color: "var(--muted)" }}>({b.id})</span></li>)}
+        {/* Spec 15: "Title: Subtitle" when there is one. The id stays in brackets — uploaders type
+            ids for new books, so it still earns its place. */}
+        {books.map((b) => <li key={b.id} style={{ padding: ".3rem 0", borderBottom: "1px solid var(--rule)" }}><strong>{b.title}{b.subtitle ? `: ${b.subtitle}` : ""}</strong> <span style={{ color: "var(--muted)" }}>({b.id})</span></li>)}
       </ul>
       </section>
 

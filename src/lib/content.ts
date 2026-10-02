@@ -38,6 +38,7 @@ export type BookManifest = {
   id: string;
   title: string;
   subtitle?: string | null;
+  series?: string | null;   // Spec 15: from the register, stored but not shown anywhere yet
   meta?: string | null;
   copyright?: string;
   license?: string;

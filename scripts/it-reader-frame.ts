@@ -37,7 +37,8 @@ await t("rule 1 — the header names the book, the class, the term and the role"
   assert.ok(out.includes("Student"));
   assert.ok(out.includes('href="/sad"'), "and links to course home");
   // the full title is reachable even when the visible text truncates
-  assert.ok(out.includes('title="Analysis and Design of Information Systems · MIS 3250"'));
+  // Spec 15: "Title: Subtitle", the colon supplied by the header
+  assert.ok(out.includes('title="Analysis and Design of Information Systems: MIS 3250"'), out);
 });
 
 await t("rule 1 — a faculty header says Faculty; no context renders nothing", () => {

@@ -35,7 +35,9 @@ def _sources(src: Path):
     return packages, max(fronts, key=ver)
 
 
-def build(root, register_overrides=None, escaped=False, layout="artifact-version"):
+def build(root, register_overrides=None, escaped=False, layout="artifact-version", imprint_rows=None):
+    """imprint_rows: extra `| Label | **Value** |` rows for the imprint table, e.g.
+    {"Title": "Analysis and Design of Information Systems", "Series": "Five Zero Books"}."""
     packages, front_matter = _sources(SRC)
     root = Path(root); shutil.rmtree(root, ignore_errors=True)
     L = {k: root / k for k in ["00_Front_Matter", "01_Speaker_Notes", "02_Lecture_Decks", "03_Studio_Packs",
@@ -79,6 +81,7 @@ def build(root, register_overrides=None, escaped=False, layout="artifact-version
     o = {"reg": "6.17", "status": "READY FOR INTAKE", "ch_rows": "| `04_Chapters` | Chapter 1 | **v1.3** | CURRENT |\n| `04_Chapters` | Chapters 2, 3, 5, 6 | **v1.2** | CURRENT |\n| `04_Chapters` | Chapters 4, 7–12 | **v1.1** | CURRENT |",
          "compiled": "1.7", "objectives": "60", "fm": "1.6"}
     o.update(register_overrides or {})
+    EXTRA_IMPRINT = "".join("\n| %s | **%s** |" % (k, v) for k, v in (imprint_rows or {}).items())
     reg = f"""# MIS 3250 — State of Record
 
 **Register version:** {o['reg']}
@@ -93,7 +96,7 @@ def build(root, register_overrides=None, escaped=False, layout="artifact-version
 |---|---|
 | Publisher | **Flexee Publishing** |
 | Author | **Vikram Sethi** |
-| Editor | **Chuck Nemer** |
+| Editor | **Chuck Nemer** |{EXTRA_IMPRINT}
 | Edition | **First edition, 2027** |
 
 ### Totals

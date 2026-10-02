@@ -191,6 +191,14 @@ await t("publish: the book goes to live/sad/ in Blob, without the answer key, an
   assert.ok(!live.some((k) => k.endsWith("questions.json") || k.endsWith("objectives.json")), "answer key stays out of Blob");
   assert.equal(synced.length, 1);
   const u = await getUpload(idGood); assert.equal(u!.status, "published"); assert.ok(u!.publishedAt);
+
+  // Spec 15, rule 6: the published manifest carries the register's title, not the book id. This is
+  // the job that used to produce "SAD" every time, because it builds in a fresh temp directory and
+  // so never found a previous manifest to carry a title forward from.
+  const bm = JSON.parse(new TextDecoder().decode(store.get("live/sad/book.manifest.json")!));
+  assert.equal(bm.title, "Analysis and Design of Information Systems", `title was ${bm.title}`);
+  assert.equal(bm.series, "Five Zero Books", `series was ${bm.series}`);
+  assert.notEqual(bm.title, "SAD", "the book id must not be the title any more");
 });
 await t("a new version replaces the old one in live/, and the old one is archived, not deleted", async () => {
   const before = [...store.keys()].filter((k) => k.startsWith("live/sad/")).length;

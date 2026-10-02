@@ -12,7 +12,9 @@ import type { CourseContext } from "@/lib/course-context";
  */
 export default function CourseHeader({ ctx }: { ctx: CourseContext | null }) {
   if (!ctx) return null;
-  const full = ctx.subtitle ? `${ctx.title} · ${ctx.subtitle}` : ctx.title;
+  // Spec 15: "Title: Subtitle" when there is a subtitle, the title alone when there is not. The
+  // colon is supplied here; the register keeps the two apart and never splits a title itself.
+  const full = ctx.subtitle ? `${ctx.title}: ${ctx.subtitle}` : ctx.title;
   const where = ctx.term ? `${ctx.className} · ${ctx.term}` : ctx.className;
   // a <header> rather than a <div>: it is a banner landmark, so its content is inside a landmark
   // and a screen reader can jump to it or skip it
@@ -20,7 +22,7 @@ export default function CourseHeader({ ctx }: { ctx: CourseContext | null }) {
     <header className="course-header ui" aria-label="Course" data-testid="course-header">
       <Link className="course-header-book" href={ctx.homeHref} title={full} aria-label={`Course home: ${full}`}>
         <span className="course-header-title">{ctx.title}</span>
-        {ctx.subtitle && <span className="course-header-sub">{ctx.subtitle}</span>}
+        {ctx.subtitle && <span className="course-header-sub">: {ctx.subtitle}</span>}
       </Link>
       <span className="course-header-sep" aria-hidden="true">·</span>
       <span className="course-header-class" title={where}>{where}</span>
