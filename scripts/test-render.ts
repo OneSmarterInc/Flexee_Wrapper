@@ -3,7 +3,7 @@ import { renderEntry } from "../src/lib/render.ts";
 
 async function check(book: string, entry: string) {
   const { manifest, markdown } = await getEntry(book, entry);
-  const html = await renderEntry(markdown, manifest, `/api/asset/${book}/${entry}`);
+  const { html, figures } = await renderEntry(markdown, manifest, `/api/asset/${book}/${entry}`);
   const anchors = [...html.matchAll(/<(h[1-6])[^>]*\bid="(c\d+s\d+)"/g)].map((m) => m[2]);
   const figcaps = (html.match(/<figcaption>/g) || []).length;
   const imgs = [...html.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1]);
@@ -14,6 +14,7 @@ async function check(book: string, entry: string) {
   console.log(`  anchors: ${anchors.slice(0, 6).join(", ")}${anchors.length > 6 ? " …" : ""}`);
   console.log(`  <table>: ${tables} | <figure>+caption: ${figcaps} | pending blocks: ${pending}`);
   console.log(`  img src: ${imgs.join(", ") || "(none)"}`);
+  console.log(`  figures list: ${figures.map((f) => `${f.number}${f.isTable ? " (table)" : ""}`).join(", ") || "(none)"}`);
 }
 
 await check("mis3000", "ch05"); // image 5.1 + table 5.2, ## sections

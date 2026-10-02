@@ -1,0 +1,19 @@
+{
+  // The main tsconfig excludes scripts/, so a library change that breaks a script goes unnoticed
+  // until someone runs it. Spec 14 changed renderEntry's return type and three scripts kept using
+  // the old shape; nothing complained. This config covers them.
+  //
+  //   npm run typecheck     the app, then the scripts
+  //
+  // Everything is inherited from the app's config, strict included, so the same rules apply. Only
+  // two things differ: the scripts import with explicit .ts extensions, which is what Node's type
+  // stripping needs, and the incremental cache is off so this does not fight the app's build info.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["scripts/**/*.ts"],
+  "exclude": ["node_modules"]
+}

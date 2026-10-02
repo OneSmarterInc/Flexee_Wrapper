@@ -133,4 +133,22 @@ but does not transform JSX, so `scripts/test-support/jsx.mjs` compiles component
 uses, so the other thirteen suites' loader is unchanged. The pure page-turn rules live in
 `src/lib/page-turn.ts` precisely so they can be tested without any of that.
 
+Two of the 22 assertions render **the real layout and page components** — the actual
+`src/app/[book]/layout.tsx` wrapped around `src/app/[book]/[entry]/page.tsx` — against the
+repository's `content/` folder, with the database seeded in PGlite and only `next/headers`,
+`next/link` and `next/navigation` stubbed, and read the HTML a reader would be served. They check
+one real SAD chapter and one real MIS 3000 chapter for the course header, the figures list, one
+target per listed entry, a named next link, and no `[object Object]`.
+
+That last one is the point. When `renderEntry` began returning `{ html, figures }` instead of a
+string, `tsc --noEmit` stayed silent, because React's `dangerouslySetInnerHTML` types accept an
+object — verified by reintroducing the mistake deliberately. The page would have shipped
+"[object Object]" where the chapter should be, and only a rendered page catches it.
+
+The same change broke three developer scripts that kept treating the result as a string
+(`build-previews.ts`, `test-render.ts`, `test-render-staged.ts`), and nothing complained because
+`tsconfig.json` **excludes `scripts/`**. They are fixed, and so is the gap: `tsconfig.scripts.json`
+covers `scripts/` with the app's own rules, and `npm run typecheck` runs both configs. Reverting one
+caller to the old shape now fails it with five errors, which is what it is for.
+
 All thirteen existing suites pass unchanged.

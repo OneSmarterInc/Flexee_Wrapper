@@ -4,7 +4,7 @@ const book = await getBook("sad");
 let ok = 0, bad: string[] = [];
 for (const s of book.spine) {
   const { manifest, markdown } = await getEntry("sad", s.ref);
-  const html = await renderEntry(markdown, manifest, `/api/asset/sad/${s.ref}`);
+  const { html } = await renderEntry(markdown, manifest, `/api/asset/sad/${s.ref}`);
   const anchors = (html.match(/\bid="c\d+s\d+"/g) || []).length;
   const figs = (html.match(/<figure/g) || []).length;
   const good = anchors === manifest.sections.length && figs === manifest.figures.length;

@@ -16,6 +16,7 @@ import { transform } from "esbuild";
 const STUBS = new Map([
   ["next/link", "next-link.mjs"],
   ["next/navigation", "next-navigation.mjs"],
+  ["next/headers", "next-headers.mjs"],
 ]);
 const here = path.dirname(fileURLToPath(import.meta.url));
 

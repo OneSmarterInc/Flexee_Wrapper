@@ -7,6 +7,7 @@ import { readFileSync, readdirSync, existsSync, writeFileSync, rmSync, mkdirSync
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
+import { db, schema } from "@/db";
 import { getBook, getEntry, neighbours, neighboursWithTitles } from "@/lib/content";
 import { renderEntry, anchorFor, type FigureEntry } from "@/lib/render";
 import { keyTarget, isTyping } from "@/lib/page-turn";
@@ -396,5 +397,69 @@ await t("rule 7 — axe adds no violation that this spec is responsible for", as
   assert.deepEqual(baseline.ids, ["empty-table-header", "heading-order"],
     `the book's own findings changed: ${baseline.ids.join(", ")}`);
 });
+
+// ---------------------------------------------------------------- the real page, end to end
+
+/**
+ * Render the actual layout and page components, with the database seeded and only next/headers,
+ * next/link and next/navigation stubbed, then read the HTML a reader would be served.
+ *
+ * This is the check a typecheck cannot do. When renderEntry began returning an object rather than a
+ * string, `tsc --noEmit` stayed silent — React's dangerouslySetInnerHTML types accept it — and the
+ * page would have shipped "[object Object]" where the chapter should be.
+ */
+async function renderPage(book: string, entry: string) {
+  const { renderToReadableStream } = await import("react-dom/server");
+  const headers: any = await import("./test-support/next-headers.mjs");
+  const EntryPage = (await import("@/app/[book]/[entry]/page")).default as any;
+  const BookLayout = (await import("@/app/[book]/layout")).default as any;
+
+  const { users, sessions, sections, enrolments } = schema;
+  const [u] = await db().insert(users).values({ displayName: `Reader ${book}` }).returning();
+  const [sess] = await db().insert(sessions)
+    .values({ id: `sess-${book}`, userId: u.id, expiresAt: new Date(Date.now() + 3600_000) }).returning();
+  const [sec] = await db().insert(sections)
+    .values({ bookId: book, name: `${book} class`, term: "2027 Spring", joinCode: `J-${book}`, bookPublishedAt: new Date() }).returning();
+  await db().insert(enrolments).values({ sectionId: sec.id, userId: u.id, role: "student" });
+  headers.state.session = sess.id;
+
+  const params = Promise.resolve({ book, entry });
+  const tree = await BookLayout({ children: await EntryPage({ params }), params });
+  const stream = await renderToReadableStream(tree);
+  await stream.allReady;
+  const reader = stream.getReader(); const dec = new TextDecoder();
+  let out = "";
+  for (;;) { const { done, value } = await reader.read(); if (done) break; out += dec.decode(value); }
+  return out;
+}
+
+for (const [book, entry, expectTargets] of [["sad", "ch04", 5], ["mis3000", "ch06", 2]] as const) {
+  await t(`the page served for ${book}/${entry} carries the header, the list and real HTML`, async () => {
+    const out = await renderPage(book, entry);
+
+    // the mistake a typecheck cannot see
+    assert.ok(!out.includes("[object Object]"), "an object was rendered into the page");
+
+    // the course header, which comes from the layout rather than the page
+    assert.match(out, /class="course-header/, "no course header");
+    assert.ok(out.includes(`${book} class`), "the class name is missing");
+    assert.ok(out.includes("2027 Spring"), "the term is missing");
+    assert.ok(out.includes("Student"), "the role is missing");
+
+    // the chapter itself, not a placeholder
+    assert.ok(out.length > 8000, `suspiciously short: ${out.length} chars`);
+    assert.match(out, /<article>/);
+
+    // the figures list, and one target on the page for every entry in it
+    assert.match(out, /aria-label="Figures/, "no figures list");
+    const ids = [...out.matchAll(/id="(fig|table)-([0-9-]+)"/g)].map((m) => `${m[1]}-${m[2]}`);
+    assert.equal(ids.length, expectTargets, `${book}/${entry}: expected ${expectTargets} targets, got ${ids.join(", ") || "none"}`);
+    assert.equal(new Set(ids).size, ids.length, "duplicate addresses on the page");
+    for (const id of ids) assert.equal(count(out, `id="${id}"`), 1, `${id} appears more than once`);
+
+    // page turning is present and names where it goes
+    assert.match(out, /aria-label="Next: /, "no next link");
+  });
+}
 
 console.log(`\n${passed} passed`);

@@ -14,7 +14,7 @@ function page(inner: string, theme = "light") {
 // ---- Reading view: the real render pipeline ----
 const { book, items } = await getToc("mis3000");
 const { manifest, markdown } = await getEntry("mis3000", "ch05");
-let article = await renderEntry(markdown, manifest, "/api/asset/mis3000/ch05");
+let article = (await renderEntry(markdown, manifest, "/api/asset/mis3000/ch05")).html;
 // inline the real figure so the preview is self-contained
 const png = readFileSync("content/mis3000/ch05/figures/fig-01.png").toString("base64");
 article = article.replace(/\/api\/asset\/mis3000\/ch05\/figures\/fig-01\.png/g, `data:image/png;base64,${png}`);
