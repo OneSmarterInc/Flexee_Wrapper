@@ -47,8 +47,8 @@ export default function FigureList({ figures }: { figures: FigureEntry[] }) {
         {figures.map((f) => (
           <li key={f.anchor}>
             <a href={`#${f.anchor}`} onClick={(e) => jump(e, f.anchor)}>
-              <span className="fx-num">Figure {f.number}</span>
-              {f.isTable && <span className="fx-tag">table</span>}
+              <span className="fx-num">{f.word} {f.number}</span>
+              {f.isTable && f.word === "Figure" && <span className="fx-tag">table</span>}
               {f.caption && <span className="fx-cap">{f.caption}</span>}
             </a>
           </li>

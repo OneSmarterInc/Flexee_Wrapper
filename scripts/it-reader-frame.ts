@@ -229,6 +229,108 @@ await t("rule 4 — registered tables are captioned and listed, unregistered one
   assert.ok(!sad.figures.some((f) => f.isTable));
 });
 
+// ---------------------------------------------------------------- Spec 16: captions in the markdown
+
+const CAP_BASE = {
+  schemaVersion: 2, id: "ch03", book: "x", kind: "chapter", number: 3, title: "T", version: 1,
+  content: "content.md", sections: [], figures: [],
+} as any;
+const TBL = ["| Year | Net benefit |", "|---|---|", "| 1 | $180,000 |"].join("\n");
+const withCaption = (cap: string, extra = "") =>
+  `# CHAPTER 3: Test\n\n${extra}${TBL}\n\n${cap}\n\nAfter.\n`;
+
+await t("Spec 16 — the italic and colon forms are captions; bold and underscore are not", async () => {
+  for (const cap of ["*Table 3.1. A captioned table*", ": Table 3.1. A captioned table"]) {
+    const { html: out, figures } = await renderEntry(withCaption(cap), CAP_BASE, "/asset");
+    assert.ok(out.includes('id="table-3-1"'), `${cap}: no address`);
+    assert.ok(out.includes("<figcaption>Table 3.1. A captioned table</figcaption>"), `${cap}: no figcaption`);
+    assert.ok(out.includes("fx-table-scroll"), `${cap}: no scroller for a wide table`);
+    assert.equal(figures.length, 1, cap);
+    assert.equal(figures[0].word, "Table", cap);
+    // the caption paragraph is consumed, not shown twice
+    assert.ok(!/<p>(<em>)?Table 3\.1\./.test(out), `${cap}: the caption is repeated as a paragraph`);
+  }
+  // a wrapper the standard does not define is ordinary text, and the table stays plain
+  for (const cap of ["**Table 3.1. Bold**", "_Table 3.1. Underscore_"]) {
+    const { html: out, figures } = await renderEntry(withCaption(cap), CAP_BASE, "/asset");
+    assert.ok(!out.includes('id="table-'), `${cap}: should not be a caption`);
+    assert.equal(figures.length, 0, `${cap}: should not be listed`);
+    assert.ok(out.includes("<table"), `${cap}: the table still renders`);
+    assert.ok(/Table 3\.1\./.test(out), `${cap}: the paragraph stays as text`);
+  }
+});
+
+await t("Spec 16 — a paragraph not directly after a table is not a caption", async () => {
+  const md = `# CHAPTER 3: Test\n\n${TBL}\n\nSomething in between.\n\n*Table 3.1. Too late*\n`;
+  const { html: out, figures } = await renderEntry(md, CAP_BASE, "/asset");
+  assert.ok(!out.includes('id="table-'), "a caption one paragraph away is not a caption");
+  assert.equal(figures.length, 0);
+  // and a table with no caption at all renders as it always did
+  const plain = await renderEntry(`# CHAPTER 3: Test\n\n${TBL}\n\nText.\n`, CAP_BASE, "/asset");
+  assert.ok(plain.html.includes("<table"));
+  assert.ok(!plain.html.includes("fx-table"));
+  assert.equal(plain.figures.length, 0);
+});
+
+await t("Spec 16 — captioned tables join the list in document order with the figures", async () => {
+  const md = [
+    "# CHAPTER 3: Test", "",
+    "![Figure 3.1: A diagram](figures/a.png)", "",
+    TBL, "", "*Table 3.2. Second thing*", "",
+    "![Figure 3.3: Another diagram](figures/b.png)", "",
+  ].join("\n");
+  const manifest = { ...CAP_BASE, figures: [
+    { id: "f1", kind: "image", src: "figures/a.png", alt: "Figure 3.1: A diagram", caption: "Figure 3.1: A diagram", number: "3.1" },
+    { id: "f2", kind: "image", src: "figures/b.png", alt: "Figure 3.3: Another diagram", caption: "Figure 3.3: Another diagram", number: "3.3" },
+  ] };
+  const { figures } = await renderEntry(md, manifest, "/asset");
+  assert.deepEqual(figures.map((f) => `${f.word} ${f.number}`),
+    ["Figure 3.1", "Table 3.2", "Figure 3.3"], "interleaved in the book's numeric order");
+  // the heading follows the chapter: a table entry makes it "Figures and tables"
+  const list = html(React.createElement(FigureList, { figures }));
+  assert.ok(list.includes("Figures and tables"), list);
+  assert.ok(list.includes("Table 3.2"), "a captioned table names itself");
+});
+
+await t("Spec 16 — in-text mentions link to tables, and a Figure 1.1 never links to a Table 1.1", async () => {
+  const md = [
+    "# CHAPTER 1: Test", "",
+    "See Figure 1.1 and Table 1.1 for the detail.", "",
+    "![Figure 1.1: A diagram](figures/a.png)", "",
+    TBL, "", "*Table 1.1. A captioned table*", "",
+    "## Figure 1.1 in a heading", "",
+    "`Table 1.1 in code`", "",
+  ].join("\n");
+  const manifest = { ...CAP_BASE, number: 1, figures: [
+    { id: "f1", kind: "image", src: "figures/a.png", alt: "Figure 1.1: A diagram", caption: "Figure 1.1: A diagram", number: "1.1" },
+  ] };
+  const { html: out } = await renderEntry(md, manifest, "/asset");
+  // both exist, and each mention goes to its own
+  assert.ok(out.includes('id="fig-1-1"') && out.includes('id="table-1-1"'), out.slice(0, 400));
+  assert.ok(out.includes('<a href="#fig-1-1" class="fx-ref">Figure 1.1</a>'), "Figure 1.1 must link to the figure");
+  assert.ok(out.includes('<a href="#table-1-1" class="fx-ref">Table 1.1</a>'), "Table 1.1 must link to the table");
+  // exactly two links: the heading and the code are left alone
+  assert.equal(count(out, 'class="fx-ref"'), 2, out);
+  assert.match(out, /<h2[^>]*>Figure 1\.1 in a heading<\/h2>/);
+  // a table that is not in this chapter stays as text
+  const absent = await renderEntry("# CHAPTER 1: Test\n\nSee Table 9.9.\n", { ...CAP_BASE, number: 1 }, "/asset");
+  assert.ok(!absent.html.includes("#table-9-9"));
+  assert.ok(absent.html.includes("Table 9.9"));
+});
+
+await t("Spec 16 — a chapter captioning its own tables ignores the manifest fallback", async () => {
+  // a manifest claim and a caption for the same table: the caption wins and nothing is doubled
+  const manifest = { ...CAP_BASE, figures: [
+    { id: "t1", kind: "table", src: null, caption: "A manifest caption", number: "3.9" },
+  ] };
+  const { html: out, figures } = await renderEntry(withCaption("*Table 3.1. The real caption*"), manifest, "/asset");
+  assert.equal(figures.length, 1, "one entry, not two");
+  assert.equal(figures[0].number, "3.1", "the caption's number, not the manifest's");
+  assert.ok(out.includes('id="table-3-1"'));
+  assert.ok(!out.includes('id="table-3-9"'), "the manifest fallback stayed out of the way");
+  assert.equal(count(out, "<figcaption"), 1);
+});
+
 await t("rule 4 — when a chapter's table counts disagree, no table is captioned", async () => {
   // The guard matters even though no chapter trips it today: document order is the only way to
   // tell which table is which, so one unaccounted-for table would shift every number after it.
@@ -317,21 +419,31 @@ await t("rule 6 — a chapter with no figures or tables shows no list", async ()
 });
 
 await t("the list's heading follows what the chapter holds", () => {
-  const imageOnly: FigureEntry[] = [{ anchor: "fig-1-1", number: "1.1", caption: "A", isTable: false }];
-  const withTable: FigureEntry[] = [...imageOnly, { anchor: "table-1-2", number: "1.2", caption: "B", isTable: true }];
+  const imageOnly: FigureEntry[] = [{ anchor: "fig-1-1", number: "1.1", caption: "A", isTable: false, word: "Figure" }];
+  // a book that numbers its tables in the figure sequence: the entry says "Figure", with a tag
+  const withTable: FigureEntry[] = [...imageOnly,
+    { anchor: "table-1-2", number: "1.2", caption: "B", isTable: true, word: "Figure" }];
   const a = html(React.createElement(FigureList, { figures: imageOnly }));
   assert.ok(a.includes("Figures"), a);
   assert.ok(!a.includes("Figures and tables"));
   const b = html(React.createElement(FigureList, { figures: withTable }));
   assert.ok(b.includes("Figures and tables"), b);
   assert.ok(b.includes("table</span>"), "a table entry carries its tag");
+
+  // Spec 16: a captioned table names itself, so it reads "Table 1.2" and needs no tag
+  const captioned: FigureEntry[] = [...imageOnly,
+    { anchor: "table-1-2", number: "1.2", caption: "B", isTable: true, word: "Table" }];
+  const c = html(React.createElement(FigureList, { figures: captioned }));
+  assert.ok(c.includes("Figures and tables"), c);
+  assert.ok(c.includes("Table 1.2"), c);
+  assert.ok(!c.includes("table</span>"), "a self-naming entry needs no tag");
 });
 
 // ---------------------------------------------------------------- rule 7: accessibility
 
 await t("rule 7 — links have accessible names and the list is a labelled region", () => {
   const out = html(React.createElement(FigureList, {
-    figures: [{ anchor: "fig-4-2", number: "4.2", caption: "Level-0 data flow diagram", isTable: false }],
+    figures: [{ anchor: "fig-4-2", number: "4.2", caption: "Level-0 data flow diagram", isTable: false, word: "Figure" }],
   }));
   assert.match(out, /<nav[^>]*aria-label="Figures"/, out);
   assert.ok(out.includes('href="#fig-4-2"'));

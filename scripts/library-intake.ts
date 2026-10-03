@@ -10,7 +10,7 @@
 //
 // Nothing reaches students here: a class's faculty still publish the book to their class.
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -113,6 +113,29 @@ export async function runJob(opts: { uploadId: string; action: "check" | "publis
     const out = path.join(work, "content");
     const validator = path.join(REPO, "tools/build_questions.py");
 
+    // Spec 16: bring the last admitted lock down so the integrity gate has something to compare.
+    // The gate reads <out>/<book>/intake.lock.json, and this job builds in a fresh temp directory,
+    // so without this every run reported "first admission" and the check never fired.
+    //
+    // A failure here is never fatal: an absent lock is a genuine first admission, and an unreadable
+    // one is reported as a warning and treated the same way. Nothing is written to storage.
+    let lockNote = "";
+    try {
+      const lockBytes = await blob.download(`${prefix}${up.bookId}/intake.lock.json`);
+      const dir = path.join(out, up.bookId);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, "intake.lock.json"), lockBytes);
+      JSON.parse(new TextDecoder().decode(lockBytes));        // readable? the gate will parse it too
+    } catch (e: any) {
+      const existing = await blob.list(`${prefix}${up.bookId}/intake.lock.json`).catch(() => []);
+      if (existing.length) {
+        lockNote = `The previous intake lock could not be read (${String(e?.message ?? e).slice(0, 120)}); `
+          + "this run was checked as a first admission.";
+        console.error(`Library intake: ${lockNote}`);
+        rmSync(path.join(out, up.bookId, "intake.lock.json"), { force: true });
+      }
+    }
+
     const check = intake(["--book-id", up.bookId, "--local", shelf, "--validator", validator, "--out", out]);
     const reportFile = path.join(out, `_intake_report_${up.bookId}.md`);
     const report = existsSync(reportFile) ? readFileSync(reportFile, "utf8") : check.out.slice(-6000);
@@ -121,7 +144,7 @@ export async function runJob(opts: { uploadId: string; action: "check" | "publis
       return "stopped";
     }
     if (action === "check") {
-      await setStatus(uploadId, "ready", { report, registerVersion: regV, runUrl, message: null });
+      await setStatus(uploadId, "ready", { report, registerVersion: regV, runUrl, message: lockNote || null });
       return "ready";
     }
 

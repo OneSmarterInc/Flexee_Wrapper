@@ -20,6 +20,8 @@ result (`--approve`).
   python3 tools/flexee_intake.py --book-id sad --out content --approve
 """
 import argparse, hashlib, io, json, os, re, shutil, sys, zipfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import table_captions
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -373,6 +375,10 @@ def run(args):
     if stage.exists(): shutil.rmtree(stage)
     stage.mkdir(parents=True)
     conform, fig_notes, brit, negpar, leaks = [], [], [], [], []
+    # Spec 16: table captions, for books built to the Chapter Writing Standard v1.1 or later.
+    cap_check = table_captions.applies(reg.get("built_to"))
+    cap_warn, cap_tables, cap_ok = [], 0, 0
+    bank_drift = []   # Spec 16: bank files changed under an unchanged register version
     total_figs = 0; saved = 0; spine = []; lock_files = {}
     for n in sorted(found):
         v, name, data = found[n][0]; eid = f"ch{n:02d}"
@@ -392,6 +398,12 @@ def run(args):
         if wrong: conform.append(f"ch{n}: figure numbering does not match chapter {wrong}")
         # text checks (report-level)
         for mt in BRITISH_RE.finditer(md): brit.append(f"ch{n}: '{mt.group(0)}'")
+        if cap_check:
+            tbls, probs = table_captions.scan(md)
+            cap_tables += len(tbls); cap_ok += sum(1 for t in tbls if t["number"])
+            for pr in probs:
+                where = f"ch{n}" + (f" line {pr['line']}" if pr["line"] else "")
+                cap_warn.append(f"{where}: {pr['message']}")
         for mt in NEG_PARALLEL.finditer(re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", md)): negpar.append(f"ch{n}: " + re.sub(r"\s+", " ", mt.group(0)).strip()[:140])
         for mt in SIM_LEAK.finditer(md): leaks.append(f"ch{n}: '{mt.group(0)}'")
         # stage entry
@@ -430,6 +442,9 @@ def run(args):
     gate("Spelling convention (American)", not brit, brit or "no British spellings found", "warn")
     gate("Phrasing (negative parallelism)", True, negpar or "none found", "pass")
     gate("Decoupling (no simulation terms in the book)", not leaks, leaks or "no simulation terms found", "warn")
+    if cap_check:
+        gate("Table captions", not cap_warn,
+             cap_warn or f"{cap_tables} tables, {cap_ok} captioned", "warn")
 
     imp = reg.get("imprint", {})
     gate("Imprint recorded in the register", all(imp.values()), imp)
@@ -518,6 +533,14 @@ def run(args):
                 for f in bank_files:
                     data = src.read("07_Question_Banks", f); (qb / f).write_bytes(data)
                     lock_files[f"bank:{f}"] = {"file": f, "sha256": sha(data)}
+                    # Spec 16: a bank file carries no version in its name, so the only thing to
+                    # compare is the register's own version. A changed file under an unchanged
+                    # register version warns; it never stops.
+                    prevb = lock["files"].get(f"bank:{f}")
+                    if (prevb and prevb.get("sha256") != sha(data)
+                            and lock.get("registerVersion") == reg.get("register_version")):
+                        bank_drift.append(f"{f}: changed but the register is still "
+                                          f"v{reg.get('register_version')} — bump the register version")
                 (Path(td) / "build_questions.py").write_bytes(tool)
                 res = subprocess.run([sys.executable, str(Path(td) / "build_questions.py"), "--src", str(qb), "--book-id", book,
                                       "--require-meta", "--fail-on-warnings", "--out", str(stage)],
@@ -527,6 +550,9 @@ def run(args):
             errors = [l.strip()[2:] for l in outtxt.splitlines() if l.strip().startswith("- ")]
             gate("Question bank validation (shared validator, exit code read directly)", res.returncode == 0,
                  summary if res.returncode == 0 else (errors[:12] or [f"validator exit code {res.returncode}"]))
+            if lock["files"]:   # nothing to compare on a first admission
+                gate("Version integrity (question bank)", not bank_drift,
+                     bank_drift or "no bank file changed under an unchanged register version", "warn")
             if res.returncode == 0:
                 objs = json.loads((stage / "objectives.json").read_text()) if (stage / "objectives.json").exists() else []
                 qs = json.loads((stage / "questions.json").read_text())

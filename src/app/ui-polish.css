@@ -492,6 +492,10 @@
 /* Jumping to a figure or table: clear of a fixed header, and briefly marked on arrival. */
 .fx-figure, .fx-table { scroll-margin-top: 4.5rem; }
 .fx-table { margin: 1.8rem 0; }
+/* Spec 16: a wide table scrolls sideways inside its own scroller, so the caption below stays
+   in view. Overflow on the figure itself would carry the caption off with the table. */
+.fx-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.fx-table-scroll > table { width: 100%; }
 .fx-table > table { width: 100%; }
 .fx-table figcaption { font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .84rem; color: var(--muted); margin-top: .6rem; line-height: 1.45; }
 .fx-figure:focus, .fx-table:focus { outline: none; }

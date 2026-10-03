@@ -240,4 +240,144 @@ await t("the register is found wherever Drive's zip puts the folder", () => {
   assert.equal(findShelf(dir), path.join(dir, "a", "MIS3250_v2_CURRENT"), "archived registers are ignored");
 });
 
+// ---- Spec 16: the integrity check, which never fired in this job ---------------------------------
+// The gate reads <out>/<book>/intake.lock.json and this job builds in a fresh temp directory, so
+// before Spec 16 every run reported "first admission". These exercise it against a real lock in
+// storage, through the real job.
+
+/** The lock a publish left in storage, parsed. */
+const liveLock = () => JSON.parse(new TextDecoder().decode(store.get("live/sad/intake.lock.json")!));
+
+/** Run a check over a shelf and return its report. Nothing is published. */
+async function checkOnly(zipName: string, mutate?: (root: string) => void) {
+  const id = await uploaded(zipName, shelfZip(zipName, mutate));
+  const r = await runJob({ uploadId: id, action: "check", blob });
+  return { outcome: r, upload: (await getUpload(id))!, id };
+}
+
+await t("the lock a publish wrote is in storage and names the chapters and the front matter", () => {
+  const lock = liveLock();
+  assert.ok(lock.files, "the lock has a files map");
+  assert.ok(lock.files["ch01"]?.sha256, "a chapter entry with a hash");
+  assert.ok(lock.files["ch01"]?.version, "and its version");
+  assert.ok(lock.files["front-matter"]?.sha256, "a front matter entry");
+  assert.ok(Object.keys(lock.files).some((k) => k.startsWith("bank:")), "and the bank files");
+  assert.ok(lock.registerVersion, "and the register version");
+});
+
+await t("rule 8 — unchanged content passes, and the gate now actually compares", async () => {
+  const { outcome, upload } = await checkOnly("sad-same.zip");
+  assert.equal(outcome, "ready", upload.message ?? "");
+  assert.match(upload.report!, /Version integrity \(content hash\)/);
+  assert.doesNotMatch(upload.report!, /first admission/,
+    "the lock was downloaded, so this is no longer a first admission");
+  assert.match(upload.report!, /no content changed under an unchanged version/);
+});
+
+/**
+ * Change a file's bytes and correct the size the register records for it, so the register's own
+ * byte-count gate stays satisfied and the integrity gate is what is being tested.
+ *
+ * This is the case SAD's register warns about in its own words: two builds of the front matter
+ * differing by one character have the same size, so "size alone cannot tell the two apart" and
+ * only a hash does. Here the size is made to agree on purpose, to isolate the hash.
+ */
+function repointRegisterSize(root: string, lane: string, file: string) {
+  const reg = path.join(root, "STATE_OF_RECORD.md");
+  const size = readFileSync(path.join(root, lane, file)).byteLength;
+  const text = readFileSync(reg, "utf8");
+  const row = new RegExp(`(\\| \`${lane}\` \\| \`${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\` \\| )[\\d,]+`);
+  assert.match(text, row, `no byte row for ${lane}/${file} to correct`);
+  writeFileSync(reg, text.replace(row, `$1${size.toLocaleString("en-US")}`));
+}
+
+await t("rule 8 — changed chapter content under the same version stops, and publishes nothing", async () => {
+  const before = [...store.keys()].filter((k) => k.startsWith("live/sad/")).length;
+  const { outcome, upload } = await checkOnly("sad-drift.zip", (root) => {
+    // same package name, so the same version, with different bytes inside
+    const pkg = path.join(root, "04_Chapters", "Chapter_01_Package_v1.3.zip");
+    writeFileSync(pkg, Buffer.concat([readFileSync(pkg), Buffer.from([0])]));
+    repointRegisterSize(root, "04_Chapters", "Chapter_01_Package_v1.3.zip");
+  });
+  assert.equal(outcome, "stopped", upload.message ?? "");
+  assert.match(upload.report!, /content changed but version still v1\.3 — bump the version/);
+  assert.equal([...store.keys()].filter((k) => k.startsWith("live/sad/")).length, before,
+    "a stopped check publishes nothing");
+});
+
+await t("rule 8 — changed content with a raised version passes", async () => {
+  const { outcome, upload } = await checkOnly("sad-bumped.zip", (root) => {
+    const dir = path.join(root, "04_Chapters");
+    const pkg = path.join(dir, "Chapter_01_Package_v1.3.zip");
+    writeFileSync(path.join(dir, "Chapter_01_Package_v1.4.zip"),
+      Buffer.concat([readFileSync(pkg), Buffer.from([0])]));
+    rmSync(pkg);
+    // the register lists each file by name with its size, so both move when a version is raised
+    const reg = path.join(root, "STATE_OF_RECORD.md");
+    writeFileSync(reg, readFileSync(reg, "utf8")
+      .replace(/Chapter_01_Package_v1\.3\.zip/g, "Chapter_01_Package_v1.4.zip"));
+    repointRegisterSize(root, "04_Chapters", "Chapter_01_Package_v1.4.zip");
+  });
+  assert.equal(outcome, "ready", upload.message ?? upload.report?.slice(-700));
+  assert.match(upload.report!, /no content changed under an unchanged version/);
+});
+
+await t("rule 8 — changed front matter under the same version stops", async () => {
+  const { outcome, upload } = await checkOnly("sad-fm.zip", (root) => {
+    const fm = path.join(root, "00_Front_Matter", "Book_Front_Matter_v1.6.md");
+    writeFileSync(fm, readFileSync(fm, "utf8") + "\n<!-- edited without a version bump -->\n");
+    repointRegisterSize(root, "00_Front_Matter", "Book_Front_Matter_v1.6.md");
+  });
+  assert.equal(outcome, "stopped", upload.message ?? "");
+  assert.match(upload.report!, /front matter changed but version still v1\.6 — bump the version/);
+});
+
+await t("rule 8 — a changed bank file under an unchanged register version warns, and admits", async () => {
+  const { outcome, upload } = await checkOnly("sad-bank.zip", (root) => {
+    const f = path.join(root, "07_Question_Banks", "questions", "ch01.json");
+    const qs = JSON.parse(readFileSync(f, "utf8"));
+    qs[0].stem = qs[0].stem + " (reworded without a register bump)";
+    writeFileSync(f, JSON.stringify(qs));
+    repointRegisterSize(root, "07_Question_Banks", "questions/ch01.json");
+  });
+  assert.equal(outcome, "ready", `a bank change must warn, not stop: ${upload.message ?? ""}`);
+  assert.match(upload.report!, /Version integrity \(question bank\)/);
+  assert.match(upload.report!, /questions\/ch01\.json: changed but the register is still/);
+});
+
+await t("rule 8 — no lock in storage means a first admission", async () => {
+  const saved = store.get("live/sad/intake.lock.json")!;
+  store.delete("live/sad/intake.lock.json");
+  try {
+    const { outcome, upload } = await checkOnly("sad-nolock.zip");
+    assert.equal(outcome, "ready", upload.message ?? "");
+    assert.match(upload.report!, /first admission — hashes recorded/);
+  } finally {
+    store.set("live/sad/intake.lock.json", saved);
+  }
+});
+
+await t("rule 8 — an unreadable lock warns and is treated as a first admission", async () => {
+  const saved = store.get("live/sad/intake.lock.json")!;
+  store.set("live/sad/intake.lock.json", new TextEncoder().encode("{ this is not json"));
+  try {
+    const { outcome, upload } = await checkOnly("sad-badlock.zip");
+    assert.equal(outcome, "ready", "an unreadable lock must never stop the job");
+    assert.match(upload.report!, /first admission — hashes recorded/);
+    assert.match(upload.message ?? "", /could not be read/);
+  } finally {
+    store.set("live/sad/intake.lock.json", saved);
+  }
+});
+
+await t("rule 9 — a check run leaves storage exactly as it was", async () => {
+  const before = new Map([...store.entries()].map(([k, v]) => [k, v.byteLength]));
+  await checkOnly("sad-readonly.zip");
+  const after = new Map([...store.entries()].map(([k, v]) => [k, v.byteLength]));
+  // the uploaded zip itself is new; nothing under live/ or archive/ may move
+  const interesting = (m: Map<string, number>) =>
+    [...m].filter(([k]) => k.startsWith("live/") || k.startsWith("archive/")).sort();
+  assert.deepEqual(interesting(after), interesting(before), "a check wrote to live/ or archive/");
+});
+
 console.log(`\n${passed} passed`);
