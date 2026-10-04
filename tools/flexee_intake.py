@@ -148,6 +148,19 @@ def fold(s):
 
 INTAKE_LANES = {"00_Front_Matter", "04_Chapters", "07_Question_Banks"}  # what the Wrapper actually reads
 
+# A section heading's own number, in the forms the books use: "1." (SAD) and "4.1" or "12.3."
+# (MIS 4950). A bare number is NOT one, so "2024 Trends" keeps its year, and the space is
+# required, so "1.5x Faster" keeps its measurement.
+#
+# This has to agree with norm() in src/lib/render.ts, which strips the same thing to match a
+# heading to this id. Before it did, MIS 4950's "### 4.1 Why Scope Comes First" became the section
+# title "1 Why Scope Comes First" — the old rule took "4." and left the "1" behind.
+SECTION_NUMBER = re.compile(r"^\s*(?:\d+\.(?:\d+\.?)?|\d+\))\s+")
+
+def section_title(heading):
+    """The title a `###` heading contributes to the manifest, with its own number removed."""
+    return SECTION_NUMBER.sub("", heading or "").strip()
+
 def _nums(s):
     """'1, 2, 3, 5, 6' / '4, 7–12' / '1–7, 11' -> [1, 2, ...]"""
     out = []
@@ -427,7 +440,7 @@ def run(args):
         body = re.sub(r"(!\[[^\]]*\]\()(?:\./)?([^)/]+\.png)\)", r"\1figures/\2)", md)
         if not body.endswith("\n"): body += "\n"
         (d / "content.md").write_text(body, encoding="utf-8")
-        sections = [{"id": f"c{n}s{j}", "title": re.sub(r"^\d+\.\s*", "", h).strip()}
+        sections = [{"id": f"c{n}s{j}", "title": section_title(h)}
                     for j, h in enumerate(re.findall(r"^### (.+)$", md, re.M), 1)]
         man = {"schemaVersion": 2, "id": eid, "book": book, "kind": "chapter", "number": n, "label": str(n),
                "title": h1.group(2).strip() if h1 else f"Chapter {n}", "version": 1, "sourceVersion": f"v{v}",

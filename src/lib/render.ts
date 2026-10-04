@@ -16,11 +16,18 @@ import type { EntryManifest, Figure, Section } from "./content";
 // leading enumerator, unify quotes/whitespace, trim trailing punctuation.
 // Exported because the assistant's chunker maps a chunk's heading back to the same manifest
 // section id (Spec 20), and two normalisers would be two definitions of what a heading is.
+//
+// The number stripped here must be the number tools/flexee_intake.py removes when it writes the
+// manifest title — see SECTION_NUMBER there. "1." and "1)" are SAD's forms, "4.1" and "12.3."
+// MIS 4950's. A bare number is not a section number, so "2024 Trends" keeps its year, and the
+// trailing space is required, so "1.5x Faster" keeps its measurement.
+const SECTION_NUMBER = /^\s*(?:\d+\.(?:\d+\.?)?|\d+\))\s+/;
+
 export function norm(s: string): string {
   return s
     .toLowerCase()
     .replace(/[\u2018\u2019]/g, "'")
-    .replace(/^\s*\d+[.)]\s*/, "")
+    .replace(SECTION_NUMBER, "")
     .replace(/\s+/g, " ")
     .replace(/[.,:;—–-]+$/, "")
     .trim();
