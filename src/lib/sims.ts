@@ -129,9 +129,13 @@ export async function simsForClass(sectionId: string, forStudents: boolean) {
 /** Who has played each of a class's sims (faculty view). */
 export async function classCompletions(userId: string, sectionId: string) {
   if (!(await ownedSection(userId, sectionId))) return null;
-  const rows = await db().select({ c: simCompletions, name: users.displayName }).from(simCompletions)
-    .innerJoin(users, eq(users.id, simCompletions.userId)).where(eq(simCompletions.sectionId, sectionId)).orderBy(desc(simCompletions.createdAt));
-  return rows.map((r) => ({ ...r.c, name: r.name, metrics: parse(r.c.metrics) }));
+  // Spec 18: a list, so a demo's play is shown rather than hidden — labelled, because faculty use
+  // this page to check the sim works and should see their own run.
+  const rows = await db().select({ c: simCompletions, name: users.displayName, isDemo: enrolments.isDemo }).from(simCompletions)
+    .innerJoin(users, eq(users.id, simCompletions.userId))
+    .leftJoin(enrolments, and(eq(enrolments.userId, simCompletions.userId), eq(enrolments.sectionId, sectionId)))
+    .where(eq(simCompletions.sectionId, sectionId)).orderBy(desc(simCompletions.createdAt));
+  return rows.map((r) => ({ ...r.c, name: r.name, isDemo: r.isDemo === true, metrics: parse(r.c.metrics) }));
 }
 
 // ---- launch (Wrapper -> sim) ---------------------------------------------------------------------

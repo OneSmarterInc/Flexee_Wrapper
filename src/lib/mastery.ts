@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, not } from "drizzle-orm";
 import { db } from "@/db";
 import { learningObjectives, questions, exams, examAttempts, examResponses, enrolments, users, identities, sectionOutcomes, outcomeObjectiveMap, sections } from "@/db/schema";
 
@@ -8,11 +8,23 @@ export async function bookObjectives(bookId: string) {
 }
 
 // All graded responses in a section, joined to the objective each question tests.
-export async function sectionResponses(sectionId: string) {
+/**
+ * Every answer given in this class's exams.
+ *
+ * Spec 18: **by its students, and not by a demo**. This filtered by nothing, so an instructor's
+ * own practice run through an exam already fed the percentages a faculty member reads, and the
+ * demo account would have too. `includeDemo` is for the per-student matrix, which is a list rather
+ * than a statistic and shows the demo's own answers, labelled.
+ */
+export async function sectionResponses(sectionId: string, opts: { includeDemo?: boolean } = {}) {
   const examRows = await db().select({ id: exams.id }).from(exams).where(eq(exams.sectionId, sectionId));
   if (!examRows.length) return [];
   const attempts = await db().select({ id: examAttempts.id, enrolmentId: examAttempts.enrolmentId, servedJson: examAttempts.servedJson })
-    .from(examAttempts).where(and(inArray(examAttempts.examId, examRows.map((e) => e.id))));
+    .from(examAttempts)
+    .innerJoin(enrolments, eq(enrolments.id, examAttempts.enrolmentId))
+    .where(and(inArray(examAttempts.examId, examRows.map((e) => e.id)),
+               eq(enrolments.role, "student"),
+               ...(opts.includeDemo ? [] : [not(enrolments.isDemo)])));
   const submitted = attempts.filter((a) => a); // all; unsubmitted have no responses
   if (!submitted.length) return [];
   const resp = await db().select({ attemptId: examResponses.attemptId, questionId: examResponses.questionId, correct: examResponses.correct })
@@ -38,18 +50,20 @@ export async function classMastery(sectionId: string, bookId: string) {
   return objs.map((o) => { const a = agg.get(o.id) ?? { served: 0, correct: 0 }; return { ...o, served: a.served, correct: a.correct, pct: a.served ? Math.round((a.correct / a.served) * 100) : null }; });
 }
 
-// Per-student mastery matrix: rows = students, cols = objectives.
+// Per-student mastery matrix: rows = students, cols = objectives. A list, so the demo is in it.
 export async function studentMastery(sectionId: string, bookId: string) {
   const objs = await bookObjectives(bookId);
-  const rows = await sectionResponses(sectionId);
-  const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject, role: enrolments.role })
+  const rows = await sectionResponses(sectionId, { includeDemo: true });
+  // The matrix is a list, not a statistic, so a demo stays in it — labelled, so faculty can see
+  // their own test run rather than wonder where it went. Its answers are out of `rows` above.
+  const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject, role: enrolments.role, isDemo: enrolments.isDemo })
     .from(enrolments).innerJoin(users, eq(users.id, enrolments.userId))
     .leftJoin(identities, and(eq(identities.userId, users.id), eq(identities.provider, "password")))
     .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")));
   const cell = new Map<string, { served: number; correct: number }>();
   for (const r of rows) { if (!r.objectiveId) continue; const k = `${r.enrolmentId}:${r.objectiveId}`; const a = cell.get(k) ?? { served: 0, correct: 0 }; a.served++; if (r.correct) a.correct++; cell.set(k, a); }
   const students = roster.filter((s) => rows.some((r) => r.enrolmentId === s.enrolmentId)).map((s) => ({
-    name: s.name, email: s.email,
+    name: s.name, email: s.email, isDemo: s.isDemo,
     cells: objs.map((o) => { const a = cell.get(`${s.enrolmentId}:${o.id}`); return a && a.served ? Math.round((a.correct / a.served) * 100) : null; }),
   }));
   return { objectives: objs, students };

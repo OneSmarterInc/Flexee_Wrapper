@@ -34,7 +34,7 @@ export default async function AssignmentPage({ params, searchParams }: { params:
         <tbody>
           {rows.map((r) => (
             <tr key={r.enrolmentId}>
-              <td style={cell}>{r.name}</td>
+              <td style={cell}>{r.name}{r.isDemo && <span style={demoTag}>Demo</span>}</td>
               <td style={cell}>{r.submission ? <>{formatLocal(r.submission.submittedAt)}{r.submission.late && <strong style={{ color: "#b4451f" }}> · late</strong>}</> : <span style={{ color: "var(--muted)" }}>not submitted</span>}</td>
               <td style={cell}>{r.submission?.status === "graded" ? `${r.submission.score} / ${a.points}` : r.submission ? <span style={{ color: "#b4451f" }}>to grade</span> : ""}</td>
               <td style={cell}>{r.submission && <Link href={`/teach/${section}/assignments/${a.id}/${r.submission.id}`}>{r.submission.status === "graded" ? "View" : "Grade"} →</Link>}</td>
@@ -76,3 +76,4 @@ export default async function AssignmentPage({ params, searchParams }: { params:
     </main>
   );
 }
+const demoTag = { marginLeft: ".4rem", padding: ".05rem .35rem", border: "1px solid var(--rule)", borderRadius: "4px", fontSize: ".7rem", color: "var(--muted)" } as const;

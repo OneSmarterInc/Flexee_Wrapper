@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { confirmLabel, emailSentence, nothingToWrite } from "@/lib/d2l";
 
 type Row = {
   line: number; name: string; userName: string; orgDefinedId: string; role: string; email: string;
@@ -97,11 +98,9 @@ export default function D2LImport({ sectionId }: { sectionId: string }) {
   const toEnrol = preview ? preview.rows.filter((r) => r.plan === "enrol existing").length : 0;
   // Nothing to write means nothing to confirm. The live test ran a file whose only importable row
   // was D2L's demo student, and the dark "email invitations" button was still inviting a click.
-  const nothingToDo = !!c && c.willCreate === 0 && toEnrol === 0;
-  const planLabel = c
-    ? [c.willCreate ? `Create ${c.willCreate} account${c.willCreate === 1 ? "" : "s"}` : "", toEnrol ? `enrol ${toEnrol}` : ""]
-        .filter(Boolean).join(" and ") || "Nothing to create"
-    : "";
+  const plan = { willCreate: c?.willCreate ?? 0, toEnrol };
+  const nothingToDo = !!c && nothingToWrite(plan);
+  const planLabel = c ? confirmLabel(plan) : "";
 
   return (
     <div className="ui" style={{ display: "grid", gap: "1rem" }}>
@@ -113,9 +112,10 @@ export default function D2LImport({ sectionId }: { sectionId: string }) {
       {emailStep && (
         <div style={{ border: "1px solid var(--rule)", borderRadius: "8px", padding: ".8rem" }}>
           <p style={{ margin: "0 0 .6rem" }}>
+            {emailSentence(emailStep.count, emailStep.domain)}
             {emailStep.count > 0
-              ? <>This will email <strong>{emailStep.count}</strong> student{emailStep.count === 1 ? "" : "s"} at <code>{emailStep.domain}</code>. The demo account is never emailed.</>
-              : <>Nobody is waiting for an invitation. Every student in this class has set a password, or is the demo account.</>}
+              ? " The demo account is never emailed."
+              : " Every student in this class has set a password, or is the demo account."}
           </p>
           <button onClick={emailInvitations} disabled={busy || emailStep.count === 0} style={primary}>
             Email {emailStep.count} invitation{emailStep.count === 1 ? "" : "s"} now

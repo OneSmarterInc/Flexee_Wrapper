@@ -106,7 +106,7 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
         <table className="ui" style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead><tr><th style={cell}>Student</th><th style={cell}>Simulation</th><th style={cell}>Finished</th><th style={cell}>Time</th><th style={cell}>Summary</th></tr></thead>
           <tbody>{played!.map((c) => (
-            <tr key={c.id}><td style={cell}>{c.name}</td><td style={cell}>{title.get(c.simId) ?? c.simId}</td><td style={cell}>{formatLocal(c.createdAt)}</td>
+            <tr key={c.id}><td style={cell}>{c.name}{c.isDemo && <span style={demoTag}>Demo</span>}</td><td style={cell}>{title.get(c.simId) ?? c.simId}</td><td style={cell}>{formatLocal(c.createdAt)}</td>
               <td style={cell}>{mins(c.durationSeconds)}</td><td style={cell}>{(c.summary ?? "").slice(0, 120)}</td></tr>
           ))}</tbody>
         </table>
@@ -114,3 +114,4 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
     </main>
   );
 }
+const demoTag = { marginLeft: ".4rem", padding: ".05rem .35rem", border: "1px solid var(--rule)", borderRadius: "4px", fontSize: ".7rem", color: "var(--muted)" } as const;

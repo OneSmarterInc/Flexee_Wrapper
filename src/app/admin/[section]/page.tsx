@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { getBook, listBooks } from "@/lib/content";
 import { classById } from "@/lib/admin";
+import { demoUserIds } from "@/lib/d2l-import";
 import { sectionRoster, pendingInvites } from "@/lib/roster";
 import { addPeopleAction, removePersonAction, removeInviteAction } from "@/app/admin/actions";
 import ClassBookPanel from "@/components/ClassBookPanel";
@@ -76,10 +77,13 @@ export default async function AdminClass({ params, searchParams }: {
   const [roster, invites, book, library] = await Promise.all([
     sectionRoster(sectionId), pendingInvites(sectionId), getBook(cls.bookId).catch(() => null), listBooks(),
   ]);
-  const by = (role: string) => roster.filter((r) => r.role === role).map((r) => ({ enrolmentId: r.enrolmentId, name: r.name, email: r.email }))
+  const by = (role: string) => roster.filter((r) => r.role === role).map((r) => ({ enrolmentId: r.enrolmentId, name: r.name, email: r.email, userId: r.userId }))
     .sort((a, b) => a.name.localeCompare(b.name));
   const invited = (role: string) => invites.filter((i) => (i.role ?? "student") === role);
   const faculty = by("instructor"), students = by("student");
+  // Spec 18: D2L's demo account is not one of the class's students. Counted apart, never hidden.
+  const demos = await demoUserIds(sectionId);
+  const demoCount = students.filter((s) => demos.has(s.userId)).length;
 
   return (
     <WorkspaceShell active="admin" isAdmin canTeach displayName={user.displayName}
@@ -96,7 +100,7 @@ export default async function AdminClass({ params, searchParams }: {
       {sp.ok && <p className="workspace-alert ui" role="status">{sp.ok}</p>}
       <div className="workspace-stats ui" aria-label="Class summary">
         <div className="workspace-stat"><strong>{faculty.length}</strong><span>Faculty assigned</span></div>
-        <div className="workspace-stat"><strong>{students.length}</strong><span>Students enrolled</span></div>
+        <div className="workspace-stat"><strong>{students.length - demoCount}</strong><span>Students enrolled{demoCount ? ` (+${demoCount} demo)` : ""}</span></div>
         <div className="workspace-stat"><strong>{cls.bookPublishedAt ? "Open" : "Closed"}</strong><span>Book access for students</span></div>
       </div>
       <section className="workspace-panel ui" aria-labelledby="join-code-heading">

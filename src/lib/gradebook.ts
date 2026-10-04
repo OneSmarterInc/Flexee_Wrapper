@@ -109,7 +109,7 @@ export type CategoryResult = { id: string; name: string; weight: number; dropLow
 
 export async function gradebook(sectionId: string) {
   const items = await listLineItems(sectionId);
-  const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject, d2lUsername: users.d2lUsername })
+  const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject, d2lUsername: users.d2lUsername, isDemo: enrolments.isDemo })
     .from(enrolments).innerJoin(users, eq(users.id, enrolments.userId))
     .leftJoin(identities, and(eq(identities.userId, users.id), eq(identities.provider, "password")))
     .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")));
@@ -369,6 +369,27 @@ export function d2lKey(s: { d2lUsername?: string | null; email?: string | null }
   const local = (s.email ?? "").split("@")[0].trim();
   return local || "";
 }
+
+/** The export was not written, and why. Thrown so no half-written file can reach a browser. */
+export class ExportBlocked extends Error {}
+
+/**
+ * Spec 18: two students with one Username key. D2L matches on Username, so a file like that does
+ * not fail on import — it quietly applies one row and discards the other, which is how a class
+ * loses marks nobody notices. Every way of arriving at it (a duplicate account from the old
+ * email-only matching, a hand-edited username, a fallback that collides with a stored one) passes
+ * through here, so here is where it stops.
+ */
+export function d2lKeyConflicts(students: { name: string; d2lUsername?: string | null; email?: string | null }[]) {
+  const byKey = new Map<string, string[]>();
+  for (const s of students) {
+    const k = d2lKey(s);
+    if (!k) continue; // a blank cell is flagged on the export page, and D2L matches nobody to it
+    byKey.set(k, [...(byKey.get(k) ?? []), s.name]);
+  }
+  return [...byKey.entries()].filter(([, names]) => names.length > 1)
+    .map(([key, names]) => ({ key, names }));
+}
 export async function exportCsv(sectionId: string, format: string): Promise<string> {
   const { items, students, categories, categorised } = await gradebook(sectionId);
   const rows: string[] = [];
@@ -395,6 +416,14 @@ export async function exportCsv(sectionId: string, format: string): Promise<stri
     // Spec 17: the key is the stored D2L username — the one the import read from D2L's own
     // export. Without one, the address's local part is the best guess; with neither, the cell is
     // blank rather than a name D2L cannot match, and the export page says how many.
+    const clashes = d2lKeyConflicts(students);
+    if (clashes.length) {
+      throw new ExportBlocked(
+        `This class has ${clashes.length === 1 ? "a student username" : "student usernames"} used more than once: ` +
+        clashes.map((c) => `"${c.key}" (${c.names.join(", ")})`).join("; ") +
+        ". D2L matches on Username, so importing this file would apply one of those rows and discard the other. " +
+        "Merge the duplicate accounts, or correct their D2L usernames, then export again.");
+    }
     rows.push(["Username", ...items.map((i) => `${i.title} Points Grade <Numeric MaxPoints:${i.maxPoints}>`), "End-of-Line Indicator"].map(esc).join(","));
     for (const s of students) rows.push([d2lKey(s), ...items.map((it) => cellPts(s, it)), "#"].map(esc).join(","));
   } else if (format === "blackboard") {

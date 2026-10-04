@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, not } from "drizzle-orm";
 import { db } from "@/db";
 import {
   sections, enrolments, sectionOutcomes, outcomeObjectiveMap, programOutcomes, outcomeProgramMap,
@@ -83,8 +83,10 @@ export async function aolReport(sectionId: string) {
   const sec = (await db().select().from(sections).where(eq(sections.id, sectionId)).limit(1))[0];
   const settings = await getSettings(sectionId);
   const cfg = await aolConfig(sectionId);
+  // Spec 18: the report is about the class's students. A demo enrolment is neither counted in
+  // `studentCount` nor allowed into a measure, so it cannot move a benchmark.
   const students = (await db().select({ id: enrolments.id }).from(enrolments)
-    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")))).map((r) => r.id);
+    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"), not(enrolments.isDemo)))).map((r) => r.id);
   const studentSet = new Set(students);
   const responses = (await sectionResponses(sectionId)).filter((r) => studentSet.has(r.enrolmentId));
   const liIds = [...new Set(cfg.outcomes.flatMap((o) => o.evidence.map((e) => e.lineItemId)))];

@@ -47,7 +47,7 @@ export default async function Mastery({ params }: { params: Promise<{ section: s
               <thead><tr><th style={cell}>Student</th>{byStudent.objectives.map((o) => <th key={o.id} style={cell} title={o.label}>{o.code ?? o.id.slice(-2)}</th>)}</tr></thead>
               <tbody>
                 {byStudent.students.map((s, i) => (
-                  <tr key={i}><td style={cell}>{s.name}</td>{s.cells.map((c, j) => <td key={j} style={{ ...cell, textAlign: "center", color: pctColor(c) }}>{c == null ? "—" : `${c}%`}</td>)}</tr>
+                  <tr key={i}><td style={cell}>{s.name}{s.isDemo && <span style={demoTag}>Demo</span>}</td>{s.cells.map((c, j) => <td key={j} style={{ ...cell, textAlign: "center", color: pctColor(c) }}>{c == null ? "—" : `${c}%`}</td>)}</tr>
                 ))}
               </tbody>
             </table>
@@ -69,3 +69,4 @@ export default async function Mastery({ params }: { params: Promise<{ section: s
     </main>
   );
 }
+const demoTag = { marginLeft: ".4rem", padding: ".05rem .35rem", border: "1px solid var(--rule)", borderRadius: "4px", fontSize: ".7rem", color: "var(--muted)" } as const;

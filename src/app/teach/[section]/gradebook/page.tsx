@@ -69,7 +69,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                 {students.length === 0 && <tr><td style={cell} colSpan={items.length + 2 + (categorised ? categories.length + 1 : 0)}>No students enrolled yet.</td></tr>}
                 {students.map((s) => (
                   <tr key={s.enrolmentId}>
-                    <td style={cell}>{s.name}<div style={{ color: "var(--muted)", fontSize: ".78rem" }}>{s.email}</div></td>
+                    <td style={cell}>{s.name}{s.isDemo && <span style={demoTag}>Demo</span>}<div style={{ color: "var(--muted)", fontSize: ".78rem" }}>{s.email}</div></td>
                     {items.map((it) => {
                       const c = s.cells[it.id];
                       if (isParticipation(it)) return (
@@ -250,3 +250,4 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
     </main>
   );
 }
+const demoTag = { marginLeft: ".4rem", padding: ".05rem .35rem", border: "1px solid var(--rule)", borderRadius: "4px", fontSize: ".7rem", color: "var(--muted)" } as const;

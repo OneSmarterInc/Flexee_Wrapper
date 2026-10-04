@@ -160,3 +160,30 @@ export function parseClassList(text: string, opts: { domain?: string } = {}): Cl
   }
   return out;
 }
+
+// ---------------------------------------------------------------- the confirm step (Spec 18 §2)
+//
+// The wording and the enabling live here, with the parser, because they are decisions rather than
+// markup: the first live import offered a dark "Create accounts and email invitations" button for
+// a file whose only importable row was D2L's demo student. These are pure, so a test can hold them
+// to it, and this module carries no `server-only` so the faculty component can use them too.
+
+export type ImportPlanCounts = { willCreate: number; toEnrol: number };
+
+/** Nothing would be written, so there is nothing to confirm. */
+export const nothingToWrite = (c: ImportPlanCounts) => c.willCreate === 0 && c.toEnrol === 0;
+
+/** What the confirm button says. It names what it will do, and never mentions email. */
+export function confirmLabel(c: ImportPlanCounts) {
+  if (nothingToWrite(c)) return "Nothing to create";
+  const parts = [];
+  if (c.willCreate) parts.push(`Create ${c.willCreate} account${c.willCreate === 1 ? "" : "s"}`);
+  if (c.toEnrol) parts.push(`enrol ${c.toEnrol}`);
+  return parts.join(" and ");
+}
+
+/** What the second step says before anyone presses it: how many, and where. */
+export function emailSentence(count: number, domain: string) {
+  if (count === 0) return "Nobody is waiting for an invitation.";
+  return `This will email ${count} student${count === 1 ? "" : "s"} at ${domain}.`;
+}

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, not } from "drizzle-orm";
 import { db } from "@/db";
 import { assignments, assignmentFiles, submissions, submissionFiles, enrolments, users, lineItems, lineItemScores } from "@/db/schema";
 import { ownedSection } from "@/lib/roster";
@@ -102,8 +102,12 @@ export async function removeAssignmentFile(userId: string, id: string, fileId: s
 export async function classAssignments(userId: string, sectionId: string) {
   if (!(await ownedSection(userId, sectionId))) return null;
   const list = await db().select().from(assignments).where(eq(assignments.sectionId, sectionId)).orderBy(asc(assignments.dueAt), asc(assignments.createdAt));
+  // Spec 18: "12 submitted" means twelve students. A demo submission is not one of them, so the
+  // counts are taken over student enrolments that are not demo.
   const subs = list.length ? await db().select({ a: submissions.assignmentId, s: submissions.status }).from(submissions)
-    .where(inArray(submissions.assignmentId, list.map((x) => x.id))) : [];
+    .innerJoin(enrolments, eq(enrolments.id, submissions.enrolmentId))
+    .where(and(inArray(submissions.assignmentId, list.map((x) => x.id)),
+               eq(enrolments.role, "student"), not(enrolments.isDemo))) : [];
   return list.map((a) => ({ ...a,
     submitted: subs.filter((s) => s.a === a.id).length,
     graded: subs.filter((s) => s.a === a.id && s.s === "graded").length }));
@@ -113,7 +117,8 @@ export async function classAssignments(userId: string, sectionId: string) {
 export async function assignmentForFaculty(userId: string, id: string) {
   const a = await taughtAssignment(userId, id); if (!a) return null;
   const files = await db().select().from(assignmentFiles).where(eq(assignmentFiles.assignmentId, id)).orderBy(asc(assignmentFiles.createdAt));
-  const students = await db().select({ enrolmentId: enrolments.id, name: users.displayName }).from(enrolments)
+  // The submission list is a list: the demo stays in it, labelled.
+  const students = await db().select({ enrolmentId: enrolments.id, name: users.displayName, isDemo: enrolments.isDemo }).from(enrolments)
     .innerJoin(users, eq(users.id, enrolments.userId)).where(and(eq(enrolments.sectionId, a.sectionId), eq(enrolments.role, "student")));
   const subs = await db().select().from(submissions).where(eq(submissions.assignmentId, id));
   const rows = students.map((s) => ({ ...s, submission: subs.find((x) => x.enrolmentId === s.enrolmentId) ?? null }))
