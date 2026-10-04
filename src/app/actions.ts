@@ -532,3 +532,75 @@ export async function setEvidenceAction(formData: FormData) {
   await setEvidence(clean(formData.get("lineItemId")), clean(formData.get("outcomeId")), clean(formData.get("evidenceType")) || null);
   redirect(`/teach/${sectionId}/aol`);
 }
+
+// --- Spec 20: the course assistant's controls, and Ask your instructor ---
+
+export async function setAssistantSettingsAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  if (!user) redirect("/login");
+  const { setSettings } = await import("@/lib/assistant/store");
+  const num = (k: string) => {
+    const v = formData.get(k);
+    return v == null || String(v).trim() === "" ? undefined : Number(v);
+  };
+  const r = await setSettings(user!.id, sectionId, {
+    enabled: formData.get("enabled") === "1",
+    dailyPerStudent: num("dailyPerStudent"),
+    monthlyTokenCap: num("monthlyTokenCap"),
+  });
+  redirect(r.ok
+    ? `/teach/${sectionId}/assistant?ok=${encodeURIComponent("Saved.")}`
+    : `/teach/${sectionId}/assistant?error=${encodeURIComponent(r.error)}`);
+}
+
+/** Off for one piece of work — an exam held outside the Wrapper, say — without touching the class. */
+export async function setAssignmentAssistantAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  const assignmentId = clean(formData.get("assignmentId"));
+  const { canManageClass } = await import("@/lib/publish");
+  if (!user || !(await canManageClass(user.id, sectionId))) redirect("/teach");
+  const { db } = await import("@/db");
+  const { assignments } = await import("@/db/schema");
+  const { and, eq } = await import("drizzle-orm");
+  await db().update(assignments).set({ assistantOff: formData.get("off") === "1" })
+    .where(and(eq(assignments.id, assignmentId), eq(assignments.sectionId, sectionId)));
+  redirect(`/teach/${sectionId}/assignments/${assignmentId}`);
+}
+
+export async function askInstructorAction(formData: FormData) {
+  const user = await currentUser();
+  const threadId = clean(formData.get("threadId"));
+  const back = safeNext(formData.get("back"));
+  if (!user) redirect("/login");
+  const { threadFor, askInstructor } = await import("@/lib/assistant/store");
+  const t = await threadFor(user!.id, threadId);
+  if (!t || t.as !== "student") redirect(back);
+  await askInstructor(threadId, t.sectionId, t.enrolmentId);
+  redirect(`${back}${back.includes("?") ? "&" : "?"}asked=1`);
+}
+
+export async function replyToQuestionAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  const questionId = clean(formData.get("questionId"));
+  const body = String(formData.get("body") ?? "");
+  if (!user) redirect("/login");
+  const { answerQuestion } = await import("@/lib/assistant/store");
+  const r = await answerQuestion(user!.id, questionId, body);
+  if (!r.ok) redirect(`/teach/${sectionId}/assistant?error=${encodeURIComponent(r.error)}`);
+  // The email is a courtesy. A failure here must not lose a reply that is already in the thread.
+  if (r.email) {
+    try {
+      const { sendMail } = await import("@/lib/mail");
+      await sendMail({
+        to: r.email,
+        subject: "Your instructor replied to your question",
+        text: "Your instructor has replied to the question you asked in your course.\n\n" +
+          `Open the conversation: ${await baseUrl()}/assistant/${r.threadId}\n`,
+      });
+    } catch { /* never breaks the reply */ }
+  }
+  redirect(`/teach/${sectionId}/assistant?ok=${encodeURIComponent("Reply sent.")}`);
+}

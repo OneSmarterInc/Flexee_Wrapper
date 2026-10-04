@@ -165,6 +165,9 @@ export const assignments = pgTable(
     points: integer("points").notNull(),
     allowLate: boolean("allow_late").notNull().default(true),
     published: boolean("published").notNull().default(false),
+    // Spec 20 §4: faculty can turn the assistant off for one piece of work, without turning it off
+    // for the class.
+    assistantOff: boolean("assistant_off").notNull().default(false),
     createdBy: text("created_by").references((): any => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -665,3 +668,86 @@ export const aolSettings = pgTable("aol_settings", {
   targetPct: integer("target_pct").notNull().default(70),          // the benchmark: share of students who should meet
   minN: integer("min_n").notNull().default(5),                     // below this, results are flagged as too few to conclude
 });
+
+// --- Spec 20: the course-grounded student assistant ---
+//
+// Keyed on the enrolment, not the user, so a student's threads die with their enrolment exactly as
+// their bookmarks, submissions and attempts do. `assistant_usage` is the one exception: its
+// enrolment is nullable so a class's monthly total survives the retention job that deletes the
+// threads. It holds no content.
+
+export const assistantSettings = pgTable("assistant_settings", {
+  sectionId: text("section_id").primaryKey().references(() => sections.id, { onDelete: "cascade" }),
+  // Off for every class until one of its faculty turns it on (the spec's own default).
+  enabled: boolean("enabled").notNull().default(false),
+  dailyPerStudent: integer("daily_per_student").notNull().default(20),
+  // Decision 4: the cap is tokens, so a provider's price change cannot move a limit. About 830
+  // questions a month at the measured ~2,400 tokens a question.
+  monthlyTokenCap: integer("monthly_token_cap").notNull().default(2_000_000),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const assistantThreads = pgTable(
+  "assistant_threads",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
+    enrolmentId: text("enrolment_id").notNull().references(() => enrolments.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("assistant_threads_section_idx").on(t.sectionId, t.lastMessageAt),
+    index("assistant_threads_enrolment_idx").on(t.enrolmentId),
+    index("assistant_threads_retention_idx").on(t.lastMessageAt),
+  ],
+);
+
+export const assistantMessages = pgTable(
+  "assistant_messages",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    threadId: text("thread_id").notNull().references(() => assistantThreads.id, { onDelete: "cascade" }),
+    role: text("role").notNull(), // 'student' | 'assistant' | 'instructor'
+    body: text("body").notNull(),
+    citationsJson: text("citations_json"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("assistant_messages_thread_idx").on(t.threadId, t.createdAt)],
+);
+
+export const assistantUsage = pgTable(
+  "assistant_usage",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
+    enrolmentId: text("enrolment_id").references(() => enrolments.id, { onDelete: "set null" }),
+    day: text("day").notNull(),           // YYYY-MM-DD, UTC
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    tokensIn: integer("tokens_in").notNull().default(0),
+    tokensOut: integer("tokens_out").notNull().default(0),
+    costMicros: integer("cost_micros").notNull().default(0),  // millionths of a dollar, an estimate
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("assistant_usage_section_day_idx").on(t.sectionId, t.day),
+    index("assistant_usage_enrolment_day_idx").on(t.enrolmentId, t.day),
+  ],
+);
+
+export const assistantQuestions = pgTable(
+  "assistant_questions",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    threadId: text("thread_id").notNull().references(() => assistantThreads.id, { onDelete: "cascade" }),
+    sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
+    enrolmentId: text("enrolment_id").notNull().references(() => enrolments.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("open"), // 'open' | 'answered'
+    askedAt: timestamp("asked_at", { withTimezone: true }).defaultNow().notNull(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    answeredBy: text("answered_by").references((): any => users.id, { onDelete: "set null" }),
+  },
+  (t) => [index("assistant_questions_section_status_idx").on(t.sectionId, t.status)],
+);
