@@ -215,6 +215,7 @@ export async function hasUsablePassword(email: string) {
 }
 
 export type InviteState =
+  | { state: "demo" }
   | { state: "set up" }
   | { state: "invited"; at: Date }
   | { state: "link copied"; at: Date }
@@ -224,10 +225,11 @@ export type InviteState =
 
 /**
  * Each student's invitation state for the faculty class list. Derived, never stored twice: having
- * a password is what "set up" means, and the rest comes from the newest invitation row.
+ * a password is what "set up" means, and the rest comes from the newest invitation row. A demo
+ * enrolment has no invitation state at all — it is never emailed (Spec 18).
  */
 export async function inviteStatesFor(sectionId: string): Promise<Map<string, InviteState>> {
-  const roster = await db().select({ userId: enrolments.userId, hash: identities.passwordHash })
+  const roster = await db().select({ userId: enrolments.userId, hash: identities.passwordHash, isDemo: enrolments.isDemo })
     .from(enrolments)
     .leftJoin(identities, and(eq(identities.userId, enrolments.userId), eq(identities.provider, "password")))
     .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")));
@@ -243,6 +245,7 @@ export async function inviteStatesFor(sectionId: string): Promise<Map<string, In
   const out = new Map<string, InviteState>();
   const now = Date.now();
   for (const r of roster) {
+    if (r.isDemo) { out.set(r.userId, { state: "demo" }); continue; }
     if (r.hash != null) { out.set(r.userId, { state: "set up" }); continue; }
     const t = newest.get(r.userId);
     if (!t) { out.set(r.userId, { state: "none" }); continue; }
@@ -256,7 +259,7 @@ export async function inviteStatesFor(sectionId: string): Promise<Map<string, In
 
 /** The student this enrolment belongs to, within this class. */
 export async function studentOfEnrolment(sectionId: string, enrolmentId: string) {
-  const r = (await db().select({ userId: enrolments.userId, email: identities.subject, name: users.displayName })
+  const r = (await db().select({ userId: enrolments.userId, email: identities.subject, name: users.displayName, isDemo: enrolments.isDemo })
     .from(enrolments)
     .innerJoin(users, eq(users.id, enrolments.userId))
     .leftJoin(identities, and(eq(identities.userId, enrolments.userId), eq(identities.provider, "password")))

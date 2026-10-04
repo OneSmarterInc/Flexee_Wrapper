@@ -18,6 +18,13 @@ const COLUMNS = ["name", "username", "orgdefinedid", "role"] as const;
 type Column = (typeof COLUMNS)[number];
 const REQUIRED: Column[] = ["name", "username", "role"];
 
+/**
+ * D2L ships every class with a built-in "Demo Student" so faculty can see what students see.
+ * Spec 17 skipped it, because only the exact role "Student" counted. It is a student here, and
+ * flagged: never emailed, never in a class statistic, still in the grade export.
+ */
+const DEMO_ROLE = "demo student";
+
 export type ParsedRow = {
   line: number;          // 1-based data row, for naming a problem in the preview
   name: string;          // "First Last", or the name as written when it has no comma
@@ -26,6 +33,7 @@ export type ParsedRow = {
   orgDefinedId: string;  // read and shown as ignored — never stored
   role: string;          // as written, so the preview can say which role was skipped
   email: string;
+  demo: boolean;         // D2L's built-in "Demo Student": a student, flagged, never emailed
   note?: string;         // something about this row faculty should see
 };
 
@@ -34,7 +42,7 @@ export type Problem = { line: number; reason: string; detail?: string };
 export type ClassList = {
   headers: string[];
   missing: string[];        // required headers the file does not have
-  students: ParsedRow[];    // role "Student", usable
+  students: ParsedRow[];    // role "Student" or "Demo Student", usable
   others: ParsedRow[];      // another role: listed with it, and ignored
   problems: Problem[];
   rowCount: number;         // data rows read, before anything was dropped
@@ -140,12 +148,14 @@ export function parseClassList(text: string, opts: { domain?: string } = {}): Cl
     const name = personName(rawName);
     if (!name) out.problems.push({ line, reason: "unreadable name", detail: userName });
 
+    const roleKey = role.trim().toLowerCase();
     const row: ParsedRow = {
       line, name: name || userName, rawName, userName, orgDefinedId, role,
       email: emailFor(userName, domain),
+      demo: roleKey === DEMO_ROLE,
       ...(userName.includes("@") ? { note: "UserName is already an address — used as the email, with no domain added" } : {}),
     };
-    if (role.trim().toLowerCase() === "student") out.students.push(row);
+    if (roleKey === "student" || roleKey === DEMO_ROLE) out.students.push(row);
     else out.others.push(row);
   }
   return out;

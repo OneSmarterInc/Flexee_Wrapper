@@ -23,6 +23,7 @@ const day = (d: Date) => d.toISOString().slice(0, 10);
 function inviteLabel(s: InviteState | undefined) {
   if (!s) return "—";
   switch (s.state) {
+    case "demo": return "Demo";
     case "set up": return "Set up";
     case "invited": return `Invited ${day(s.at)}`;
     case "link copied": return `Link copied ${day(s.at)}`;
@@ -43,7 +44,12 @@ export default async function SectionDashboard({ params, searchParams }: { param
   const updates = content.filter((c) => c.hasUpdate).length;
   const students = roster.filter((r) => r.role === "student");
   const instructors = roster.filter((r) => r.role === "instructor");
-  const notSetUp = students.filter((r) => inviteStates.get(r.userId)?.state !== "set up").length;
+  // Spec 18: a demo is not one of the class's students for counting purposes, and is never part
+  // of a bulk resend. It is still listed, labelled "Demo".
+  const isDemo = (userId: string) => inviteStates.get(userId)?.state === "demo";
+  const demoCount = students.filter((r) => isDemo(r.userId)).length;
+  const realStudents = students.length - demoCount;
+  const notSetUp = students.filter((r) => !isDemo(r.userId) && inviteStates.get(r.userId)?.state !== "set up").length;
 
   return (
     <WorkspaceShell active="faculty" isAdmin={user.systemRole === "admin"} canTeach displayName={user.displayName}
@@ -57,7 +63,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
       <div className="workspace-stats ui" aria-label="Class summary">
-        <div className="workspace-stat"><strong>{students.length}</strong><span>Students</span></div>
+        <div className="workspace-stat"><strong>{realStudents}</strong><span>Students{demoCount ? ` (+${demoCount} demo)` : ""}</span></div>
         <div className="workspace-stat"><strong>{updates}</strong><span>Content updates to review</span></div>
         <div className="workspace-stat"><strong>{bookState?.published ? "Open" : "Closed"}</strong><span>Student book access</span></div>
       </div>
@@ -125,7 +131,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
           </form>
         )}
       </div>
-      <p className="ui" style={{ color: "var(--muted)" }}>{students.length} student{students.length === 1 ? "" : "s"} · {instructors.length} instructor{instructors.length === 1 ? "" : "s"}{invites.length ? ` · ${invites.length} invited` : ""}</p>
+      <p className="ui" style={{ color: "var(--muted)" }}>{realStudents} student{realStudents === 1 ? "" : "s"}{demoCount ? ` · ${demoCount} demo` : ""} · {instructors.length} instructor{instructors.length === 1 ? "" : "s"}{invites.length ? ` · ${invites.length} invited` : ""}</p>
       <table className="ui" style={{ width: "100%", borderCollapse: "collapse", fontSize: ".9rem" }}>
         <thead><tr><th style={cell}>Name</th><th style={cell}>Email</th><th style={cell}>Role</th><th style={cell}>Account</th><th style={cell}></th></tr></thead>
         <tbody>
@@ -138,11 +144,13 @@ export default async function SectionDashboard({ params, searchParams }: { param
               <td style={cell}>{inviteLabel(inviteStates.get(r.userId))}</td>
               <td style={cell}>
                 <div style={{ display: "flex", gap: ".8rem", flexWrap: "wrap" }}>
-                  <form action={sendInviteAction}>
-                    <input type="hidden" name="sectionId" value={section} />
-                    <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
-                    <button type="submit" style={linkBtn}>{inviteStates.get(r.userId)?.state === "set up" ? "Send a reset link" : "Resend invitation"}</button>
-                  </form>
+                  {!isDemo(r.userId) && (
+                    <form action={sendInviteAction}>
+                      <input type="hidden" name="sectionId" value={section} />
+                      <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
+                      <button type="submit" style={linkBtn}>{inviteStates.get(r.userId)?.state === "set up" ? "Send a reset link" : "Resend invitation"}</button>
+                    </form>
+                  )}
                   <form action={copyInviteLinkAction}>
                     <input type="hidden" name="sectionId" value={section} />
                     <input type="hidden" name="enrolmentId" value={r.enrolmentId} />

@@ -1,6 +1,7 @@
 import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
+import type { DbOrTx } from "@/db";
 import { sections, enrolments, users, identities, rosterInvites } from "@/db/schema";
 import { pinSectionToLatest } from "@/lib/versions";
 import { applyGradebookStarter } from "@/lib/gradebook";
@@ -100,11 +101,19 @@ export async function enrollByCode(userId: string, joinCode: string) {
 
 // Enrol (or re-role) a user in a class. Faculty are never demoted by a later student list:
 // adding someone as instructor raises their role; adding an instructor as student leaves them instructor.
-export async function enrolAs(sectionId: string, userId: string, role: ClassRole) {
-  await db().insert(enrolments).values({ sectionId, userId, role })
+// `isDemo` is only ever raised, never lowered: a class list that lists someone as a demo once
+// keeps them a demo, and a later list that leaves the flag off does not quietly promote the
+// account faculty have been signing into. `tx` lets an import write this inside its transaction.
+export async function enrolAs(sectionId: string, userId: string, role: ClassRole,
+                              opts: { tx?: DbOrTx; isDemo?: boolean } = {}) {
+  const x = opts.tx ?? db();
+  await x.insert(enrolments).values({ sectionId, userId, role, isDemo: opts.isDemo ?? false })
     .onConflictDoUpdate({
       target: [enrolments.sectionId, enrolments.userId],
-      set: { role: sql`case when ${enrolments.role} = 'instructor' then 'instructor' else ${role} end` },
+      set: {
+        role: sql`case when ${enrolments.role} = 'instructor' then 'instructor' else ${role} end`,
+        ...(opts.isDemo ? { isDemo: true } : {}),
+      },
     });
 }
 

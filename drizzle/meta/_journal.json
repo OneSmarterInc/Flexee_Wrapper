@@ -134,6 +134,13 @@
       "when": 1791134016249,
       "tag": "0018_d2l_class_list",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791220416249,
+      "tag": "0019_demo_enrolments",
+      "breakpoints": true
     }
   ]
 }

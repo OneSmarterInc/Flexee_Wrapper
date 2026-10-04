@@ -15,3 +15,12 @@ export function db() {
   return _db;
 }
 export { schema };
+
+/**
+ * The database handle, and the handle inside a transaction. A function that writes several rows
+ * which must land together takes `DbOrTx`, so its caller decides whether it runs on its own or as
+ * part of something larger — Spec 18: a class list import is all-or-nothing.
+ */
+export type Db = ReturnType<typeof db>;
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+export type DbOrTx = Db | Tx;

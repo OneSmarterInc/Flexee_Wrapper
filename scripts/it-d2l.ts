@@ -88,10 +88,12 @@ await t("a quoted field holding a comma stays one cell", () => {
   assert.deepEqual(splitCsv('a\r\n"say ""hi"""\r\n')[1], ['say "hi"']);
 });
 
-await t("only the role Student is imported; other roles are listed with their role", () => {
+await t("only student roles are imported; other roles are listed with their role", () => {
   const l = parseClassList(plain);
+  // Spec 18: "Demo Student" joins them, flagged. Everything else is still listed and ignored.
   assert.deepEqual(l.students.map((r) => r.userName).sort(),
-    ["a118mjt", "c330bvn", "k142drf", "m204kqr", "p188rtk", "t119zwl", "w101abc"]);
+    ["a118mjt", "c330bvn", "d999dmo", "k142drf", "m204kqr", "p188rtk", "t119zwl", "w101abc"]);
+  assert.deepEqual(l.students.filter((r) => r.demo).map((r) => r.userName), ["d999dmo"]);
   assert.deepEqual(l.others.map((r) => `${r.name}:${r.role}`),
     ["Dana Carver:Faculty", "Owen Brennan:Teaching Assistant"]);
 });
@@ -151,7 +153,7 @@ await t("previewing the whole file leaves every table exactly as it was", async 
   const before = await census();
   const p = await previewImport(sec.id, parseClassList(plain));
   assert.deepEqual(await census(), before);
-  assert.equal(p.counts.willCreate, 7);
+  assert.equal(p.counts.willCreate, 8, "seven students and D2L's demo student");
   assert.equal(p.counts.alreadyInClass, 0);
   assert.equal(p.counts.skipped, 2);
   assert.equal(p.counts.problems, 2);
@@ -168,7 +170,7 @@ const grace = await account("Grace Whitfield", "w101abc@wright.edu", null);
 
 await t("the preview tells faculty which rows are new and which are people we know", async () => {
   const p = await previewImport(sec.id, parseClassList(plain));
-  assert.equal(p.counts.willCreate, 5);
+  assert.equal(p.counts.willCreate, 6);
   assert.equal(p.counts.haveAccounts, 2);
   assert.equal(p.rows.find((r) => r.userName === "k142drf")!.plan, "enrol existing");
 });
@@ -180,11 +182,11 @@ outbox = [];
 const first = await commitImport(sec.id, parseClassList(plain), { sendNow: true, baseUrl: BASE });
 
 await t("five accounts created, two existing enrolled, nobody duplicated", async () => {
-  assert.equal(first.created, 5);
+  assert.equal(first.created, 6, "five students plus the demo account");
   assert.equal(first.enrolled, 2);
   assert.equal(first.alreadyInClass, 0);
   const roster = await sectionRoster(sec.id);
-  assert.equal(roster.filter((r) => r.role === "student").length, 7);
+  assert.equal(roster.filter((r) => r.role === "student").length, 8);
 });
 
 await t("each account has the derived email, no usable password, and its D2L username", async () => {
@@ -375,7 +377,7 @@ await t("the same file again changes nothing and duplicates nobody", async () =>
   const before = await census();
   const again = await commitImport(sec.id, parseClassList(plain), { sendNow: false, baseUrl: BASE });
   assert.equal(again.created, 0);
-  assert.equal(again.alreadyInClass, 7);
+  assert.equal(again.alreadyInClass, 8);
   const after = await census();
   assert.deepEqual({ users: after.users, identities: after.identities, enrolments: after.enrolments },
     { users: before.users, identities: before.identities, enrolments: before.enrolments });
@@ -387,8 +389,8 @@ await t("a later export adds the late student and leaves everyone else alone", a
   const late = plain.replace('", ",,B10999001,Student,', '"Osei, Kwame",n191fqd,N10882211,Student,\r\n", ",,B10999001,Student,');
   const r = await commitImport(sec.id, parseClassList(late), { sendNow: false, baseUrl: BASE });
   assert.equal(r.created, 1);
-  assert.equal(r.alreadyInClass, 7);
-  assert.equal((await sectionRoster(sec.id)).filter((x) => x.role === "student").length, 8);
+  assert.equal(r.alreadyInClass, 8);
+  assert.equal((await sectionRoster(sec.id)).filter((x) => x.role === "student").length, 9);
 });
 
 await t("a student missing from the file is listed, never removed", async () => {
@@ -396,25 +398,26 @@ await t("a student missing from the file is listed, never removed", async () => 
   const p = await previewImport(sec.id, parseClassList(shorter));
   assert.ok(p.missing.some((m) => m.email === "m204kqr@wright.edu"), "listed as not in the file");
   await commitImport(sec.id, parseClassList(shorter), { sendNow: false, baseUrl: BASE });
-  assert.equal((await sectionRoster(sec.id)).filter((x) => x.role === "student").length, 8, "still eight");
+  assert.equal((await sectionRoster(sec.id)).filter((x) => x.role === "student").length, 9, "still nine");
 });
 
-await t("a D2L username another account already holds is reported, and the student is not lost", async () => {
-  const clash = 'Name,UserName,OrgDefinedId,Role,LastAccessed\r\n"Newcomer, Nina",k142drf,N10000001,Student,\r\n';
-  // The index on d2l_username is unique, so this has to be handled rather than thrown. It arises
-  // when the email domain changes: the same username then derives a different address, and so a
-  // different person as far as the import can tell.
-  const list = parseClassList(clash, { domain: "newcampus.example.edu" });
+await t("a username already on an account under another domain enrols that account, not a twin", async () => {
+  // Spec 17 created a second account here, silently, because it looked people up by email only.
+  // Spec 18 looks the username up first, so this is the same person arriving under a new domain.
+  // The full treatment of this case is in scripts/it-demo-account.ts.
+  const row = 'Name,UserName,OrgDefinedId,Role,LastAccessed\r\n"Nakamura, Kenji",k142drf,K10228475,Student,\r\n';
+  const list = parseClassList(row, { domain: "newcampus.example.edu" });
   const p = await previewImport(other.id, list);
-  assert.match(p.rows[0].warning ?? "", /another account already uses this D2L username/);
-  const r = await commitImport(other.id, list, { sendNow: false, baseUrl: BASE });
-  assert.equal(r.created, 1);
-  assert.equal(r.skippedUsernames, 1, "reported, not silently dropped");
-  const nina = (await db().select().from(identities).where(eq(identities.subject, "k142drf@newcampus.example.edu")))[0];
-  assert.ok(nina, "the account exists under the derived address");
-  assert.equal((await db().select().from(users).where(eq(users.id, nina.userId)))[0].d2lUsername, null,
-    "without a username, so the one the other account holds is untouched");
-  assert.equal((await db().select().from(users).where(eq(users.id, kenji.id)))[0].d2lUsername, "k142drf");
+  assert.equal(p.rows[0].matchedBy, "username");
+  assert.equal(p.rows[0].emailOnFile, "k142drf@wright.edu", "the address on file is shown, not replaced");
+  const before = (await db().select().from(users)).length;
+  const r = await commitImport(other.id, list, { sendNow: true, baseUrl: BASE });
+  assert.equal(r.created, 0, "no second account");
+  assert.equal(r.emailDiffers, 1);
+  assert.equal(r.invited, 0, "and an account whose address differs is not invited");
+  assert.equal((await db().select().from(users)).length, before);
+  assert.equal((await db().select().from(identities).where(eq(identities.subject, "k142drf@newcampus.example.edu"))).length, 0,
+    "nothing was created under the derived address");
 });
 
 // ---------------------------------------------------------------- rule 8: who may import

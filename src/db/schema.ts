@@ -97,9 +97,16 @@ export const enrolments = pgTable(
     sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     role: text("role").notNull().default("student"), // 'student' | 'instructor'
+    // Spec 18: D2L's built-in "Demo Student". A real student enrolment that faculty sign into to
+    // see the student view, so it is never emailed and never counted in a class statistic — but it
+    // stays in the grade export, so the file still matches D2L's own row.
+    isDemo: boolean("is_demo").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("enrolments_section_user_uq").on(t.sectionId, t.userId)],
+  (t) => [
+    uniqueIndex("enrolments_section_user_uq").on(t.sectionId, t.userId),
+    index("enrolments_section_demo_idx").on(t.sectionId, t.isDemo),
+  ],
 );
 
 // One reading position per enrolment per book. Pinned to chapter version + anchor.

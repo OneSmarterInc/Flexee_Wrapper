@@ -389,13 +389,13 @@ const teachBack = (sectionId: string, msg: { ok?: string; error?: string; link?:
   return `/teach/${sectionId}${q}#roster`;
 };
 
-type Invitable = { student: { userId: string; email: string; name: string } | null; error?: string };
+type Invitable = { student: { userId: string; email: string; name: string; isDemo: boolean } | null; error?: string };
 async function invitable(sectionId: string, enrolmentId: string): Promise<Invitable> {
   const { studentOfEnrolment } = await import("@/lib/recovery");
   const s = await studentOfEnrolment(sectionId, enrolmentId);
   if (!s) return { student: null, error: "That student is not in this class." };
   if (!s.email) return { student: null, error: "That student signs in through the LMS, so there is no address to send to." };
-  return { student: { userId: s.userId, email: s.email, name: s.name } };
+  return { student: { userId: s.userId, email: s.email, name: s.name, isDemo: s.isDemo } };
 }
 
 export async function sendInviteAction(formData: FormData) {
@@ -406,6 +406,9 @@ export async function sendInviteAction(formData: FormData) {
   if (!user || !(await canManageClass(user.id, sectionId))) redirect("/teach");
   const found = await invitable(sectionId, enrolmentId);
   if (!found.student) redirect(teachBack(sectionId, { error: found.error }));
+  // Spec 18: a demo account is never emailed. D2L's demo address is not a person's inbox.
+  if (found.student.isDemo)
+    redirect(teachBack(sectionId, { error: "The demo account is never emailed. Use Copy link to sign in as it yourself." }));
   const { rateLimit, sendSetPasswordInvite, RESEND_MAX_PER_HOUR } = await import("@/lib/recovery");
   if (!(await rateLimit(`invite:${found.student.userId}`, RESEND_MAX_PER_HOUR, 3600)))
     redirect(teachBack(sectionId, { error: `That student has had ${RESEND_MAX_PER_HOUR} invitations this hour. Try again later, or use Copy link.` }));
