@@ -38,6 +38,7 @@
     "test:sim-grades": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-sim-grades.ts",
     "test:reader-frame": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-reader-frame.ts",
     "test:d2l": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-d2l.ts",
+    "test:ai-seam": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-ai-seam.ts",
     "cleanup:test-data": "node --env-file-if-exists=.env --import ./scripts/run-support/register.mjs --experimental-strip-types scripts/cleanup-test-data.ts",
     "test:cleanup": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-cleanup.ts",
     "test:demo-account": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-demo-account.ts",
