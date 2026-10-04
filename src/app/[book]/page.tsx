@@ -6,6 +6,8 @@ import { enrolmentForBook, getBookmark } from "@/lib/enrolment";
 import { listAnnouncements, upcoming, getSyllabus } from "@/lib/course";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import AssistantPanel from "@/components/AssistantPanel";
+import { panelFor } from "@/lib/assistant/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,7 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
   if (bm) { try { await getEntry(book, bm.entryId); entry = bm.entryId; } catch {} }
   const resumeHref = `/${book}/${entry}${bm?.sectionAnchor ? `#${bm.sectionAnchor}` : ""}`;
 
-  const [ann, due, syl] = await Promise.all([listAnnouncements(enr.sectionId), upcoming(enr.sectionId, 5), getSyllabus(enr.sectionId)]);
+  const [ann, due, syl, panel] = await Promise.all([listAnnouncements(enr.sectionId), upcoming(enr.sectionId, 5), getSyllabus(enr.sectionId), panelFor(user!.id, book)]);
 
   return (
     <main className="catalog course-home" style={{ maxWidth: "44rem" }}>
@@ -74,6 +76,8 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
           <div style={{ whiteSpace: "pre-wrap", marginTop: ".6rem" }}>{syl.content}</div>
         </details>
       )}
+      {panel?.show && <AssistantPanel bookId={book} notice={panel.notice} />}
+      {panel && !panel.show && <p className="ui assistant-notice" role="status">{panel.message}</p>}
     </main>
   );
 }

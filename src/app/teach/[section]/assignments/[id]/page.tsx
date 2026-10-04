@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/auth";
 import { assignmentForFaculty } from "@/lib/assignments";
 import { formatLocal } from "@/lib/time";
 import { updateAssignmentAction, deleteAssignmentAction, addFilesAction, removeFileAction } from "@/app/assignment-actions";
+import { setAssignmentAssistantAction } from "@/app/actions";
 import AssignmentFields from "@/components/AssignmentFields";
 import FilePicker from "@/components/FilePicker";
 import LogoutButton from "@/components/LogoutButton";
@@ -27,6 +28,20 @@ export default async function AssignmentPage({ params, searchParams }: { params:
       <p className="ui" style={{ color: "var(--muted)" }}>{a.kind === "case_study" ? "Case study" : "Assignment"} · due {formatLocal(a.dueAt)} · {a.points} points · {a.published ? "published" : "draft"}</p>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+
+      <form action={setAssignmentAssistantAction} className="ui" style={{ margin: "1rem 0", padding: ".7rem .8rem", border: "1px solid var(--rule)", borderRadius: "8px" }}>
+        <input type="hidden" name="sectionId" value={section} />
+        <input type="hidden" name="assignmentId" value={id} />
+        <input type="hidden" name="off" value={a.assistantOff ? "0" : "1"} />
+        <strong>Course assistant: {a.assistantOff ? "off for this assignment" : "available"}</strong>
+        <p style={{ color: "var(--muted)", fontSize: ".85rem", margin: ".3rem 0 .6rem" }}>
+          Turn it off for work students must do unaided — an exam you run outside the Wrapper, say.
+          The class keeps the assistant everywhere else.
+        </p>
+        <button type="submit" className="nav-button ghost">
+          {a.assistantOff ? "Allow the assistant for this assignment" : "Turn the assistant off for this assignment"}
+        </button>
+      </form>
 
       <h2 style={{ color: "var(--navy)" }}>Submissions — {submitted} of {rows.length}</h2>
       <table className="ui" style={{ borderCollapse: "collapse", width: "100%" }}>

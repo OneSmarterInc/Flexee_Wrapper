@@ -12,6 +12,8 @@ import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
 import PageTurn from "@/components/PageTurn";
 import FigureList from "@/components/FigureList";
+import AssistantPanel from "@/components/AssistantPanel";
+import { panelFor } from "@/lib/assistant/panel";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,7 @@ export default async function EntryPage({ params }: { params: Promise<{ book: st
   const { manifest, markdown } = data!;
   const { html, figures } = await renderEntry(markdown, manifest, `/api/asset/${book}/${entry}`);
   const { prev, next } = await neighboursWithTitles(book, entry);
+  const panel = await panelFor(user!.id, book);
 
   return (
     <>
@@ -68,6 +71,8 @@ export default async function EntryPage({ params }: { params: Promise<{ book: st
               {manifest.sections.length <= 1 && <FigureList figures={figures} />}
               <div dangerouslySetInnerHTML={{ __html: html }} />
             </article>
+            {panel?.show && <AssistantPanel bookId={book} notice={panel.notice} />}
+            {panel && !panel.show && <p className="ui assistant-notice" role="status">{panel.message}</p>}
             <nav className="entry-nav ui">
               {prev ? (
                 <Link className="prev" href={`/${book}/${prev.ref}`} aria-label={`Previous: ${prev.label}`}><span className="dir">Previous</span><span className="t">Back</span></Link>

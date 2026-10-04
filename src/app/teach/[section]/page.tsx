@@ -85,6 +85,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
           <Link className="workspace-action" href={`/teach/${section}/questions`}><strong>Question bank</strong><span>Browse chapter questions and answer keys imported with this book.</span></Link>
           <Link className="workspace-action" href={`/teach/${section}/gradebook`}><strong>Gradebook</strong><span>See totals, record scores, and export grades.</span></Link>
           <Link className="workspace-action" href={`/teach/${section}/content`}><strong>Book content</strong><span>{updates ? `${updates} update${updates === 1 ? "" : "s"} available to review.` : "Review chapters and manage updates."}</span></Link>
+          <Link className="workspace-action" href={`/teach/${section}/assistant`}><strong>Course assistant</strong><span>Switch it on, see the usage, and answer students&apos; questions.</span></Link>
           <Link className="workspace-action" href={`/teach/${section}/announcements`}><strong>Announcements</strong><span>Post updates for students.</span></Link>
           <Link className="workspace-action" href={`/teach/${section}/schedule`}><strong>Schedule</strong><span>Plan what is due and when.</span></Link>
           <Link className="workspace-action" href={`/teach/${section}/syllabus`}><strong>Syllabus</strong><span>Set outcomes and course expectations.</span></Link>

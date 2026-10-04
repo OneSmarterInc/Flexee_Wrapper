@@ -39,6 +39,9 @@ const BAR = {
    * --real run, where a model reads all five and the ceiling above is what it can reach.
    */
   citesRightChapter: 0.80,
+  /** Decision 1: what a --real run is judged against, and how much of it is read by hand. */
+  realCitesRightChapter: 0.95,
+  handReviewPerBook: 30,
   anyCitation: 0.98,      // answers carrying at least one valid citation
   bankTextInPrompts: 0,   // prompts containing a bank option or rationale
   attemptRefusal: 1.0,    // refusals while an attempt is in progress
@@ -180,6 +183,14 @@ console.log(`  estimated per question: ~${estIn} tokens in, ~${estOut} out` +
   `  ->  ${formatMicros(estimateCostMicros(estIn, estOut))} at $${inPerM}/$${outPerM} per MTok`);
 console.log(`  estimated for this run: ${formatMicros(estimateCostMicros(estIn * bank.length, estOut * bank.length))}`);
 
+if (REAL) {
+  // Decision 1: what a real run is judged against, printed before anything is sent.
+  console.log("");
+  console.log("  The bar for a real-provider run:");
+  console.log(`    - at least ${(BAR.realCitesRightChapter * 100).toFixed(0)}% of answers cite a section from the question's own chapter`);
+  console.log(`    - at least ${(BAR.anyCitation * 100).toFixed(0)}% carry a valid citation`);
+  console.log(`    - and ${BAR.handReviewPerBook} answers per book are read by hand`);
+}
 if (REAL && !flag("yes")) {
   console.error("\n--real needs --yes as well. Nothing was sent.");
   process.exit(1);
@@ -276,7 +287,7 @@ if (misses.length) {
 
 const checks = [
   ["retrieval supplies the right chapter", suppliedRightChapter / n, BAR.rightChapter],
-  ["cites the right chapter", rightChapter / n, BAR.citesRightChapter],
+  ["cites the right chapter", rightChapter / n, REAL ? BAR.realCitesRightChapter : BAR.citesRightChapter],
   ["any citation", anyCitation / n, BAR.anyCitation],
 ] as const;
 let failed: string[] = checks.filter(([, got, want]) => got < want).map(([name]) => name);

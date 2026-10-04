@@ -269,3 +269,19 @@ with the enrolment as every other piece of student work does; **six messages of 
 `npm run eval:assistant` — ≥95% of answers citing a section from the question's own chapter, ≥98%
 carrying at least one valid citation, **zero** prompts containing any bank option or rationale text,
 and 100% refusal while an attempt is in progress.
+
+### The pass bar, offline and on a real provider (added after commit 3)
+
+The harness's labelling is accepted: **the bar sits on the retrieval ceiling** — at least 95% of
+questions must have a passage from their own chapter among the five supplied — and the citation
+rate measured offline is a **floor**, because the fake cites the top-ranked passage and a model
+reads all five.
+
+**For the real-provider run the bar is:**
+
+- at least **95%** of answers cite a section from the question's own chapter;
+- at least **98%** carry a valid citation;
+- and Vikram reads **a sample of 30 answers per book by hand**.
+
+`npm run eval:assistant -- --real --yes` prints these three before it sends anything, so whoever
+runs it knows what they are judging against.

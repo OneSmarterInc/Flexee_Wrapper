@@ -575,4 +575,34 @@ for (const [book, entry, expectTargets] of [["sad", "ch04", 5], ["mis3000", "ch0
   });
 }
 
+// ---------------------------------------------------------------- Spec 20 rule 14: the panel
+
+await t("spec 20 rule 14 — the assistant panel is operable and adds no axe violation", async () => {
+  const { default: AssistantPanel } = await import("@/components/AssistantPanel");
+  const { NOTICE } = await import("@/lib/assistant/answer");
+  const panel = html(React.createElement(AssistantPanel, { bookId: "sad", notice: NOTICE }));
+
+  // Keyboard first: a labelled textarea, a submit button, and no custom control anywhere. The only
+  // things this panel is operated by are elements a browser already makes focusable.
+  assert.match(panel, /<label for="assistant-question"/, "the box is labelled");
+  assert.match(panel, /<textarea[^>]*id="assistant-question"/);
+  assert.match(panel, /<button type="submit"/);
+  assert.ok(!/tabindex="[1-9]/.test(panel), "no tab order is invented");
+
+  // A new answer is announced rather than appearing silently, and the region has a name.
+  assert.match(panel, /aria-live="polite"/);
+  assert.match(panel, /aria-label="Conversation"/);
+  assert.match(panel, /aria-labelledby="assistant-heading"/);
+
+  // The notice is shown in full, not summarised.
+  assert.ok(panel.includes("never your name, email or grades"), "the notice is there");
+
+  const baseline = await axeRun("<main><h1>A chapter</h1></main>", "page without the panel");
+  const withPanel = await axeRun(`<main><h1>A chapter</h1>${panel}</main>`, "page with the panel");
+  console.log(`      axe without the panel: ${baseline.ids.length} violation(s); with it: ${withPanel.ids.length}`);
+  for (const d of withPanel.detail) console.log("        · " + d);
+  const added = withPanel.ids.filter((id) => !baseline.ids.includes(id));
+  assert.deepEqual(added, [], `the panel introduced: ${added.join(", ")}`);
+});
+
 console.log(`\n${passed} passed`);
