@@ -5,7 +5,7 @@ import { ownedSection } from "@/lib/roster";
 import { gradebook } from "@/lib/gradebook";
 import { sectionHasLtiLink } from "@/lib/lti";
 import { show, DEFAULT_LETTER_BANDS } from "@/lib/grading";
-import { isParticipation } from "@/lib/gradebook";
+import { isParticipation, d2lKey } from "@/lib/gradebook";
 import { formatLocal } from "@/lib/time";
 import {
   setWeightsAction, addLineItemAction, setScoreAction, pushGradesAction,
@@ -26,6 +26,8 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
   if (!sec) redirect("/teach");
   const { items, students, categories, bands, categorised } = await gradebook(section);
   const [ltiLinked, spx] = await Promise.all([sectionHasLtiLink(section), searchParams]);
+  // Spec 17: a row D2L cannot match, flagged where the export is.
+  const noD2lKey = students.filter((s) => !d2lKey(s)).length;
 
   return (
     <main className="catalog" style={{ maxWidth: "min(100%, 70rem)" }}>
@@ -223,6 +225,13 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
       <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>
         Download a CSV to import into your LMS. Confirm the exact shape against your institution's importer.
       </p>
+      {noD2lKey > 0 && (
+        <p className="ui" style={{ color: "#b4451f", fontSize: ".85rem" }}>
+          {noD2lKey} student{noD2lKey === 1 ? "" : "s"} {noD2lKey === 1 ? "has" : "have"} neither a D2L username nor an
+          email address, so the Username cell in the Brightspace/D2L export is blank for {noD2lKey === 1 ? "that row" : "those rows"} and
+          D2L will not match {noD2lKey === 1 ? "it" : "them"}. Importing this class&apos;s list from D2L fills the username in.
+        </p>
+      )}
       <div className="ui" style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         {["generic", "canvas", "d2l", "blackboard", "moodle"].map((f) => (
           <a key={f} href={`/api/gradebook/export?section=${section}&format=${f}`}>{f === "d2l" ? "Brightspace/D2L" : f[0].toUpperCase() + f.slice(1)} CSV</a>

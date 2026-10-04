@@ -1,5 +1,8 @@
 # Normalize text files to LF in the repository, whatever the developer's platform.
 * text=auto eol=lf
+# Spec 17: the D2L fixtures are byte-exact. CRLF line endings and a byte-order mark are what
+# they exist to test, so git must not normalize them.
+scripts/fixtures/*.csv -text
 # Binary files: never touch.
 *.png binary
 *.jpg binary

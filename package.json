@@ -37,6 +37,8 @@
     "test:grading": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-grading.ts",
     "test:sim-grades": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-sim-grades.ts",
     "test:reader-frame": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-reader-frame.ts",
+    "test:d2l": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-d2l.ts",
+    "test:instr-reset": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-instr-reset.ts",
     "test:sims": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-sims.ts"
   },
   "keywords": [],

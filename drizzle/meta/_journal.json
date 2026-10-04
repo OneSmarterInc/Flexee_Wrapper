@@ -127,6 +127,13 @@
       "when": 1791047616249,
       "tag": "0017_sim_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791134016249,
+      "tag": "0018_d2l_class_list",
+      "breakpoints": true
     }
   ]
 }

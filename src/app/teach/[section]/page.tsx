@@ -4,7 +4,8 @@ import { currentUser } from "@/lib/auth";
 import { ownedSection, sectionRoster, pendingInvites } from "@/lib/roster";
 import { sectionContentStatus } from "@/lib/versions";
 import { sectionHasNrps } from "@/lib/lti";
-import { syncRosterAction, resetStudentPasswordAction } from "@/app/actions";
+import { syncRosterAction, sendInviteAction, sendAllInvitesAction, copyInviteLinkAction } from "@/app/actions";
+import { inviteStatesFor, type InviteState } from "@/lib/recovery";
 import { getBook } from "@/lib/content";
 import { regenerateCodeAction, removeStudentAction } from "@/app/actions";
 import ClassBookPanel from "@/components/ClassBookPanel";
@@ -14,18 +15,35 @@ import WorkspaceShell from "@/components/WorkspaceShell";
 
 export const dynamic = "force-dynamic";
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".65rem .7rem", textAlign: "left" } as const;
+const linkBtn = { border: "none", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit", padding: 0 } as const;
+const rosterBtn = { padding: ".35rem .8rem", border: "1px solid var(--link)", borderRadius: "6px", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit" } as const;
 
-export default async function SectionDashboard({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ synced?: string; seen?: string; sync_error?: string; pwreset?: string; temp?: string; pwreset_error?: string; ok?: string; error?: string }> }) {
+const day = (d: Date) => d.toISOString().slice(0, 10);
+// Spec 17: what the class list says about each student's way in.
+function inviteLabel(s: InviteState | undefined) {
+  if (!s) return "—";
+  switch (s.state) {
+    case "set up": return "Set up";
+    case "invited": return `Invited ${day(s.at)}`;
+    case "link copied": return `Link copied ${day(s.at)}`;
+    case "link expired": return `Link expired (sent ${day(s.at)})`;
+    case "not sent": return `Not sent: ${s.reason}`;
+    default: return "Not invited yet";
+  }
+}
+
+export default async function SectionDashboard({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ synced?: string; seen?: string; sync_error?: string; invite_link?: string; ok?: string; error?: string }> }) {
   const { section } = await params;
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}`)}`);
   const sec = await ownedSection(user!.id, section);
   if (!sec) redirect("/faculty");
   const [book, roster, invites, content, hasNrps, sp] = await Promise.all([getBook(sec.bookId), sectionRoster(section), pendingInvites(section), sectionContentStatus(section, sec.bookId), sectionHasNrps(section), searchParams]);
-  const [bookState, library] = await Promise.all([classBookState(section), listBooks()]);
+  const [bookState, library, inviteStates] = await Promise.all([classBookState(section), listBooks(), inviteStatesFor(section)]);
   const updates = content.filter((c) => c.hasUpdate).length;
   const students = roster.filter((r) => r.role === "student");
   const instructors = roster.filter((r) => r.role === "instructor");
+  const notSetUp = students.filter((r) => inviteStates.get(r.userId)?.state !== "set up").length;
 
   return (
     <WorkspaceShell active="faculty" isAdmin={user.systemRole === "admin"} canTeach displayName={user.displayName}
@@ -72,7 +90,10 @@ export default async function SectionDashboard({ params, searchParams }: { param
       <section className="workspace-panel ui" id="roster" aria-labelledby="roster-heading">
       <div className="workspace-section-heading" style={{ marginTop: 0 }}>
         <h2 id="roster-heading">Class roster</h2>
-        <Link className="nav-button secondary" href={`/teach/${section}/import`}>Import students (CSV)</Link>
+        <div style={{ display: "flex", gap: ".6rem", flexWrap: "wrap" }}>
+          <Link className="nav-button secondary" href={`/teach/${section}/import/d2l`}>Import from D2L</Link>
+          <Link className="nav-button ghost" href={`/teach/${section}/import`}>Import students (CSV)</Link>
+        </div>
       </div>
       <p>Share this join code with students so they can join from their dashboard.</p>
       <div className="workspace-action" style={{ marginBottom: "1rem" }}>
@@ -84,38 +105,53 @@ export default async function SectionDashboard({ params, searchParams }: { param
       </div>
       {sp.synced && <p className="ui" style={{ color: "#2a7d3f" }}>Synced roster from the LMS — added {sp.synced} of {sp.seen} member(s).</p>}
       {sp.sync_error && <p className="ui" style={{ color: "#b4451f" }}>{sp.sync_error}</p>}
-      {sp.pwreset && sp.temp && <p className="ui" style={{ color: "var(--navy)", background: "var(--mark)", padding: ".6rem .8rem", borderRadius: "8px" }}>Temporary password for <strong>{sp.pwreset}</strong>: <code>{sp.temp}</code> — give it to them in person; they should change it after signing in. (Shown once.)</p>}
-      {sp.pwreset_error && <p className="ui" style={{ color: "#b4451f" }}>{sp.pwreset_error}</p>}
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+      {sp.invite_link && (
+        <div className="ui" style={{ color: "var(--navy)", background: "var(--mark)", padding: ".6rem .8rem", borderRadius: "8px" }}>
+          <p style={{ margin: 0 }}>A fresh set-your-password link, shown once. Give it to that student directly; it works once, expires in 14 days, and has replaced any earlier link of theirs.</p>
+          <p style={{ margin: ".4rem 0 0", wordBreak: "break-all" }}><code>{sp.invite_link}</code></p>
+        </div>
+      )}
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: ".6rem", flexWrap: "wrap" }}>
+        {notSetUp > 0 && (
+          <form action={sendAllInvitesAction}>
+            <input type="hidden" name="sectionId" value={section} />
+            <button type="submit" className="ui" style={rosterBtn}>Resend to everyone not set up ({notSetUp})</button>
+          </form>
+        )}
         {hasNrps && (
           <form action={syncRosterAction}>
             <input type="hidden" name="sectionId" value={section} />
-            <button type="submit" className="ui" style={{ padding: ".35rem .8rem", border: "1px solid var(--link)", borderRadius: "6px", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit" }}>Sync roster from LMS</button>
+            <button type="submit" className="ui" style={rosterBtn}>Sync roster from LMS</button>
           </form>
         )}
       </div>
       <p className="ui" style={{ color: "var(--muted)" }}>{students.length} student{students.length === 1 ? "" : "s"} · {instructors.length} instructor{instructors.length === 1 ? "" : "s"}{invites.length ? ` · ${invites.length} invited` : ""}</p>
       <table className="ui" style={{ width: "100%", borderCollapse: "collapse", fontSize: ".9rem" }}>
-        <thead><tr><th style={cell}>Name</th><th style={cell}>Email</th><th style={cell}>Role</th><th style={cell}></th></tr></thead>
+        <thead><tr><th style={cell}>Name</th><th style={cell}>Email</th><th style={cell}>Role</th><th style={cell}>Account</th><th style={cell}></th></tr></thead>
         <tbody>
           {instructors.map((r) => (
-            <tr key={r.enrolmentId}><td style={cell}>{r.name}</td><td style={cell}>{r.email}</td><td style={cell}>instructor</td><td style={cell}></td></tr>
+            <tr key={r.enrolmentId}><td style={cell}>{r.name}</td><td style={cell}>{r.email}</td><td style={cell}>instructor</td><td style={cell}></td><td style={cell}></td></tr>
           ))}
           {students.map((r) => (
             <tr key={r.enrolmentId}>
               <td style={cell}>{r.name}</td><td style={cell}>{r.email}</td><td style={cell}>student</td>
+              <td style={cell}>{inviteLabel(inviteStates.get(r.userId))}</td>
               <td style={cell}>
-                <div style={{ display: "flex", gap: ".8rem" }}>
-                  <form action={resetStudentPasswordAction}>
+                <div style={{ display: "flex", gap: ".8rem", flexWrap: "wrap" }}>
+                  <form action={sendInviteAction}>
                     <input type="hidden" name="sectionId" value={section} />
                     <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
-                    <input type="hidden" name="name" value={r.name ?? r.email ?? "student"} />
-                    <button type="submit" style={{ border: "none", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit" }}>Reset password</button>
+                    <button type="submit" style={linkBtn}>{inviteStates.get(r.userId)?.state === "set up" ? "Send a reset link" : "Resend invitation"}</button>
+                  </form>
+                  <form action={copyInviteLinkAction}>
+                    <input type="hidden" name="sectionId" value={section} />
+                    <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
+                    <button type="submit" style={linkBtn}>Copy link</button>
                   </form>
                   <form action={removeStudentAction}>
                     <input type="hidden" name="sectionId" value={section} />
                     <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
-                    <button type="submit" style={{ border: "none", background: "transparent", color: "#b4451f", cursor: "pointer", font: "inherit" }}>Remove</button>
+                    <button type="submit" style={{ ...linkBtn, color: "#b4451f" }}>Remove</button>
                   </form>
                 </div>
               </td>
@@ -123,7 +159,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
           ))}
           {invites.map((i) => (
             <tr key={i.id} style={{ color: "var(--muted)" }}>
-              <td style={cell}>{i.name ?? ""}</td><td style={cell}>{i.email}</td><td style={cell}>invited</td><td style={cell}>enrols on sign-in</td>
+              <td style={cell}>{i.name ?? ""}</td><td style={cell}>{i.email}</td><td style={cell}>invited</td><td style={cell}>no account yet</td><td style={cell}>enrols on sign-in</td>
             </tr>
           ))}
         </tbody>

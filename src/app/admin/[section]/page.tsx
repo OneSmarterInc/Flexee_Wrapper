@@ -102,6 +102,9 @@ export default async function AdminClass({ params, searchParams }: {
       <section className="workspace-panel ui" aria-labelledby="join-code-heading">
         <h2 id="join-code-heading">Class join code: <code>{cls.joinCode}</code></h2>
         <p>Give this code to students who should join themselves. You can also add them by email in step 2 below.</p>
+        <p style={{ marginBottom: 0 }}>
+          <Link className="nav-button secondary" href={`/teach/${sectionId}/import/d2l`}>Import the class list from D2L</Link>
+        </p>
       </section>
       <People role="instructor" sectionId={sectionId} people={faculty} invites={invited("instructor")} />
       <People role="student" sectionId={sectionId} people={students} invites={invited("student")} />

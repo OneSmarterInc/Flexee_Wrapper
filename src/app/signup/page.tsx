@@ -3,13 +3,30 @@ import { signup } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function SignupPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
+export default async function SignupPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; sent?: string; exists?: string }> }) {
   const sp = await searchParams;
+  // Spec 17: an address that already belongs to an account made by the import gets a
+  // set-your-password link and this neutral line — never a dead end, and never a hint about
+  // whether that account exists.
+  if (sp.sent) {
+    return (
+      <main className="catalog" style={{ maxWidth: "24rem" }}>
+        <h1>Check your email</h1>
+        <p className="ui">{sp.sent}</p>
+        <p className="ui" style={{ color: "var(--muted)", marginTop: "1rem" }}><Link href="/login">Back to sign in</Link></p>
+      </main>
+    );
+  }
   return (
     <main className="catalog" style={{ maxWidth: "24rem" }}>
       <h1>Create an account</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>Use one account for learning or teaching. An administrator adds faculty and students to classes.</p>
       {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.exists && (
+        <p className="ui" style={{ color: "var(--muted)" }}>
+          <Link href="/login">Sign in</Link> instead, or use <Link href="/forgot">Forgot password</Link> if you cannot remember it.
+        </p>
+      )}
       <form action={signup} className="ui" style={{ display: "grid", gap: ".7rem" }}>
         <input type="hidden" name="next" value={sp.next ?? "/"} />
         <input name="name" placeholder="Your name" required style={fieldStyle} />

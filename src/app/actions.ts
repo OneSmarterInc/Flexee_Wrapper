@@ -28,9 +28,25 @@ export async function signup(formData: FormData) {
   const next = safeNext(formData.get("next"));
   if (!name || !email || password.length < 8)
     redirect(`/signup?error=${encodeURIComponent("Name, email, and an 8+ character password are required.")}`);
-  const existing = await db().select({ id: identities.id }).from(identities)
+  // Spec 17: an address that already has an account is no longer a dead end. The import creates
+  // accounts with no usable password, so this is the most likely thing an imported student does
+  // first; being told the account exists, with nowhere to go, would strand them.
+  const existing = await db().select({ id: identities.id, userId: identities.userId, hash: identities.passwordHash })
+    .from(identities)
     .where(and(eq(identities.provider, "password"), eq(identities.subject, email))).limit(1);
-  if (existing[0]) redirect(`/signup?error=${encodeURIComponent("An account with that email already exists.")}`);
+  if (existing[0]) {
+    if (existing[0].hash == null) {
+      const { sendSetPasswordInvite } = await import("@/lib/recovery");
+      const { firstStudentSection } = await import("@/lib/enrolment");
+      try {
+        await sendSetPasswordInvite(existing[0].userId, await firstStudentSection(existing[0].userId), email, await baseUrl());
+      } catch {}
+      // Neutral either way: the same words whether or not the send succeeded, and whether or not
+      // the person who typed this address is the person who owns it.
+      redirect(`/signup?sent=${encodeURIComponent("Check your email for a link to finish setting up your account.")}`);
+    }
+    redirect(`/signup?exists=1&error=${encodeURIComponent("An account with that email already exists.")}`);
+  }
   const [user] = await db().insert(users).values({ displayName: name }).returning();
   await db().insert(identities).values({ userId: user.id, provider: "password", subject: email, passwordHash: await hashPassword(password) });
   await createSession(user.id);
@@ -360,16 +376,95 @@ export async function syncRosterAction(formData: FormData) {
   catch (e: any) { if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e; redirect(`/teach/${sectionId}?sync_error=${encodeURIComponent(e.message)}`); }
 }
 
-export async function resetStudentPasswordAction(formData: FormData) {
+// --- Spec 17: set-your-password invitations ---
+//
+// These replace the instructor's temporary-password reset. That one generated a password and
+// passed it through the URL query string, so it was written into browser history and into every
+// log along the way; nothing here puts a password in a URL.
+
+const teachBack = (sectionId: string, msg: { ok?: string; error?: string; link?: string }) => {
+  const q = msg.error ? `?error=${encodeURIComponent(msg.error)}`
+    : msg.link ? `?invite_link=${encodeURIComponent(msg.link)}`
+    : `?ok=${encodeURIComponent(msg.ok ?? "")}`;
+  return `/teach/${sectionId}${q}#roster`;
+};
+
+type Invitable = { student: { userId: string; email: string; name: string } | null; error?: string };
+async function invitable(sectionId: string, enrolmentId: string): Promise<Invitable> {
+  const { studentOfEnrolment } = await import("@/lib/recovery");
+  const s = await studentOfEnrolment(sectionId, enrolmentId);
+  if (!s) return { student: null, error: "That student is not in this class." };
+  if (!s.email) return { student: null, error: "That student signs in through the LMS, so there is no address to send to." };
+  return { student: { userId: s.userId, email: s.email, name: s.name } };
+}
+
+export async function sendInviteAction(formData: FormData) {
   const user = await currentUser();
   const sectionId = clean(formData.get("sectionId"));
   const enrolmentId = clean(formData.get("enrolmentId"));
-  const name = clean(formData.get("name"));
-  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
-  const { setStudentPassword, tempPassword } = await import("@/lib/recovery");
-  const temp = tempPassword();
-  try { await setStudentPassword(sectionId, enrolmentId, temp); redirect(`/teach/${sectionId}?pwreset=${encodeURIComponent(name)}&temp=${encodeURIComponent(temp)}`); }
-  catch (e: any) { if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e; redirect(`/teach/${sectionId}?pwreset_error=${encodeURIComponent(e.message)}`); }
+  const { canManageClass } = await import("@/lib/publish");
+  if (!user || !(await canManageClass(user.id, sectionId))) redirect("/teach");
+  const found = await invitable(sectionId, enrolmentId);
+  if (!found.student) redirect(teachBack(sectionId, { error: found.error }));
+  const { rateLimit, sendSetPasswordInvite, RESEND_MAX_PER_HOUR } = await import("@/lib/recovery");
+  if (!(await rateLimit(`invite:${found.student.userId}`, RESEND_MAX_PER_HOUR, 3600)))
+    redirect(teachBack(sectionId, { error: `That student has had ${RESEND_MAX_PER_HOUR} invitations this hour. Try again later, or use Copy link.` }));
+  const r = await sendSetPasswordInvite(found.student.userId, sectionId, found.student.email, await baseUrl());
+  redirect(teachBack(sectionId, r.ok
+    ? { ok: "Invitation sent." }
+    : { error: `Not sent: ${r.error}. The link is recorded against that student — use Copy link to hand it over.` }));
+}
+
+export async function sendAllInvitesAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  const { canManageClass } = await import("@/lib/publish");
+  if (!user || !(await canManageClass(user.id, sectionId))) redirect("/teach");
+  const { notSetUp } = await import("@/lib/d2l-import");
+  const { rateLimit, sendSetPasswordInvite, RESEND_MAX_PER_HOUR } = await import("@/lib/recovery");
+  const base = await baseUrl();
+  let sent = 0, failed = 0, limited = 0;
+  // One failure never stops the rest: each student is invited on their own account.
+  for (const s of await notSetUp(sectionId)) {
+    if (!s.email) continue;
+    if (!(await rateLimit(`invite:${s.userId}`, RESEND_MAX_PER_HOUR, 3600))) { limited++; continue; }
+    const r = await sendSetPasswordInvite(s.userId, sectionId, s.email, base);
+    if (r.ok) sent++; else failed++;
+  }
+  const bits = [`${sent} invitation${sent === 1 ? "" : "s"} sent`];
+  if (failed) bits.push(`${failed} not sent`);
+  if (limited) bits.push(`${limited} already had ${RESEND_MAX_PER_HOUR} this hour`);
+  redirect(teachBack(sectionId, { ok: bits.join(", ") + "." }));
+}
+
+export async function copyInviteLinkAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  const enrolmentId = clean(formData.get("enrolmentId"));
+  const { canManageClass } = await import("@/lib/publish");
+  if (!user || !(await canManageClass(user.id, sectionId))) redirect("/teach");
+  const found = await invitable(sectionId, enrolmentId);
+  if (!found.student) redirect(teachBack(sectionId, { error: found.error }));
+  const { copySetPasswordLink } = await import("@/lib/recovery");
+  const link = await copySetPasswordLink(found.student.userId, sectionId, found.student.email, await baseUrl());
+  redirect(teachBack(sectionId, { link }));
+}
+
+export async function setPasswordAction(formData: FormData) {
+  const token = clean(formData.get("token"));
+  const password = String(formData.get("password") ?? "");
+  const { completeSetPassword } = await import("@/lib/recovery");
+  try {
+    const done = await completeSetPassword(token, password);
+    if (!done) redirect("/set-password?expired=1");
+    await createSession(done!.userId);
+    await claimInvites(done!.userId, done!.email);
+    const me = (await db().select({ role: users.systemRole }).from(users).where(eq(users.id, done!.userId)).limit(1))[0];
+    redirect(await signInDestination(done!.userId, me?.role ?? "user", "/"));
+  } catch (e: any) {
+    if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e;
+    redirect(`/set-password?token=${encodeURIComponent(token)}&error=${encodeURIComponent(e.message)}`);
+  }
 }
 
 export async function addAnnouncementAction(formData: FormData) {

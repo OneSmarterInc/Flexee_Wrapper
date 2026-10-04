@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -12,13 +12,17 @@ for(const f of readdirSync("drizzle").filter((x)=>x.endsWith(".sql")).map((x)=>x
   for(const s of readFileSync(`drizzle/${f}.sql`,"utf8").split("--> statement-breakpoint")){const t=s.trim(); if(t) await client.exec(t);}
 
 const mkUser=async(name:string,email:string)=>{const [u]=await db.insert(users).values({displayName:name}).returning();await db.insert(identities).values({userId:u.id,provider:"password",subject:email,passwordHash:await bcrypt.hash("original1",10)});return u;};
-const issue=async(userId:string,kind:string,email:string|null,ttl:number)=>{const token=randomBytes(16).toString("hex");await db.insert(authTokens).values({token,userId,kind,email,expiresAt:new Date(Date.now()+ttl*1000)});return token;};
-const consume=async(token:string,kind:string)=>{const r=(await db.select().from(authTokens).where(and(eq(authTokens.token,token),eq(authTokens.kind,kind),isNull(authTokens.usedAt),gt(authTokens.expiresAt,new Date()))).limit(1))[0];if(!r)return null;await db.update(authTokens).set({usedAt:new Date()}).where(eq(authTokens.token,token));return r;};
+// Spec 17: only the hash is stored, for every kind.
+const sha=(t:string)=>createHash("sha256").update(t).digest("hex");
+const issue=async(userId:string,kind:string,email:string|null,ttl:number)=>{const token=randomBytes(16).toString("hex");await db.insert(authTokens).values({tokenHash:sha(token),userId,kind,email,expiresAt:new Date(Date.now()+ttl*1000)});return token;};
+const consume=async(token:string,kind:string)=>{const r=(await db.select().from(authTokens).where(and(eq(authTokens.tokenHash,sha(token)),eq(authTokens.kind,kind),isNull(authTokens.usedAt),gt(authTokens.expiresAt,new Date()))).limit(1))[0];if(!r)return null;await db.update(authTokens).set({usedAt:new Date()}).where(eq(authTokens.tokenHash,sha(token)));return r;};
 
 console.log("== PASSWORD RESET ==");
 const alice=await mkUser("Alice","alice@x.edu");
 await db.insert(sessions).values({id:"sess-a",userId:alice.id,expiresAt:new Date(Date.now()+9e8)});
 const rt=await issue(alice.id,"password_reset","alice@x.edu",3600);
+const stored=(await db.select().from(authTokens).where(eq(authTokens.userId,alice.id)))[0];
+console.log(`token stored hashed, not in the clear ${P(stored.tokenHash!==rt && stored.tokenHash===sha(rt))}`);
 const before=(await db.select().from(identities).where(eq(identities.userId,alice.id)))[0].passwordHash!;
 const row=await consume(rt,"password_reset");
 await db.update(identities).set({passwordHash:await bcrypt.hash("brandnew1",10)}).where(and(eq(identities.userId,alice.id),eq(identities.provider,"password")));

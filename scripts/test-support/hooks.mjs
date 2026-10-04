@@ -1,11 +1,15 @@
 // Lets integration tests import real src/lib modules: maps "@/..." to src/, stubs
-// "server-only", and swaps "@/db" for an in-memory PGlite database.
+// "server-only" and "next/headers", and swaps "@/db" for an in-memory PGlite database.
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import path from "node:path";
 const root = path.resolve(fileURLToPath(new URL("../../", import.meta.url)));
 export async function resolve(spec, ctx, next) {
   if (spec === "server-only") return { url: pathToFileURL(path.join(root, "scripts/test-support/empty.mjs")).href, shortCircuit: true };
+  // next/headers only resolves inside Next's own bundler, and src/lib/auth reads the session
+  // cookie through it, so anything importing auth (or recovery, which hashes passwords with it)
+  // needs the stand-in here rather than only in the JSX loader.
+  if (spec === "next/headers") return { url: pathToFileURL(path.join(root, "scripts/test-support/next-headers.mjs")).href, shortCircuit: true };
   if (spec === "@/db") return { url: pathToFileURL(path.join(root, "scripts/test-support/testdb.ts")).href, shortCircuit: true };
   if (spec.startsWith("@/")) {
     const base = path.join(root, "src", spec.slice(2));

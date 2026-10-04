@@ -109,7 +109,7 @@ export type CategoryResult = { id: string; name: string; weight: number; dropLow
 
 export async function gradebook(sectionId: string) {
   const items = await listLineItems(sectionId);
-  const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject })
+  const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject, d2lUsername: users.d2lUsername })
     .from(enrolments).innerJoin(users, eq(users.id, enrolments.userId))
     .leftJoin(identities, and(eq(identities.userId, users.id), eq(identities.provider, "password")))
     .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")));
@@ -358,6 +358,17 @@ export async function setScore(lineItemId: string, enrolmentId: string, points: 
 
 // --- CSV export ---
 const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+
+/**
+ * Spec 17: the key D2L matches a student on. The stored D2L username first; failing that, the
+ * part of the address before the `@`, which is what that username is at Wright State; failing
+ * both, blank.
+ */
+export function d2lKey(s: { d2lUsername?: string | null; email?: string | null }) {
+  if (s.d2lUsername) return s.d2lUsername;
+  const local = (s.email ?? "").split("@")[0].trim();
+  return local || "";
+}
 export async function exportCsv(sectionId: string, format: string): Promise<string> {
   const { items, students, categories, categorised } = await gradebook(sectionId);
   const rows: string[] = [];
@@ -380,9 +391,12 @@ export async function exportCsv(sectionId: string, format: string): Promise<stri
     rows.push(["    Points Possible", "", "", "", "", ...items.map((i) => isParticipation(i) ? "" : String(i.maxPoints)), ...catHeaders.map(() => ""), "100", ...letterHeader.map(() => "")].map(esc).join(","));
     for (const s of students) rows.push([s.name, "", "", s.email ?? "", "", ...items.map((it) => cellPts(s, it)), ...catCells(s), show(s.total), ...letterCell(s)].map(esc).join(","));
   } else if (format === "d2l") {
-    // Brightspace/D2L: key column + "Item Points Grade <Numeric MaxPoints:M>" + end-of-line
+    // Brightspace/D2L: key column + "Item Points Grade <Numeric MaxPoints:M>" + end-of-line.
+    // Spec 17: the key is the stored D2L username — the one the import read from D2L's own
+    // export. Without one, the address's local part is the best guess; with neither, the cell is
+    // blank rather than a name D2L cannot match, and the export page says how many.
     rows.push(["Username", ...items.map((i) => `${i.title} Points Grade <Numeric MaxPoints:${i.maxPoints}>`), "End-of-Line Indicator"].map(esc).join(","));
-    for (const s of students) rows.push([s.email ?? s.name, ...items.map((it) => cellPts(s, it)), "#"].map(esc).join(","));
+    for (const s of students) rows.push([d2lKey(s), ...items.map((it) => cellPts(s, it)), "#"].map(esc).join(","));
   } else if (format === "blackboard") {
     rows.push(["Last Name", "First Name", "Username", ...itemTitles, ...catHeaders, "Weighted Total", ...letterHeader].map(esc).join(","));
     for (const s of students) {

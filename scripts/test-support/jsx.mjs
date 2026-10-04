@@ -12,11 +12,11 @@ import { transform } from "esbuild";
 // next/link and next/navigation only resolve inside Next's own bundler, so a component that uses
 // them cannot be imported here without a stand-in. The stubs render the same anchor and make the
 // router a no-op, which is all a markup test needs; anything depending on real routing is tested
-// through the pure helpers in src/lib instead.
+// through the pure helpers in src/lib instead. (next/headers is stubbed in hooks.mjs, which every
+// suite loads.)
 const STUBS = new Map([
   ["next/link", "next-link.mjs"],
   ["next/navigation", "next-navigation.mjs"],
-  ["next/headers", "next-headers.mjs"],
 ]);
 const here = path.dirname(fileURLToPath(import.meta.url));
 

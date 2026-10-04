@@ -30,12 +30,19 @@ import { sql } from "drizzle-orm";
  */
 
 // A person. Sign-in method lives in `identities`, not here.
-export const users = pgTable("users", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  displayName: text("display_name").notNull(),
-  systemRole: text("system_role").notNull().default("user"), // 'admin' | 'user'
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    displayName: text("display_name").notNull(),
+    systemRole: text("system_role").notNull().default("user"), // 'admin' | 'user'
+    // Spec 17: the D2L UserName, lower-cased. On the person, not on the class or the sign-in
+    // method, so it survives a later LTI sign-in and keys the grade export back to D2L.
+    d2lUsername: text("d2l_username"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("users_d2l_username_uq").on(t.d2lUsername)],
+);
 
 // Pluggable identity: (provider, subject) is unique; password identities keep a hash.
 export const identities = pgTable(
@@ -539,19 +546,26 @@ export const ltiLinks = pgTable(
 
 // --- Account recovery (password reset, email verification, rate limiting) ---
 
-// Single-use, expiring tokens for reset and verification.
+// Single-use, expiring tokens for reset, verification and set-password invitations.
+//
+// Spec 17: the secret itself is never stored — `tokenHash` is its sha-256, so a database read or a
+// backup yields nothing a person can follow. `sentAt` and `sendError` are an invitation's own
+// record: when its email went out, or why it did not.
 export const authTokens = pgTable(
   "auth_tokens",
   {
-    token: text("token").primaryKey(),
+    tokenHash: text("token_hash").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    kind: text("kind").notNull(), // 'password_reset' | 'email_verify'
-    email: text("email"),         // target email for verification
+    kind: text("kind").notNull(), // 'password_reset' | 'email_verify' | 'set_password'
+    email: text("email"),         // target email for verification and invitations
+    sectionId: text("section_id").references(() => sections.id, { onDelete: "cascade" }), // the class an invitation names
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    sendError: text("send_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index("auth_tokens_user_idx").on(t.userId)],
+  (t) => [index("auth_tokens_user_idx").on(t.userId), index("auth_tokens_user_kind_idx").on(t.userId, t.kind)],
 );
 
 // Fixed-window rate limiter for auth endpoints.

@@ -51,8 +51,9 @@ export async function ownedSection(userId: string, sectionId: string) {
 export async function sectionRoster(sectionId: string) {
   return db()
     .select({
-      enrolmentId: enrolments.id, role: enrolments.role,
+      enrolmentId: enrolments.id, role: enrolments.role, userId: enrolments.userId,
       name: users.displayName, email: identities.subject,
+      d2lUsername: users.d2lUsername,
     })
     .from(enrolments)
     .innerJoin(users, eq(users.id, enrolments.userId))
@@ -99,7 +100,7 @@ export async function enrollByCode(userId: string, joinCode: string) {
 
 // Enrol (or re-role) a user in a class. Faculty are never demoted by a later student list:
 // adding someone as instructor raises their role; adding an instructor as student leaves them instructor.
-async function enrolAs(sectionId: string, userId: string, role: ClassRole) {
+export async function enrolAs(sectionId: string, userId: string, role: ClassRole) {
   await db().insert(enrolments).values({ sectionId, userId, role })
     .onConflictDoUpdate({
       target: [enrolments.sectionId, enrolments.userId],

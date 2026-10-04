@@ -36,6 +36,17 @@ export async function userClasses(userId: string) {
     .sort((a, b) => (b.term ?? "").localeCompare(a.term ?? "") || a.name.localeCompare(b.name));
 }
 
+/**
+ * One class this person is a student in, or null. It is what a set-your-password invitation names
+ * when it is not being sent from a class's own page — a student imported into one class should
+ * see that class in the email rather than nothing.
+ */
+export async function firstStudentSection(userId: string) {
+  const r = await db().select({ sectionId: enrolments.sectionId }).from(enrolments)
+    .where(and(eq(enrolments.userId, userId), eq(enrolments.role, "student"))).limit(1);
+  return r[0]?.sectionId ?? null;
+}
+
 // Enrol into the (first) section that adopts this book — the cheap "one section,
 // everyone in it" posture. Idempotent.
 export async function enrolInBook(userId: string, bookId: string) {
