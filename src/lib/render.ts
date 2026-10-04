@@ -14,7 +14,9 @@ import type { EntryManifest, Figure, Section } from "./content";
 // normalize so "### 3. A First Model…" (SAD) matches manifest title "A First
 // Model…" and "## A fence falls down" (MIS) matches its own title: drop a
 // leading enumerator, unify quotes/whitespace, trim trailing punctuation.
-function norm(s: string): string {
+// Exported because the assistant's chunker maps a chunk's heading back to the same manifest
+// section id (Spec 20), and two normalisers would be two definitions of what a heading is.
+export function norm(s: string): string {
   return s
     .toLowerCase()
     .replace(/[\u2018\u2019]/g, "'")
