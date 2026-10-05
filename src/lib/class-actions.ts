@@ -368,3 +368,72 @@ export async function deleteClass(
   await db().delete(sections).where(eq(sections.id, sectionId));
   return { ok: true };
 }
+
+// ---------------------------------------------------------------- the CSV of invitation links (§4)
+
+export type LinkRow = { name: string; email: string; link: string; expires: string };
+export type LinksResult = { ok: true; rows: LinkRow[]; filename: string } | { ok: false; error: string };
+
+const csvCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
+export const linksCsv = (rows: LinkRow[]) =>
+  [["name", "email", "link", "expires"], ...rows.map((r) => [r.name, r.email, r.link, r.expires])]
+    .map((cells) => cells.map(csvCell).join(",")).join("\r\n") + "\r\n";
+
+/** `invitation-links-<class>-<date>.csv`, with the class's name made safe for a filename. */
+export function linksFilename(className: string, when = new Date()) {
+  const slug = className.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "class";
+  return `invitation-links-${slug}-${when.toISOString().slice(0, 10)}.csv`;
+}
+
+/**
+ * Fresh set-your-password links for the selected students, or for everyone not set up (Spec 19 §4).
+ *
+ * This is January's fallback if email is not ready: faculty send the file through D2L instead.
+ * Every download **issues new links and retires those students' earlier unused ones**, so a file
+ * that has been forwarded around is not a second way in beside the one in somebody's inbox.
+ *
+ * Nothing is stored and nothing is logged but a count — the tokens exist in the response and
+ * nowhere else.
+ */
+export async function invitationLinks(
+  actorId: string, sectionId: string, baseUrl: string,
+  opts: { enrolmentIds?: string[] } = {},
+): Promise<LinksResult> {
+  if (!(await canManageClass(actorId, sectionId))) {
+    return { ok: false, error: "Only this class's faculty or an administrator can download the links." };
+  }
+  const sec = (await db().select({ name: sections.name }).from(sections).where(eq(sections.id, sectionId)).limit(1))[0];
+  if (!sec) return { ok: false, error: "That class no longer exists." };
+
+  const picked = [...new Set((opts.enrolmentIds ?? []).filter(Boolean))];
+  const base = and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"));
+  const rows = await db().select({
+    id: enrolments.id, userId: enrolments.userId, isDemo: enrolments.isDemo,
+    withdrawnAt: enrolments.withdrawnAt, name: users.displayName,
+    email: identities.subject, hash: identities.passwordHash,
+  }).from(enrolments)
+    .innerJoin(users, eq(users.id, enrolments.userId))
+    .leftJoin(identities, and(eq(identities.userId, enrolments.userId), eq(identities.provider, "password")))
+    .where(picked.length ? and(base, inArray(enrolments.id, picked)) : base);
+  if (picked.length && rows.length !== picked.length) {
+    return { ok: false, error: "Some of those students are not in this class." };
+  }
+
+  // With a selection, a demo account is included because it was chosen. Without one, the list is
+  // "everyone not set up", which a demo account and a withdrawn student are not part of.
+  const wanted = picked.length
+    ? rows.filter((r) => r.email && r.hash == null)
+    : rows.filter((r) => r.email && r.hash == null && !r.isDemo && r.withdrawnAt == null);
+
+  const { copySetPasswordLink, SET_PASSWORD_TTL_SEC } = await import("@/lib/recovery");
+  const out: LinkRow[] = [];
+  for (const r of wanted) {
+    const link = await copySetPasswordLink(r.userId, sectionId, r.email!, baseUrl);
+    out.push({
+      name: r.name, email: r.email!, link,
+      expires: new Date(Date.now() + SET_PASSWORD_TTL_SEC * 1000).toISOString().slice(0, 10),
+    });
+  }
+  await logAction(sectionId, actorId, "download_links", out.length);
+  return { ok: true, rows: out, filename: linksFilename(sec.name) };
+}

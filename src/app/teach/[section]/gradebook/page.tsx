@@ -12,6 +12,8 @@ import {
   setCategoriesAction, applyStarterCategoriesAction, setColumnCategoryAction, setLetterBandsAction,
 } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
+import CopyGradingSetup from "@/components/CopyGradingSetup";
+import { copyableClasses } from "@/lib/grading-copy";
 
 export const dynamic = "force-dynamic";
 const cell = { border: "1px solid var(--rule)", padding: ".4rem .55rem", textAlign: "left", whiteSpace: "nowrap" } as const;
@@ -29,6 +31,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
   const [ltiLinked, spx] = await Promise.all([sectionHasLtiLink(section), searchParams]);
   // Spec 17: a row D2L cannot match, flagged where the export is.
   const noD2lKey = students.filter((s) => !d2lKey(s)).length;
+  const copyFrom = await copyableClasses(user!.id, section);
 
   return (
     <main className="catalog" style={{ maxWidth: "min(100%, 70rem)" }}>
@@ -228,6 +231,13 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
         </Link>
         {showWithdrawn ? " — withdrawn students are shown here but are left out of every export." : ""}
       </p>
+      <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Copy a grading setup</h2>
+      <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>
+        Take another class&apos;s categories and letter scale. Retake rules belong to individual exams
+        and quizzes, so they are not copied. You see exactly what would change before anything does.
+      </p>
+      <CopyGradingSetup sectionId={section} choices={copyFrom} />
+
 
       <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Export</h2>
       <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>

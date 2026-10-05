@@ -112,6 +112,10 @@ export default function ClassRoster({
               <button type="button" className="nav-button secondary" disabled={busy} onClick={() => act("withdraw")}>Withdraw</button>
               <button type="button" className="nav-button secondary" disabled={busy} onClick={() => act("restore")}>Restore</button>
               <button type="button" className="nav-button danger" disabled={busy} onClick={startRemove}>Remove…</button>
+              <a className="nav-button ghost"
+                href={`/api/class/links?section=${encodeURIComponent(sectionId)}&${[...picked].filter((id) => visibleIds.has(id)).map((id) => `enrolment=${encodeURIComponent(id)}`).join("&")}`}>
+                Download invitation links (CSV)
+              </a>
               <button type="button" className="nav-button ghost" disabled={busy} onClick={() => set([])}>Clear</button>
             </>
           )}

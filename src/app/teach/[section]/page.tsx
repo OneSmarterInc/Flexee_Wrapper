@@ -132,6 +132,13 @@ export default async function SectionDashboard({ params, searchParams }: { param
       </div>
       {sp.synced && <p className="ui" style={{ color: "#2a7d3f" }}>Synced roster from the LMS — added {sp.synced} of {sp.seen} member(s).</p>}
       {sp.sync_error && <p className="ui" style={{ color: "#b4451f" }}>{sp.sync_error}</p>}
+      {notSetUp > 0 && (
+        <p className="ui" style={{ color: "var(--muted)", fontSize: ".8rem" }}>
+          The invitation-links file contains sign-in links. Treat it like a list of passwords: send it
+          through D2L or hand it over, do not forward it, and delete it when you are done. Downloading
+          it issues fresh links and retires those students&apos; earlier unused ones.
+        </p>
+      )}
       {sp.invite_link && (
         <div className="ui" style={{ color: "var(--navy)", background: "var(--mark)", padding: ".6rem .8rem", borderRadius: "8px" }}>
           <p style={{ margin: 0 }}>A fresh set-your-password link, shown once. Give it to that student directly; it works once, expires in 14 days, and has replaced any earlier link of theirs.</p>
@@ -140,10 +147,15 @@ export default async function SectionDashboard({ params, searchParams }: { param
       )}
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: ".6rem", flexWrap: "wrap" }}>
         {notSetUp > 0 && (
-          <form action={sendAllInvitesAction}>
-            <input type="hidden" name="sectionId" value={section} />
-            <button type="submit" className="ui" style={rosterBtn}>Resend to everyone not set up ({notSetUp})</button>
-          </form>
+          <>
+            <form action={sendAllInvitesAction}>
+              <input type="hidden" name="sectionId" value={section} />
+              <button type="submit" className="ui" style={rosterBtn}>Resend to everyone not set up ({notSetUp})</button>
+            </form>
+            <a className="ui" style={rosterBtn} href={`/api/class/links?section=${encodeURIComponent(section)}`}>
+              Download invitation links ({notSetUp})
+            </a>
+          </>
         )}
         {hasNrps && (
           <form action={syncRosterAction}>
