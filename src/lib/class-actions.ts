@@ -1,0 +1,214 @@
+import "server-only";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { db } from "@/db";
+import {
+  classActions, enrolments, examAttempts, submissions, lineItemScores, bookmarks,
+  assistantThreads, simCompletions, simLaunches, simTranscripts,
+} from "@/db/schema";
+import { canManageClass } from "@/lib/publish";
+
+/**
+ * Acting on a student in a class, and saying first what it will cost (Spec 19 §1 and §2).
+ *
+ * Removing an enrolment deletes that student's work in the class. Until this, that happened on one
+ * click with no warning: a reproduction against a student holding an exam attempt, a graded
+ * submission and a score took all three, plus the reading position and the assistant thread, and
+ * left the gradebook with no row for them. The Wrapper is the grade record, so this file exists to
+ * make the cost visible before anyone pays it.
+ */
+
+// ---------------------------------------------------------------- the log
+
+export type ActionName =
+  | "resend" | "withdraw" | "restore" | "remove"
+  | "delete_account" | "delete_class" | "copy_grading" | "download_links";
+
+/** Counts only. The table has nowhere to put a name, and this has nothing else to give it. */
+export async function logAction(
+  sectionId: string, actorId: string, action: ActionName, count: number,
+  detail: Record<string, number> = {},
+) {
+  await db().insert(classActions).values({
+    sectionId, actorId, action, count,
+    detailJson: Object.keys(detail).length ? JSON.stringify(detail) : null,
+  });
+}
+
+export async function actionsFor(sectionId: string, limit = 20) {
+  const rows = await db().select().from(classActions)
+    .where(eq(classActions.sectionId, sectionId))
+    .orderBy(desc(classActions.createdAt)).limit(limit);
+  return rows.map((r) => ({
+    id: r.id, action: r.action as ActionName, count: r.count, at: r.createdAt,
+    detail: (r.detailJson ? JSON.parse(r.detailJson) : {}) as Record<string, number>,
+  }));
+}
+
+/** How the log reads on the page. No student is named, because none is recorded. */
+export function describeAction(a: { action: ActionName; count: number; detail: Record<string, number> }) {
+  const d = a.detail;
+  const records = (d.attempts ?? 0) + (d.submissions ?? 0) + (d.scores ?? 0);
+  const n = (k: number, one: string, many = one + "s") => `${k} ${k === 1 ? one : many}`;
+  switch (a.action) {
+    case "resend": return `Resent ${n(a.count, "invitation")}${d.skipped ? `, skipped ${d.skipped}` : ""}`;
+    case "withdraw": return `Withdrew ${n(a.count, "student")}`;
+    case "restore": return `Restored ${n(a.count, "student")}`;
+    case "remove": return `Removed ${n(a.count, "student")} (${records} record${records === 1 ? "" : "s"})`;
+    case "delete_account": return `Deleted ${n(a.count, "account")}`;
+    case "delete_class": return "Deleted the class";
+    case "copy_grading":
+      return `Copied a grading setup: ${n(d.categories ?? 0, "category", "categories")}` +
+        `${d.unmatched ? `, ${d.unmatched} column${d.unmatched === 1 ? "" : "s"} unmatched` : ""}`;
+    case "download_links": return `Downloaded ${n(a.count, "invitation link")}`;
+    default: return `${a.action} (${a.count})`;
+  }
+}
+
+// ---------------------------------------------------------------- what a removal would cost
+
+export type RemovalCost = {
+  enrolmentId: string;
+  role: string;
+  /** Records that make a removal consequential, and so require typing (decision 6). */
+  attempts: number;
+  submissions: number;
+  scores: number;
+  /** Listed in the counts, but not on their own a reason to demand typing. */
+  bookmarks: number;
+  threads: number;
+  simCompletions: number;
+  simLaunches: number;
+  simTranscripts: number;
+};
+
+export const hasRecords = (c: RemovalCost) => c.attempts + c.submissions + c.scores > 0;
+
+export const totalRecords = (c: RemovalCost) =>
+  c.attempts + c.submissions + c.scores + c.bookmarks + c.threads +
+  c.simCompletions + c.simLaunches + c.simTranscripts;
+
+/**
+ * Exactly what removing these enrolments would delete, counted from the same tables the delete
+ * will reach. Nothing is estimated: the dialog's numbers and the deletion's effect come from one
+ * place, so they cannot drift apart.
+ */
+export async function removalCost(sectionId: string, enrolmentIds: string[]): Promise<RemovalCost[]> {
+  if (!enrolmentIds.length) return [];
+  const rows = await db().select({ id: enrolments.id, role: enrolments.role, userId: enrolments.userId })
+    .from(enrolments)
+    .where(and(eq(enrolments.sectionId, sectionId), inArray(enrolments.id, enrolmentIds)));
+  const out: RemovalCost[] = [];
+  for (const r of rows) {
+    const [att, subs, scores, bms, threads] = await Promise.all([
+      db().select({ id: examAttempts.id }).from(examAttempts).where(eq(examAttempts.enrolmentId, r.id)),
+      db().select({ id: submissions.id }).from(submissions).where(eq(submissions.enrolmentId, r.id)),
+      db().select({ id: lineItemScores.lineItemId }).from(lineItemScores).where(eq(lineItemScores.enrolmentId, r.id)),
+      db().select({ id: bookmarks.enrolmentId }).from(bookmarks).where(eq(bookmarks.enrolmentId, r.id)),
+      db().select({ id: assistantThreads.id }).from(assistantThreads).where(eq(assistantThreads.enrolmentId, r.id)),
+    ]);
+    // Decision 7: simulation records hang off the user, so they are counted (and deleted) for this
+    // class only. Before this they survived a removal, and a re-added student's completions came
+    // back while their grades did not.
+    const inClass = and(eq(simCompletions.userId, r.userId), eq(simCompletions.sectionId, sectionId));
+    const [comps, launches, trans] = await Promise.all([
+      db().select({ id: simCompletions.id }).from(simCompletions).where(inClass),
+      db().select({ id: simLaunches.id }).from(simLaunches)
+        .where(and(eq(simLaunches.userId, r.userId), eq(simLaunches.sectionId, sectionId))),
+      db().select({ id: simTranscripts.id }).from(simTranscripts)
+        .where(and(eq(simTranscripts.userId, r.userId), eq(simTranscripts.sectionId, sectionId))),
+    ]);
+    out.push({
+      enrolmentId: r.id, role: r.role,
+      attempts: att.length, submissions: subs.length, scores: scores.length,
+      bookmarks: bms.length, threads: threads.length,
+      simCompletions: comps.length, simLaunches: launches.length, simTranscripts: trans.length,
+    });
+  }
+  return out;
+}
+
+/** The sentence the dialog shows. The spec's own wording: counts first, in plain words. */
+export function describeCost(costs: RemovalCost[]) {
+  const sum = (k: keyof RemovalCost) => costs.reduce((s, c) => s + (c[k] as number), 0);
+  const parts: string[] = [];
+  const add = (k: keyof RemovalCost, one: string, many: string) => {
+    const v = sum(k);
+    if (v) parts.push(`${v} ${v === 1 ? one : many}`);
+  };
+  add("attempts", "exam attempt", "attempts");
+  add("submissions", "submission", "submissions");
+  add("scores", "grade", "grades");
+  add("bookmarks", "reading position", "reading positions");
+  add("threads", "assistant conversation", "assistant conversations");
+  add("simCompletions", "simulation completion", "simulation completions");
+  add("simLaunches", "simulation launch", "simulation launches");
+  add("simTranscripts", "simulation transcript", "simulation transcripts");
+  if (!parts.length) return "This deletes no records.";
+  const last = parts.pop()!;
+  return `This will delete ${parts.length ? parts.join(", ") + " and " + last : last}.`;
+}
+
+export type RemoveResult =
+  | { ok: true; removed: number; cost: RemovalCost[] }
+  | { ok: false; error: string; needsTyping?: boolean; cost?: RemovalCost[]; expect?: string };
+
+/**
+ * The words that have to be typed when records exist. Short, unambiguous, and the same every time
+ * so it can be shown in the dialog and checked on the server.
+ */
+export const REMOVE_PHRASE = "delete records";
+
+/**
+ * Remove enrolments and the records that hang off them.
+ *
+ * Every id is re-checked against this class before anything happens, so nothing the page sent is
+ * trusted. When any attempt, submission or score exists, `confirm` must be the phrase above —
+ * that is decision 6, and it is checked here rather than in the browser.
+ */
+export async function removeStudents(
+  actorId: string, sectionId: string, enrolmentIds: string[], opts: { confirm?: string } = {},
+): Promise<RemoveResult> {
+  if (!(await canManageClass(actorId, sectionId))) {
+    return { ok: false, error: "Only this class's faculty or an administrator can remove students." };
+  }
+  const ids = [...new Set(enrolmentIds.filter(Boolean))];
+  if (!ids.length) return { ok: false, error: "Nobody was selected." };
+  const cost = await removalCost(sectionId, ids);
+  if (cost.length !== ids.length) {
+    // The ones that did not come back are not in this class. Refusing the whole call is right:
+    // a page that sent a foreign id is a page whose other ids are not to be trusted either.
+    return { ok: false, error: "Some of those students are not in this class." };
+  }
+  const consequential = cost.filter(hasRecords);
+  if (consequential.length && opts.confirm?.trim().toLowerCase() !== REMOVE_PHRASE) {
+    return {
+      ok: false, needsTyping: true, cost, expect: REMOVE_PHRASE,
+      error: `${describeCost(cost)} Type "${REMOVE_PHRASE}" to confirm.`,
+    };
+  }
+
+  // One transaction: a half-removed student is a worse record than either outcome.
+  const sums = { attempts: 0, submissions: 0, scores: 0, bookmarks: 0, threads: 0, sims: 0 };
+  await db().transaction(async (tx) => {
+    for (const c of cost) {
+      const row = (await tx.select({ userId: enrolments.userId }).from(enrolments)
+        .where(and(eq(enrolments.id, c.enrolmentId), eq(enrolments.sectionId, sectionId))).limit(1))[0];
+      if (!row) continue;
+      // Simulation records first: they hang off the user, so the enrolment's cascade never reaches
+      // them. Scoped to this class, so another class's play is untouched.
+      for (const t of [simCompletions, simLaunches, simTranscripts]) {
+        await tx.delete(t as typeof simCompletions)
+          .where(and(eq((t as typeof simCompletions).userId, row.userId),
+                     eq((t as typeof simCompletions).sectionId, sectionId)));
+      }
+      // Everything else goes with the enrolment, by cascade: bookmarks, submissions and their
+      // files, attempts and their responses, scores, assistant threads and their messages.
+      await tx.delete(enrolments).where(and(eq(enrolments.id, c.enrolmentId), eq(enrolments.sectionId, sectionId)));
+      sums.attempts += c.attempts; sums.submissions += c.submissions; sums.scores += c.scores;
+      sums.bookmarks += c.bookmarks; sums.threads += c.threads;
+      sums.sims += c.simCompletions + c.simLaunches + c.simTranscripts;
+    }
+  });
+  await logAction(sectionId, actorId, "remove", cost.length, sums);
+  return { ok: true, removed: cost.length, cost };
+}

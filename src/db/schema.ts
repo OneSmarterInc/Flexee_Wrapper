@@ -751,3 +751,22 @@ export const assistantQuestions = pgTable(
   },
   (t) => [index("assistant_questions_section_status_idx").on(t.sectionId, t.status)],
 );
+
+// --- Spec 19: a log of who did what to a class list ---
+//
+// Counts only. There is deliberately no column for a name, an address or a student's id, so "the
+// log holds counts only" is a property of the schema rather than of the code that writes it.
+// `actor_id` is the one id, and it names a member of staff acting in their own class.
+export const classActions = pgTable(
+  "class_actions",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    sectionId: text("section_id").notNull().references(() => sections.id, { onDelete: "cascade" }),
+    actorId: text("actor_id").references((): any => users.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    count: integer("count").notNull().default(0),
+    detailJson: text("detail_json"),   // numbers only: {attempts, submissions, scores, skipped…}
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("class_actions_section_idx").on(t.sectionId, t.createdAt)],
+);

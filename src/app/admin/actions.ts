@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { createSection, commitRoster, removeEnrolment, type ClassRole } from "@/lib/roster";
+import { createSection, commitRoster, type ClassRole } from "@/lib/roster";
 import { classById, parsePeople, removeInvite } from "@/lib/admin";
 
 const clean = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
@@ -44,10 +44,9 @@ export async function addPeopleAction(formData: FormData) {
 }
 
 export async function removePersonAction(formData: FormData) {
+  // Spec 19: see the note on removeStudentAction. The guarded flow is POST /api/class/remove.
   const sectionId = clean(formData.get("sectionId"));
-  await requireAdmin(`/admin/${sectionId}`);
-  await removeEnrolment(sectionId, clean(formData.get("enrolmentId")));
-  redirect(msg(`/admin/${sectionId}`, "ok", "Removed from the class."));
+  redirect(msg(`/admin/${sectionId}`, "error", "Use the Remove button on the class page — it shows what would be deleted first."));
 }
 
 export async function removeInviteAction(formData: FormData) {

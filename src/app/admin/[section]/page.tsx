@@ -5,7 +5,9 @@ import { getBook, listBooks } from "@/lib/content";
 import { classById } from "@/lib/admin";
 import { demoUserIds } from "@/lib/d2l-import";
 import { sectionRoster, pendingInvites } from "@/lib/roster";
-import { addPeopleAction, removePersonAction, removeInviteAction } from "@/app/admin/actions";
+import { addPeopleAction, removeInviteAction } from "@/app/admin/actions";
+import RemoveStudent from "@/components/RemoveStudent";
+import { REMOVE_PHRASE } from "@/lib/class-actions";
 import ClassBookPanel from "@/components/ClassBookPanel";
 import WorkspaceShell from "@/components/WorkspaceShell";
 
@@ -32,11 +34,8 @@ function People({ role, sectionId, people, invites }: {
             {people.map((person) => (
               <tr key={person.enrolmentId}>
                 <td>{person.name}</td><td>{person.email ?? "—"}</td><td><span className="workspace-status">Active</span></td>
-                <td><form action={removePersonAction}>
-                  <input type="hidden" name="sectionId" value={sectionId} />
-                  <input type="hidden" name="enrolmentId" value={person.enrolmentId} />
-                  <button className="nav-button ghost" type="submit" aria-label={`Remove ${person.name} from class`}>Remove</button>
-                </form></td>
+                <td><RemoveStudent sectionId={sectionId} enrolmentId={person.enrolmentId}
+                  name={person.name} role={role} phrase={REMOVE_PHRASE} back={`/admin/${sectionId}`} /></td>
               </tr>
             ))}
             {invites.map((person) => (

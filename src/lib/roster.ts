@@ -88,6 +88,16 @@ export async function regenerateJoinCode(sectionId: string) {
   await db().update(sections).set({ joinCode: code() }).where(eq(sections.id, sectionId));
 }
 
+/**
+ * Delete one enrolment, and with it, by cascade, that student's bookmarks, submissions and their
+ * files, exam attempts and their responses, line-item scores and assistant threads in this class.
+ *
+ * **Spec 19: not for a screen to call.** It used to sit behind a one-click Remove with no warning;
+ * `removeStudents` in src/lib/class-actions.ts is the way in now — it counts what will go, demands
+ * a typed phrase when any attempt, submission or score exists, takes the simulation records that
+ * hang off the user rather than the enrolment, and writes the actions log. This remains as the
+ * primitive that does the deleting, and as what the LTI and clean-up paths use.
+ */
 export async function removeEnrolment(sectionId: string, enrolmentId: string) {
   await db().delete(enrolments).where(and(eq(enrolments.id, enrolmentId), eq(enrolments.sectionId, sectionId)));
 }

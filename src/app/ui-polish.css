@@ -542,3 +542,25 @@
   .assistant { padding: .8rem; }
   .assistant-actions { align-items: stretch; }
 }
+
+/* --- Spec 19: the guarded Remove dialog ------------------------------------------------------- */
+.fx-dialog {
+  max-width: 32rem; padding: 1.2rem 1.3rem; border: 1px solid var(--rule); border-radius: 10px;
+  background: var(--panel); color: var(--ink);
+}
+.fx-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.fx-dialog h2 { margin: 0 0 .6rem; color: var(--navy); font-size: 1.05rem; }
+.fx-dialog p { margin: .5rem 0; }
+.fx-dialog table { border-collapse: collapse; margin: .7rem 0; font-size: .9rem; width: 100%; }
+.fx-dialog caption { text-align: left; color: var(--muted); font-size: .78rem; padding-bottom: .3rem; }
+.fx-dialog th, .fx-dialog td { border-bottom: 1px solid var(--rule); padding: .3rem .5rem; text-align: left; }
+.fx-dialog td { text-align: right; font-variant-numeric: tabular-nums; }
+.fx-dialog label { display: block; font-size: .85rem; margin-bottom: .25rem; }
+.fx-dialog input {
+  width: 100%; padding: .45rem .5rem; border: 1px solid var(--rule); border-radius: 6px;
+  background: var(--bg); color: var(--ink); font: inherit;
+}
+.fx-dialog-error { color: #b4451f; }
+.fx-dialog-actions { display: flex; gap: .7rem; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap; }
+.nav-button.danger { background: #b4451f; color: #fff; border: none; }
+.nav-button.danger:disabled { background: var(--rule); color: var(--muted); cursor: not-allowed; }

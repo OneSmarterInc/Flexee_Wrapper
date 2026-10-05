@@ -5,6 +5,8 @@ import { ownedSection, sectionRoster, pendingInvites } from "@/lib/roster";
 import { sectionContentStatus } from "@/lib/versions";
 import { sectionHasNrps } from "@/lib/lti";
 import { syncRosterAction, sendInviteAction, sendAllInvitesAction, copyInviteLinkAction } from "@/app/actions";
+import RemoveStudent from "@/components/RemoveStudent";
+import { REMOVE_PHRASE, actionsFor, describeAction } from "@/lib/class-actions";
 import { inviteStatesFor, type InviteState } from "@/lib/recovery";
 import { getBook } from "@/lib/content";
 import { regenerateCodeAction, removeStudentAction } from "@/app/actions";
@@ -50,6 +52,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
   const demoCount = students.filter((r) => isDemo(r.userId)).length;
   const realStudents = students.length - demoCount;
   const notSetUp = students.filter((r) => !isDemo(r.userId) && inviteStates.get(r.userId)?.state !== "set up").length;
+  const log = await actionsFor(section, 10);
 
   return (
     <WorkspaceShell active="faculty" isAdmin={user.systemRole === "admin"} canTeach displayName={user.displayName}
@@ -137,7 +140,13 @@ export default async function SectionDashboard({ params, searchParams }: { param
         <thead><tr><th style={cell}>Name</th><th style={cell}>Email</th><th style={cell}>Role</th><th style={cell}>Account</th><th style={cell}></th></tr></thead>
         <tbody>
           {instructors.map((r) => (
-            <tr key={r.enrolmentId}><td style={cell}>{r.name}</td><td style={cell}>{r.email}</td><td style={cell}>instructor</td><td style={cell}></td><td style={cell}></td></tr>
+            <tr key={r.enrolmentId}>
+              <td style={cell}>{r.name}</td><td style={cell}>{r.email}</td><td style={cell}>instructor</td><td style={cell}></td>
+              <td style={cell}>
+                <RemoveStudent sectionId={section} enrolmentId={r.enrolmentId}
+                  name={r.name} role="instructor" phrase={REMOVE_PHRASE} back={`/teach/${section}#roster`} />
+              </td>
+            </tr>
           ))}
           {students.map((r) => (
             <tr key={r.enrolmentId}>
@@ -157,11 +166,8 @@ export default async function SectionDashboard({ params, searchParams }: { param
                     <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
                     <button type="submit" style={linkBtn}>Copy link</button>
                   </form>
-                  <form action={removeStudentAction}>
-                    <input type="hidden" name="sectionId" value={section} />
-                    <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
-                    <button type="submit" style={{ ...linkBtn, color: "#b4451f" }}>Remove</button>
-                  </form>
+                  <RemoveStudent sectionId={section} enrolmentId={r.enrolmentId}
+                    name={r.name} role="student" phrase={REMOVE_PHRASE} back={`/teach/${section}#roster`} />
                 </div>
               </td>
             </tr>
@@ -173,6 +179,15 @@ export default async function SectionDashboard({ params, searchParams }: { param
           ))}
         </tbody>
       </table>
+      {log.length > 0 && (
+        <details style={{ marginTop: "1.2rem" }}>
+          <summary className="ui" style={{ cursor: "pointer", color: "var(--navy)" }}>Recent changes to this class list ({log.length})</summary>
+          <ul className="ui" style={{ color: "var(--muted)", fontSize: ".85rem", marginTop: ".5rem" }}>
+            {log.map((a) => <li key={a.id}>{describeAction(a)} · {a.at.toISOString().slice(0, 16).replace("T", " ")} UTC</li>)}
+          </ul>
+          <p className="ui" style={{ color: "var(--muted)", fontSize: ".78rem" }}>The log records counts, never names.</p>
+        </details>
+      )}
       </section>
     </WorkspaceShell>
   );

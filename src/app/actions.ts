@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users, identities } from "@/db/schema";
 import { hashPassword, verifyPassword, createSession, destroySession, currentUser } from "@/lib/auth";
 import { enrolmentForBook, userClasses } from "@/lib/enrolment";
-import { ownedSection, regenerateJoinCode, removeEnrolment, enrollByCode, claimInvites } from "@/lib/roster";
+import { ownedSection, regenerateJoinCode, enrollByCode, claimInvites } from "@/lib/roster";
 import { landingPortal } from "@/lib/portal";
 
 const clean = (v: FormDataEntryValue | null) => String(v ?? "").trim();
@@ -102,13 +102,14 @@ export async function regenerateCodeAction(formData: FormData) {
   redirect(`/teach/${sectionId}`);
 }
 
+/**
+ * Spec 19: removing a student goes through POST /api/class/remove, which counts what would be
+ * deleted and requires a typed phrase when any attempt, submission or score exists. This action
+ * remains only so an old form post cannot quietly delete a student's work; it does nothing.
+ */
 export async function removeStudentAction(formData: FormData) {
-  const user = await currentUser();
   const sectionId = clean(formData.get("sectionId"));
-  const enrolmentId = clean(formData.get("enrolmentId"));
-  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
-  await removeEnrolment(sectionId, enrolmentId);
-  redirect(`/teach/${sectionId}`);
+  redirect(`/teach/${sectionId}?error=${encodeURIComponent("Use the Remove button on the class list — it shows what would be deleted first.")}#roster`);
 }
 
 export async function publishToSectionAction(formData: FormData) {
