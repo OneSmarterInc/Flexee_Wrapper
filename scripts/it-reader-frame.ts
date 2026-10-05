@@ -506,8 +506,10 @@ await t("rule 7 — axe adds no violation that this spec is responsible for", as
 
   const added = full.ids.filter((id) => !baseline.ids.includes(id));
   assert.deepEqual(added, [], `the frame introduced: ${added.join(", ")}`);
-  // and the pre-existing findings are the book's content, named so nobody hunts for them in code
-  assert.deepEqual(baseline.ids, ["empty-table-header", "heading-order"],
+  // and the pre-existing findings are the book's content, named so nobody hunts for them in code.
+  // heading-order was here until Spec 21's outline transform; test:headings now holds that line for
+  // every chapter of every book, so a return of it would fail there first.
+  assert.deepEqual(baseline.ids, ["empty-table-header"],
     `the book's own findings changed: ${baseline.ids.join(", ")}`);
 });
 

@@ -33,6 +33,46 @@ export function norm(s: string): string {
     .trim();
 }
 
+/**
+ * Spec 21: give every chapter a valid heading outline, at render time, with no book content change.
+ *
+ * The standard lets a book write its teaching sections as `###` under a `#` title (SAD, FZ1003) or
+ * as `##` (MIS 3000). Both are allowed, and the deeper form skips a level — which is a real fault
+ * for anyone navigating by heading, and it was in **all 24** chapters of the two books that use it.
+ *
+ * The shape is what decides the fix. In those books the chapter's own `##` headings ("Case Study",
+ * "Review Questions") arrive **after** all the `###` ones, so the `###` sections and those `##`
+ * headings are the same thing written two ways. A blanket shift would push the `##` ones to `h1`;
+ * treating the `###` ones as subsections would be a lie about the chapter's structure.
+ *
+ * So: look only at the headings before the first `h2`. If the shallowest of them is `h3` or deeper,
+ * shift every heading at or below that level up far enough to close the gap, and leave anything
+ * shallower where it is. A chapter already written `h1, h2, h3` is untouched, because its first
+ * non-`h1` heading is an `h2` and there is nothing to close.
+ *
+ * It runs after `anchorsPlugin`, so the section ids are already on the headings; they are matched
+ * by title, not by level, and they travel with the tag.
+ */
+function outlinePlugin() {
+  return () => (tree: any) => {
+    const headings: any[] = [];
+    visit(tree, "element", (node: any) => {
+      if (/^h[1-6]$/.test(node.tagName)) headings.push(node);
+    });
+    const levels = headings.map((h) => Number(h.tagName[1]));
+    const firstH2 = levels.indexOf(2);
+    const pre = levels.slice(0, firstH2 < 0 ? levels.length : firstH2).filter((l) => l > 1);
+    if (!pre.length) return;
+    const shallowest = Math.min(...pre);
+    if (shallowest < 3) return;
+    const by = shallowest - 2;
+    for (const h of headings) {
+      const level = Number(h.tagName[1]);
+      if (level >= shallowest) h.tagName = `h${Math.max(2, level - by)}`;
+    }
+  };
+}
+
 function anchorsPlugin(sections: Section[]) {
   return () => (tree: any) => {
     let ptr = 0;
@@ -287,6 +327,7 @@ export async function renderEntry(
     .use(remarkGfm)
     .use(remarkRehype)
     .use(anchorsPlugin(manifest.sections))
+    .use(outlinePlugin())
     .use(figuresPlugin(manifest.figures, assetBase))
     .use(captionsPlugin(markdown, (claimed) => {
       caps = claimed;
