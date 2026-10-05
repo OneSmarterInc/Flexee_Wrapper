@@ -271,6 +271,17 @@ def reconcile(reg, src):
             if f in listing and listing[f] != row["size"]:
                 msg = f"{lane}: `{f}` is {listing[f]:,} bytes in Drive; the register says {row['size']:,}"
                 stops.append(msg)
+        # Spec 22 §4: Drive for Desktop sometimes leaves a folder inside a lane with the lane's own
+        # name, holding a copy of it. Every file in it then arrives keyed by "<lane>/<file>", none of
+        # which is in the register, and the report used to list them one by one as unregistered
+        # files — which reads as missing register entries rather than as one duplicated folder. Said
+        # once, naming the folder and the lane, and it still stops where it stopped before.
+        nested = [f for f in extra if f.startswith(lane + "/")]
+        if nested:
+            extra = [f for f in extra if not f.startswith(lane + "/")]
+            (stops if lane in INTAKE_LANES else warns).append(
+                f"a folder named `{lane}` sits inside the lane `{lane}`; remove or move it "
+                f"({len(nested)} file{'' if len(nested) == 1 else 's'} inside it)")
         for f in extra:
             if lane == "07_Question_Banks" and f.startswith("review/"): continue  # derived, regenerated
             (stops if lane in INTAKE_LANES else warns).append(f"{lane}: `{f}` is in Drive but not in the register")
@@ -646,6 +657,44 @@ def run(args):
     report["staged"] = str(stage); report["figuresBytesSaved"] = saved
     return finish(report, out, book)
 
+# Spec 22 §4: a long list of the same complaint is a wall nobody reads. Where a gate's detail is a
+# list, lines that share a leading category are collapsed to a count and the first few. The
+# categories are the prefixes the gates already write: "chN: …", "<lane>: …", "<word> alt text: …".
+WARN_SUMMARY_AT = 6     # a list shorter than this reads better in full
+WARN_SHOW = 3
+
+def summarise_detail(detail):
+    """A gate's detail, with repeated categories collapsed. Returns a string."""
+    if not isinstance(detail, list):
+        return detail
+    if len(detail) < WARN_SUMMARY_AT:
+        return "; ".join(str(d) for d in detail)
+    groups = {}
+    for d in detail:
+        d = str(d)
+        head = d.split(":", 1)[0].strip() if ":" in d else d
+        groups.setdefault(head, []).append(d)
+    if len(groups) == len(detail):           # every line its own category: nothing to collapse
+        return "; ".join(str(d) for d in detail)
+    out = []
+    for head, items in groups.items():
+        if len(items) == 1:
+            out.append(items[0])
+            continue
+        shown = "; ".join(items[:WARN_SHOW])
+        more = len(items) - WARN_SHOW
+        out.append(f"{len(items)} in {head} — {shown}" + (f", and {more} more" if more > 0 else ""))
+    return " · ".join(out)
+
+def next_step(report):
+    """Spec 22 §4: what happens next, in one line, on every report."""
+    if report["stop"]:
+        return "**Stopped: fix the lines marked STOP above and upload again.** Nothing was admitted."
+    warned = [g["gate"] for g in report["gates"] if not g["ok"]]
+    tail = (f" {len(warned)} warning{'' if len(warned) == 1 else 's'} to look at, "
+            f"none of which blocks the book: {', '.join(warned)}." if warned else "")
+    return f"**Ready to add: click Add to library.**{tail}"
+
 def finish(report, out, book):
     out.mkdir(parents=True, exist_ok=True)
     status = "STOPPED — nothing staged for admission" if report["stop"] else "READY TO APPROVE"
@@ -654,10 +703,12 @@ def finish(report, out, book):
              f"Run: {report['startedAt']}", "", "| Gate | Result | Detail |", "|---|---|---|"]
     for g in report["gates"]:
         res = "pass" if g["ok"] else ("**STOP**" if g["level"] == "fail" else "warning")
-        det = g["detail"]; det = "; ".join(det) if isinstance(det, list) else (json.dumps(det) if isinstance(det, dict) else det)
+        det = g["detail"]
+        det = json.dumps(det) if isinstance(det, dict) else summarise_detail(det)
         lines.append(f"| {g['gate']} | {res} | {det} |")
     if not report["stop"]:
         lines += ["", f"Staged at `{report['staged']}`. Run with `--approve` to admit it; the previous tree is archived, not deleted."]
+    lines += ["", next_step(report)]
     p = out / f"_intake_report_{book}.md"; p.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines)); return 1 if report["stop"] else 0
 
