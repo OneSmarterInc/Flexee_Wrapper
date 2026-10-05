@@ -59,7 +59,8 @@ export function dispatchMessage(status: number) {
 }
 
 export async function dispatchIntake(
-  action: "check" | "publish", uploadId: string, bookId: string, env = process.env,
+  action: "check" | "publish", uploadId: string, bookId: string,
+  env: Record<string, string | undefined> = process.env,
   wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
 ): Promise<Result & { status?: number; retriable?: boolean }> {
   const token = env.GITHUB_DISPATCH_TOKEN, repo = env.GITHUB_REPO;

@@ -21,7 +21,7 @@ const t = async (name: string, fn: () => Promise<void> | void) => {
 };
 
 const TOKEN = "ghp_SUPERSECRET_dispatch_token_0123456789";
-const ENV = { GITHUB_DISPATCH_TOKEN: TOKEN, GITHUB_REPO: "OneSmarterInc/Flexee_Wrapper" } as NodeJS.ProcessEnv;
+const ENV = { GITHUB_DISPATCH_TOKEN: TOKEN, GITHUB_REPO: "OneSmarterInc/Flexee_Wrapper" };
 const noWait = async () => {};
 
 /** A fake GitHub that answers with the given statuses in turn, and counts the calls. */
@@ -112,7 +112,7 @@ await t("the token is sent as a header and appears in nothing that comes back", 
 await t("with no token or repository set, nothing is called at all", async () => {
   let calls = 0;
   setDispatchFetch(async () => { calls++; return new Response(null, { status: 204 }); });
-  const r = await dispatchIntake("check", "u6", "sad", {} as NodeJS.ProcessEnv, noWait);
+  const r = await dispatchIntake("check", "u6", "sad", {}, noWait);
   assert.equal(calls, 0, "it called GitHub without a token");
   assert.equal(r.ok, false);
   assert.equal(r.retriable, false);
