@@ -89,6 +89,44 @@ function anchorsPlugin(sections: Section[]) {
   };
 }
 
+/**
+ * Spec 21 rule 2: the figure's number comes from its file name, the standard the books already
+ * follow, so a figure is addressable even where the manifest has no entry for it.
+ *
+ * fig4_2_level0.png -> 4.2, fig-4-2.png -> 4.2. A file with only one number in it, like
+ * MIS 3000's fig-01.png, gives nothing: there is no chapter in the name to make "N.M" from, and
+ * guessing one would invent an address that a link could not be trusted to reach.
+ */
+export function numberFromFileName(file: string): string | null {
+  const m = /^fig[-_]?(\d+)[-_](\d+)/i.exec(file);
+  return m ? `${Number(m[1])}.${Number(m[2])}` : null;
+}
+
+/**
+ * A blockquote that starts "Long description:" belongs to the image above it.
+ *
+ * Returns the description's own child nodes, with the marker removed from the first paragraph, or
+ * null when the next element is not one. The caller consumes the blockquote so it is not shown
+ * twice — once as a quotation and once inside the figure.
+ */
+const LONG_DESC = /^Long description:\s*/i;
+function longDescriptionAt(parent: any, from: number): { nodes: any[]; end: number } | null {
+  let j = from;
+  while (j < parent.children.length) {
+    const c = parent.children[j];
+    if (c.type === "text" && !String(c.value).trim()) { j++; continue; }
+    break;
+  }
+  const next = parent.children[j];
+  if (!next || next.type !== "element" || next.tagName !== "blockquote") return null;
+  const nodes = (next.children ?? []).filter((c: any) => c.type !== "text" || String(c.value).trim());
+  const first = nodes[0];
+  const head = first?.children?.[0];
+  if (!first || first.tagName !== "p" || head?.type !== "text" || !LONG_DESC.test(head.value)) return null;
+  head.value = String(head.value).replace(LONG_DESC, "");
+  return { nodes, end: j };
+}
+
 // Turn a bare image paragraph into a <figure> with its manifest caption, and
 // rewrite figures/ srcs onto the asset route. Turn any surviving "artwork
 // pending" placeholder paragraph into a labelled placeholder block.
@@ -104,10 +142,34 @@ function figuresPlugin(figures: Figure[], assetBase: string) {
         const img = node.children[0];
         const src = String(img.properties?.src || "");
         if (src.startsWith("figures/")) {
-          const fig = byFile.get(src.split("/").pop()!);
+          const file = src.split("/").pop()!;
+          const fig = byFile.get(file);
           img.properties.src = `${assetBase}/${src}`;
           img.properties.loading = "lazy";
-          const caption = fig?.caption || String(img.properties.alt || "");
+          // Rule 2: the title attribute is the visible caption when the author wrote one — as
+          // ![description](fig3_1_name.png "Caption text") — and the alt is then free to describe
+          // the image rather than repeat the caption. With no title, the caption comes from the
+          // manifest and then from the alt, exactly as before, which is what the golden holds.
+          const titled = String(img.properties.title || "").trim();
+          const caption = titled || fig?.caption || String(img.properties.alt || "");
+          if (titled) delete img.properties.title;   // shown as the caption, not as a tooltip too
+
+          const desc = longDescriptionAt(parent, index + 1);
+          const children: any[] = [
+            img,
+            { type: "element", tagName: "figcaption", properties: {}, children: [{ type: "text", value: caption }] },
+          ];
+          if (desc) {
+            children.push({
+              type: "element", tagName: "details", properties: { className: ["fx-longdesc"] },
+              children: [
+                { type: "element", tagName: "summary", properties: {}, children: [{ type: "text", value: "Description" }] },
+                ...desc.nodes,
+              ],
+            });
+          }
+          // An address from the manifest where there is one, else from the file name (rule 2).
+          const n = fig?.number ?? numberFromFileName(file);
           parent.children[index] = {
             type: "element",
             tagName: "figure",
@@ -115,12 +177,13 @@ function figuresPlugin(figures: Figure[], assetBase: string) {
             // tabIndex so focus can move here when someone jumps to it.
             properties: fig
               ? { className: ["fx-figure"], id: anchorFor(fig), tabIndex: -1 }
-              : { className: ["fx-figure"] },
-            children: [
-              img,
-              { type: "element", tagName: "figcaption", properties: {}, children: [{ type: "text", value: caption }] },
-            ],
+              : n
+                ? { className: ["fx-figure"], id: anchorFor({ kind: "image", number: n }), tabIndex: -1 }
+                : { className: ["fx-figure"] },
+            children,
           };
+          // consume the blockquote only after the figure is in place, so the indices still line up
+          if (desc) parent.children.splice(desc.end, 1);
         }
       } else if (node.tagName === "p") {
         const m = toText(node).trim().match(pendingRe);
@@ -207,6 +270,35 @@ function captionsPlugin(markdown: string, onCaptioned: (claimed: { number: strin
  * table is which entry, so if the counts disagree one of them is unaccounted for and every
  * following table would take the wrong number. In that case none is captioned (Spec 14 decision 3).
  */
+/**
+ * Spec 21 rule 3: a header cell says which direction it heads.
+ *
+ * Markdown tables give a thead of plain th elements. Without scope, a screen reader reading a cell
+ * in the middle of a wide table has to guess which header belongs to it, and in a table with a
+ * header column as well it usually guesses wrong. Every th in a thead is a column header; a th that
+ * is the first cell of a body row heads that row.
+ */
+function tableScopePlugin() {
+  return () => (tree: any) => {
+    visit(tree, "element", (node: any) => {
+      if (node.tagName !== "table") return;
+      visit(node, "element", (part: any) => {
+        if (part.tagName === "thead") {
+          visit(part, "element", (th: any) => {
+            if (th.tagName === "th") th.properties = { ...th.properties, scope: "col" };
+          });
+        } else if (part.tagName === "tbody") {
+          for (const row of part.children ?? []) {
+            if (row.type !== "element" || row.tagName !== "tr") continue;
+            const first = (row.children ?? []).find((c: any) => c.type === "element");
+            if (first?.tagName === "th") first.properties = { ...first.properties, scope: "row" };
+          }
+        }
+      });
+    });
+  };
+}
+
 function tablesPlugin(figures: Figure[], captioned: () => number, onResolved: (resolved: Figure[]) => void) {
   const claimed = figures.filter((f) => f.kind === "table");
   return () => (tree: any) => {
@@ -339,6 +431,7 @@ export async function renderEntry(
       // "Figure N.M" and that is the word to key them under
       for (const f of resolved) present.set(`figure:${f.number}`, anchorFor(f));
     }))
+    .use(tableScopePlugin())
     .use(mentionsPlugin(present))
     .use(rehypeStringify)
     .process(markdown);

@@ -22,6 +22,7 @@ result (`--approve`).
 import argparse, hashlib, io, json, os, re, shutil, sys, zipfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import table_captions
+import figure_alt
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -391,6 +392,8 @@ def run(args):
     # Spec 16: table captions, for books built to the Chapter Writing Standard v1.1 or later.
     cap_check = table_captions.applies(reg.get("built_to"))
     cap_warn, cap_tables, cap_ok = [], 0, 0
+    # Spec 21 rules 2 and 3: reported for every book, whatever standard it was built to.
+    alt_warn, th_warn, titled, described = [], [], 0, 0
     bank_drift = []   # Spec 16: bank files changed under an unchanged register version
     total_figs = 0; saved = 0; spine = []; lock_files = {}
     for n in sorted(found):
@@ -402,8 +405,10 @@ def run(args):
         md = z.read(mds[0]).decode("utf-8")
         h1 = re.search(r"^# CHAPTER (\d+):\s*(.+)$", md, re.M)
         if not h1 or int(h1.group(1)) != n: conform.append(f"ch{n}: heading does not read '# CHAPTER {n}: …'")
-        refs = re.findall(r"!\[([^\]]*)\]\(([^)]+)\)", md)
-        refnames = [os.path.basename(r[1]) for r in refs]
+        # Spec 21 rule 2: one reader for the image syntax, so a title attribute is understood here
+        # rather than being swallowed into the path and breaking every check below it.
+        refs = figure_alt.figures_in(md)
+        refnames = [r["file"] for r in refs]
         miss = [r for r in refnames if r not in pngs]; unref = [p for p in pngs if p not in refnames]
         wrong = [r for r in refnames if not re.match(rf"fig{n}_\d+", r)]
         if miss: conform.append(f"ch{n}: figures referenced but missing {miss}")
@@ -419,11 +424,13 @@ def run(args):
                 cap_warn.append(f"{where}: {pr['message']}")
         for mt in NEG_PARALLEL.finditer(re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", md)): negpar.append(f"ch{n}: " + re.sub(r"\s+", " ", mt.group(0)).strip()[:140])
         for mt in SIM_LEAK.finditer(md): leaks.append(f"ch{n}: '{mt.group(0)}'")
+        alt_warn += figure_alt.alt_problems(md, n)
+        th_warn += figure_alt.empty_table_headers(md, n)
         # stage entry
         d = stage / eid; (d / "figures").mkdir(parents=True)
         figures = []
-        for i, (alt, path) in enumerate(refs, 1):
-            fn = os.path.basename(path); raw = z.read(pngs[fn]) if fn in pngs else None
+        for i, ref in enumerate(refs, 1):
+            fn = ref["file"]; raw = z.read(pngs[fn]) if fn in pngs else None
             if raw is None: continue
             from PIL import Image
             im = Image.open(io.BytesIO(raw)); w, hgt = im.size
@@ -433,11 +440,23 @@ def run(args):
                 fig_notes.append(f"ch{n} {fn}: {w}px → {FIGURE_MAX_WIDTH}px, {len(raw)//1024} KB → {len(newb)//1024} KB")
                 saved += len(raw) - len(newb); raw = newb
             (d / "figures" / fn).write_bytes(raw); total_figs += 1
+            # Rule 2: the number comes from the file name. Where the name carries none — MIS 3000's
+            # fig-01.png — the alt text is read as before, and then the position in the chapter, so
+            # an older book's addresses do not move.
+            alt = ref["alt"]
             cap = re.sub(r"^Figure\s+", "", alt).strip()
-            num = re.match(r"(\d+\.\d+)", cap); cap_text = re.sub(r"^\d+\.\d+:\s*", "", cap)
-            figures.append({"id": f"fig-{book}-c{n:02d}-{i:02d}", "kind": "image", "status": "final",
-                            "src": f"figures/{fn}", "alt": alt, "caption": alt, "number": num.group(1) if num else f"{n}.{i}"})
-        body = re.sub(r"(!\[[^\]]*\]\()(?:\./)?([^)/]+\.png)\)", r"\1figures/\2)", md)
+            num = re.match(r"(\d+\.\d+)", cap)
+            number = ref["number"] or (num.group(1) if num else f"{n}.{i}")
+            # The caption is the title attribute where the author wrote one, else the alt as before.
+            entry = {"id": f"fig-{book}-c{n:02d}-{i:02d}", "kind": "image", "status": "final",
+                     "src": f"figures/{fn}", "alt": alt,
+                     "caption": ref["title"] or alt, "number": number}
+            if ref["title"]: titled += 1
+            if ref["description"]:
+                entry["description"] = ref["description"]; described += 1
+            figures.append(entry)
+        # The src is rewritten onto the figures/ folder; a title attribute after it is kept.
+        body = re.sub(r"(!\[[^\]]*\]\()(?:\./)?([^)/\s]+\.png)(?=[\s)])", r"\1figures/\2", md)
         if not body.endswith("\n"): body += "\n"
         (d / "content.md").write_text(body, encoding="utf-8")
         sections = [{"id": f"c{n}s{j}", "title": section_title(h)}
@@ -458,6 +477,22 @@ def run(args):
     if cap_check:
         gate("Table captions", not cap_warn,
              cap_warn or f"{cap_tables} tables, {cap_ok} captioned", "warn")
+    # Spec 21 rules 2 and 3. Both warn and never stop: a figure with no description is a fault in
+    # the book for its author to fix, and holding the whole book back would leave the chapter
+    # nobody can read at all unreadable by everyone. Decision 2: summarised per category with
+    # counts and the first few, not one line per figure.
+    gate("Figure alt text", not alt_warn,
+         figure_alt.summarise(alt_warn)
+         or f"{total_figs} figures, every one with alt text that says more than its number",
+         "warn")
+    gate("Table header cells", not th_warn,
+         (th_warn[:8] + ([f"and {len(th_warn) - 8} more"] if len(th_warn) > 8 else []))
+         or "no empty header cells in any table",
+         "warn")
+    if titled or described:
+        gate("Figure descriptions (Spec 21)", True,
+             f"{titled} figure(s) carry a caption in the title attribute, "
+             f"{described} carry a long description", "pass")
 
     imp = reg.get("imprint", {})
     gate("Imprint recorded in the register", all(imp.values()), imp)

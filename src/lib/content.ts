@@ -12,6 +12,8 @@ export type Figure = {
   src?: string | null;
   alt?: string;
   caption?: string | null;
+  /** Spec 21 rule 2: the long description, where the chapter carries one. */
+  description?: string | null;
   number: string;
 };
 export type Section = { id: string; title: string };

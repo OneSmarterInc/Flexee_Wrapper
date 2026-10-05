@@ -196,6 +196,17 @@ article thead th { background: var(--mark); color: var(--navy); font-weight: 600
 .fx-figure { margin: 1.8rem 0; text-align: center; }
 .fx-figure img { max-width: 100%; height: auto; background: var(--figbg); border: 1px solid var(--rule); border-radius: 6px; }
 .fx-figure figcaption { font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .84rem; color: var(--muted); margin-top: .6rem; line-height: 1.45; }
+
+/* Spec 21 rule 2: a figure's long description, collapsed. <details> is keyboard-operable and
+   announced as expanded or collapsed with no script at all, which is the whole reason for it. */
+.fx-longdesc { margin-top: .5rem; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: .86rem; }
+.fx-longdesc > summary {
+  cursor: pointer; color: var(--link); font-weight: 700; font-size: .8rem;
+  letter-spacing: .02em; text-transform: uppercase;
+  display: inline-flex; align-items: center; min-height: 2.75rem;
+}
+.fx-longdesc[open] > summary { margin-bottom: .2rem; }
+.fx-longdesc > :not(summary) { color: var(--ink); margin: .3rem 0; line-height: 1.55; }
 .fx-figure-pending {
   margin: 1.8rem 0; padding: 2rem 1rem; text-align: center; color: var(--muted);
   background: var(--figbg); border: 1px dashed var(--rule); border-radius: 8px;
