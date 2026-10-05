@@ -9,9 +9,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="catalog" style={{ maxWidth: "24rem" }}>
       <h1>Sign in</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>One sign-in for students, faculty, and administrators. Your class or administrator role opens the right portal.</p>
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
-      {sp.reset && <p className="ui" style={{ color: "#2a7d3f" }}>Password updated — sign in with your new password.</p>}
-      {sp.verified && <p className="ui" style={{ color: "#2a7d3f" }}>Email confirmed.</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
+      {sp.reset && <p className="ui" style={{ color: "var(--ok)" }}>Password updated — sign in with your new password.</p>}
+      {sp.verified && <p className="ui" style={{ color: "var(--ok)" }}>Email confirmed.</p>}
       <form action={login} className="ui" style={{ display: "grid", gap: ".7rem" }}>
         <input type="hidden" name="next" value={sp.next ?? "/"} />
         <input name="email" type="email" placeholder="Email" required style={fieldStyle} />
@@ -24,4 +24,4 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     </main>
   );
 }
-const fieldStyle = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const fieldStyle = { padding: ".6rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;

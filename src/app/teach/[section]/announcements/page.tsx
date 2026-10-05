@@ -6,7 +6,7 @@ import { listAnnouncements } from "@/lib/course";
 import { addAnnouncementAction, deleteAnnouncementAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
 export const dynamic = "force-dynamic";
-const field = { padding: ".55rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "100%" } as const;
+const field = { padding: ".55rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "100%" } as const;
 
 export default async function Announcements({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
@@ -34,7 +34,7 @@ export default async function Announcements({ params }: { params: Promise<{ sect
           <div style={{ whiteSpace: "pre-wrap" }}>{a.body}</div>
           <form action={deleteAnnouncementAction} style={{ marginTop: ".5rem" }}>
             <input type="hidden" name="sectionId" value={section} /><input type="hidden" name="id" value={a.id} />
-            <button type="submit" className="ui" style={{ border: "none", background: "transparent", color: "#b4451f", cursor: "pointer", font: "inherit" }}>Delete</button>
+            <button type="submit" className="ui" style={{ border: "none", background: "transparent", color: "var(--danger)", cursor: "pointer", font: "inherit" }}>Delete</button>
           </form>
         </div>
       ))}

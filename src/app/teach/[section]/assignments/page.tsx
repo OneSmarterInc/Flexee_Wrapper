@@ -22,7 +22,7 @@ export default async function Assignments({ params, searchParams }: { params: Pr
       links={[{ href: `/teach/${section}`, label: "Class workspace" }, { href: "#assignments", label: "Assignments" }, { href: "#new-assignment", label: "Create assignment" }]}>
       <header className="workspace-heading"><div><Link className="ui" href={`/teach/${section}`}>← {sec.name}</Link><div className="page-kicker ui" style={{ marginTop: ".8rem" }}>Faculty · Coursework</div><h1>Assignments and case studies</h1><p className="ui">Create work, set its due date, and review student submissions.</p></div><Link className="nav-button primary" href="#new-assignment">Create assignment</Link></header>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
       <section className="workspace-panel ui" id="assignments"><h2>Class assignments</h2>
       {list.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>None yet.</p>}
       {list.map((a) => (
@@ -31,7 +31,7 @@ export default async function Assignments({ params, searchParams }: { params: Pr
             <div className="t">{a.title} <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {a.kind === "case_study" ? "Case study" : "Assignment"}</span></div>
             <div className="s">{formatLocal(a.dueAt)} · {a.points} points · {a.published ? "published" : "draft — students cannot see it"}</div>
           </div>
-          <span className="ui" style={{ color: a.submitted > a.graded ? "#b4451f" : "var(--muted)" }}>
+          <span className="ui" style={{ color: a.submitted > a.graded ? "var(--danger)" : "var(--muted)" }}>
             {a.submitted} submitted · {a.graded} graded
           </span>
         </Link>

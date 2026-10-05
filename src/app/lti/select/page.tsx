@@ -7,7 +7,7 @@ export default async function DeepLinkSelect() {
   const dl = (await cookies()).get("lti_dl")?.value;
   let ok = false;
   try { if (dl) { await verifyDeepLinkState(dl); ok = true; } } catch { ok = false; }
-  if (!ok) return <main className="catalog"><h1>Choose content</h1><p className="ui" style={{ color: "#b4451f" }}>This page must be opened from your LMS via a deep-linking launch.</p></main>;
+  if (!ok) return <main className="catalog"><h1>Choose content</h1><p className="ui" style={{ color: "var(--danger)" }}>This page must be opened from your LMS via a deep-linking launch.</p></main>;
   const books = await listBooks();
   return (
     <main className="catalog">

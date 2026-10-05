@@ -32,7 +32,7 @@ export default async function UploadPage({ params, searchParams }: { params: Pro
       <p className="ui">{u!.fileName} · {(u!.sizeBytes / 1e6).toFixed(1)} MB{u!.registerVersion ? ` · register ${u!.registerVersion}` : ""}</p>
       <p className="ui" style={{ color, fontWeight: 600 }}>{label}{working ? " — this page refreshes itself" : ""}</p>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
       {u!.message && <p className="ui">{u!.message}</p>}
       {u!.runUrl && <p className="ui"><a href={u!.runUrl} target="_blank" rel="noreferrer">Intake run log →</a></p>}
       {mayApprove && (

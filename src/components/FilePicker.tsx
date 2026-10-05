@@ -36,7 +36,7 @@ export default function FilePicker({ name, purpose, assignmentId, prefix, label 
             style={{ border: 0, background: "transparent", color: "var(--muted)", cursor: "pointer" }}>remove</button>
         </span>
       ))}
-      {error && <span style={{ color: "#b4451f" }}>{error}</span>}
+      {error && <span style={{ color: "var(--danger)" }}>{error}</span>}
     </div>
   );
 }

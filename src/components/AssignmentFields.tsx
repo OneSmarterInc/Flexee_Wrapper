@@ -1,6 +1,6 @@
 import { toLocalInput, APP_TZ } from "@/lib/time";
 
-const field = { padding: ".5rem .65rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".5rem .65rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 // The fields of an assignment, shared by the create and edit forms.
 export default function AssignmentFields({ a }: { a?: { title: string; kind: string; instructions: string; dueAt: Date | null; points: number; allowLate: boolean; published: boolean } }) {

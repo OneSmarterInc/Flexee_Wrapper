@@ -11,7 +11,7 @@ import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
-const field = { padding: ".35rem .45rem", border: "1px solid var(--rule)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".35rem .45rem", border: "1px solid var(--field-border)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function ExamResults({ params, searchParams }: { params: Promise<{ section: string; exam: string }>; searchParams: Promise<{ ok?: string; error?: string; student?: string }> }) {
   const [{ section, exam }, sp] = await Promise.all([params, searchParams]);
@@ -43,8 +43,8 @@ export default async function ExamResults({ params, searchParams }: { params: Pr
       </p>
 
       <h2 style={{ color: "var(--navy)" }}>Retake rules</h2>
-      {sp.ok && <p className="ui" style={{ color: "#2a7d3f" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }} role="alert">{sp.error}</p>}
+      {sp.ok && <p className="ui" style={{ color: "var(--ok)" }}>{sp.ok}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }} role="alert">{sp.error}</p>}
       <form action={setExamRulesAction} className="ui" style={{ display: "flex", gap: ".6rem", flexWrap: "wrap", alignItems: "end" }}>
         <input type="hidden" name="sectionId" value={section} />
         <input type="hidden" name="examId" value={exam} />

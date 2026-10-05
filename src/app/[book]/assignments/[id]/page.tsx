@@ -9,7 +9,7 @@ import FilePicker from "@/components/FilePicker";
 import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
-const field = { padding: ".55rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".55rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function MyAssignment({ params, searchParams }: { params: Promise<{ book: string; id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const [{ book, id }, sp] = await Promise.all([params, searchParams]);
@@ -29,7 +29,7 @@ export default async function MyAssignment({ params, searchParams }: { params: P
       <h1>{a.title}</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>{a.kind === "case_study" ? "Case study" : "Assignment"} · due {formatLocal(a.dueAt)} · {a.points} points{a.allowLate ? "" : " · no late work"}</p>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
       {a.instructions && <div style={{ whiteSpace: "pre-wrap" }}>{a.instructions}</div>}
       {files.length > 0 && <><h2 style={{ color: "var(--navy)" }}>Files</h2><ul className="ui">{files.map((f) => <li key={f.id}><a href={`/api/files/assignment/${f.id}`}>{f.fileName}</a></li>)}</ul></>}
 
@@ -57,7 +57,7 @@ export default async function MyAssignment({ params, searchParams }: { params: P
           <button className="nav-button primary" type="submit">{s ? "Resubmit" : "Submit"}</button>
         </form>
       )}
-      {closed && !s && <p className="ui" style={{ color: "#b4451f" }}>The due date has passed and this assignment does not accept late work.</p>}
+      {closed && !s && <p className="ui" style={{ color: "var(--danger)" }}>The due date has passed and this assignment does not accept late work.</p>}
     </main>
   );
 }

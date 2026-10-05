@@ -21,7 +21,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
     <main className="catalog" style={{ maxWidth: "24rem" }}>
       <h1>Create an account</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>Use one account for learning or teaching. An administrator adds faculty and students to classes.</p>
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
       {sp.exists && (
         <p className="ui" style={{ color: "var(--muted)" }}>
           <Link href="/login">Sign in</Link> instead, or use <Link href="/forgot">Forgot password</Link> if you cannot remember it.
@@ -40,4 +40,4 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
     </main>
   );
 }
-const fieldStyle = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const fieldStyle = { padding: ".6rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;

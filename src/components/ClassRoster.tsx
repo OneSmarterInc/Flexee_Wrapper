@@ -131,7 +131,7 @@ export default function ClassRoster({
         })}
       </div>
       {message && <p className="ui" role="status" style={{ color: "var(--navy)" }}>{message}</p>}
-      {error && <p className="ui" role="alert" style={{ color: "#b4451f" }}>{error}</p>}
+      {error && <p className="ui" role="alert" style={{ color: "var(--danger)" }}>{error}</p>}
 
       <table className="ui roster-table">
         <caption>
@@ -140,8 +140,10 @@ export default function ClassRoster({
         <thead>
           <tr>
             <th scope="col">
-              <input type="checkbox" checked={allShown} aria-label="Select all shown students"
-                onChange={() => set(allShown ? [] : visible.map((r) => r.enrolmentId))} />
+              <label className="roster-check">
+                <input type="checkbox" checked={allShown} aria-label="Select all shown students"
+                  onChange={() => set(allShown ? [] : visible.map((r) => r.enrolmentId))} />
+              </label>
             </th>
             <th scope="col">Name</th><th scope="col">Email</th><th scope="col">Account</th>
           </tr>
@@ -150,8 +152,10 @@ export default function ClassRoster({
           {visible.map((r) => (
             <tr key={r.enrolmentId} className={r.withdrawn ? "roster-withdrawn" : undefined}>
               <td>
-                <input type="checkbox" checked={picked.has(r.enrolmentId)}
-                  aria-label={`Select ${r.name}`} onChange={() => toggle(r.enrolmentId)} />
+                <label className="roster-check">
+                  <input type="checkbox" checked={picked.has(r.enrolmentId)}
+                    aria-label={`Select ${r.name}`} onChange={() => toggle(r.enrolmentId)} />
+                </label>
               </td>
               <td>
                 {r.name}

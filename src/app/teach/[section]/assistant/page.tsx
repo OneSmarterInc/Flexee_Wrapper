@@ -12,7 +12,7 @@ import WorkspaceShell from "@/components/WorkspaceShell";
 
 export const dynamic = "force-dynamic";
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".6rem .7rem", textAlign: "left" } as const;
-const field = { padding: ".4rem .5rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "9rem" } as const;
+const field = { padding: ".4rem .5rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "9rem" } as const;
 
 /** Spec 20 §6: the class's switch, its usage against the cap, the inbox, and its threads. */
 export default async function ClassAssistant({ params, searchParams }: {

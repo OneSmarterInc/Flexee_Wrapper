@@ -107,7 +107,7 @@ export default function D2LImport({ sectionId }: { sectionId: string }) {
     <div className="ui" style={{ display: "grid", gap: "1rem" }}>
       <input type="file" accept=".csv,text/csv" onChange={onFile} aria-label="D2L class list CSV" />
       {busy && <p style={{ color: "var(--muted)" }}>Working…</p>}
-      {error && <p style={{ color: "#b4451f" }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       {result && <p style={{ color: "var(--navy)" }}>{result}</p>}
 
       {emailStep && (
@@ -146,11 +146,11 @@ export default function D2LImport({ sectionId }: { sectionId: string }) {
                   <tr key={r.line}>
                     <td style={cell}>{r.name}{r.demo && <span style={tag}>Demo</span>}</td>
                     <td style={cell}>{r.email}{r.note && <div style={muted}>{r.note}</div>}</td>
-                    <td style={cell}>{r.userName}{r.warning && <div style={{ ...muted, color: "#b4451f" }}>{r.warning}</div>}</td>
+                    <td style={cell}>{r.userName}{r.warning && <div style={{ ...muted, color: "var(--danger)" }}>{r.warning}</div>}</td>
                     <td style={{ ...cell, color: "var(--muted)" }}>{r.orgDefinedId || "—"} (ignored)</td>
                     <td style={cell}>
                       {r.demo ? "demo account: created, never emailed" : r.plan}
-                      {r.withdrawn && <div style={{ ...muted, color: "#b4451f" }}>withdrawn earlier — restore from the class list</div>}
+                      {r.withdrawn && <div style={{ ...muted, color: "var(--danger)" }}>withdrawn earlier — restore from the class list</div>}
                       {r.emailOnFile && <div style={muted}>existing account, email on file differs ({r.emailOnFile}) — enrolled, not invited</div>}
                       {!r.demo && !r.emailOnFile && r.matchedBy === "username" && <div style={muted}>matched by D2L username</div>}
                     </td>

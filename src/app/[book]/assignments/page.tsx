@@ -34,7 +34,7 @@ export default async function MyAssignments({ params }: { params: Promise<{ book
               <div className="t">{a.title}</div>
               <div className="s">{a.kind === "case_study" ? "Case study" : "Assignment"} · due {formatLocal(a.dueAt)} · {a.points} points</div>
             </div>
-            <span className="ui" style={{ color: s?.status === "graded" ? "var(--navy)" : s ? "var(--muted)" : "#b4451f" }}>{state}</span>
+            <span className="ui" style={{ color: s?.status === "graded" ? "var(--navy)" : s ? "var(--muted)" : "var(--danger)" }}>{state}</span>
           </Link>
         );
       })}

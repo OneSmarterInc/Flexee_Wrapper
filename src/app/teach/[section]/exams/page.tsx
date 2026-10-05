@@ -7,7 +7,7 @@ import { createExamAction, examStatusAction } from "@/app/actions";
 import WorkspaceShell from "@/components/WorkspaceShell";
 
 export const dynamic = "force-dynamic";
-const field = { padding: ".5rem .6rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".5rem .6rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
 
 export default async function Exams({ params }: { params: Promise<{ section: string }> }) {

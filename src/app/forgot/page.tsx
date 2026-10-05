@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { forgotAction } from "@/app/actions";
 export const dynamic = "force-dynamic";
-const field = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".6rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function Forgot({ searchParams }: { searchParams: Promise<{ sent?: string }> }) {
   const sp = await searchParams;

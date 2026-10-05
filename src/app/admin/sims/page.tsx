@@ -6,7 +6,7 @@ import { updateSimAction, addSimAction, grantPreviewAction } from "@/app/sim-act
 import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
-const field = { padding: ".45rem .6rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".45rem .6rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function SimCatalogue({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const sp = await searchParams;
@@ -21,13 +21,13 @@ export default async function SimCatalogue({ searchParams }: { searchParams: Pro
       <h1>Simulations catalogue</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>RapidSims register themselves here when they start. A new one is unpublished: only administrators, and anyone granted a preview, can see it.</p>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
       {list.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>None yet. A sim appears here once its PLATFORM_URL points at this site and it starts.</p>}
       {list.map((s) => (
         <details key={s.id} className="ui" style={{ border: "1px solid var(--rule)", borderRadius: "8px", padding: ".8rem 1rem", margin: ".7rem 0" }}>
           <summary style={{ cursor: "pointer" }}>
             <strong>{s.number ? `${s.number}. ` : ""}{s.title}</strong> <span style={{ color: "var(--muted)" }}>({s.id})</span>{" "}
-            <span style={{ color: s.published ? "var(--navy)" : "#b4451f" }}>{s.published ? "published" : "unpublished"}</span>
+            <span style={{ color: s.published ? "var(--navy)" : "var(--danger)" }}>{s.published ? "published" : "unpublished"}</span>
           </summary>
           <form action={updateSimAction} style={{ display: "grid", gap: ".45rem", marginTop: ".7rem" }}>
             <input type="hidden" name="simId" value={s.id} />

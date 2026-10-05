@@ -47,6 +47,7 @@
     "test:admin-delete": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-admin-delete.ts",
     "test:grading-copy": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-grading-copy.ts",
     "test:headings": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-headings.ts",
+    "test:a11y-colour": "node --experimental-strip-types scripts/it-a11y-colour.ts",
     "test:a11y-source": "node --experimental-strip-types scripts/it-a11y-source.ts",
     "test:remove": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-remove.ts",
     "test:ai-seam": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-ai-seam.ts",

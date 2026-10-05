@@ -126,4 +126,4 @@ export default function RemoveStudent({
   );
 }
 
-const linkBtn = { border: "none", background: "transparent", color: "#b4451f", cursor: "pointer", font: "inherit", padding: 0 } as const;
+const linkBtn = { border: "none", background: "transparent", color: "var(--danger)", cursor: "pointer", font: "inherit", padding: 0 } as const;

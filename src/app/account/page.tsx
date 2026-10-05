@@ -5,7 +5,7 @@ import { emailStatus } from "@/lib/recovery";
 import { changeEmailAction, resendVerifyAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
 export const dynamic = "force-dynamic";
-const field = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".6rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function Account({ searchParams }: { searchParams: Promise<{ sent?: string; error?: string; verified?: string }> }) {
   const user = await currentUser();
@@ -17,9 +17,9 @@ export default async function Account({ searchParams }: { searchParams: Promise<
       <p className="ui"><Link href="/">&larr; Home</Link></p>
       <h1>Your account</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>Signed in as {user!.displayName}.</p>
-      {sp.verified && <p className="ui" style={{ color: "#2a7d3f" }}>Email confirmed.</p>}
+      {sp.verified && <p className="ui" style={{ color: "var(--ok)" }}>Email confirmed.</p>}
       {sp.sent && <p className="ui" style={{ color: "var(--muted)" }}>Check your inbox for a confirmation link.</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
 
       {s && (
         <div className="book-card ui">

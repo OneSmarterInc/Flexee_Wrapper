@@ -11,7 +11,7 @@ import LogoutButton from "@/components/LogoutButton";
 export const dynamic = "force-dynamic";
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".4rem .6rem", textAlign: "left" } as const;
 const mins = (s: number | null) => (s == null ? "" : `${Math.round(s / 60)} min`);
-const field = { padding: ".35rem .45rem", border: "1px solid var(--rule)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".35rem .45rem", border: "1px solid var(--field-border)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function ClassSims({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const [{ section }, sp] = await Promise.all([params, searchParams]);
@@ -33,7 +33,7 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
       <p className="ui"><Link href={`/teach/${section}`}>← {sec!.name}</Link></p>
       <h1>Simulations</h1>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
       {inClass.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>No simulations in this class yet.</p>}
       {inClass.map((s) => (
         <div key={s.id} className="book-card section-card">

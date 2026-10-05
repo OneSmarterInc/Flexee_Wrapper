@@ -6,7 +6,7 @@ import { listSchedule } from "@/lib/course";
 import { addScheduleItemAction, deleteScheduleItemAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
 export const dynamic = "force-dynamic";
-const field = { padding: ".5rem .6rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".5rem .6rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
 
 export default async function Schedule({ params }: { params: Promise<{ section: string }> }) {
@@ -40,7 +40,7 @@ export default async function Schedule({ params }: { params: Promise<{ section: 
                 <td style={cell}>{i.kind ?? ""}</td>
                 <td style={cell}>
                   <form action={deleteScheduleItemAction}><input type="hidden" name="sectionId" value={section} /><input type="hidden" name="id" value={i.id} />
-                    <button type="submit" style={{ border: "none", background: "transparent", color: "#b4451f", cursor: "pointer", font: "inherit" }}>Delete</button>
+                    <button type="submit" style={{ border: "none", background: "transparent", color: "var(--danger)", cursor: "pointer", font: "inherit" }}>Delete</button>
                   </form>
                 </td>
               </tr>

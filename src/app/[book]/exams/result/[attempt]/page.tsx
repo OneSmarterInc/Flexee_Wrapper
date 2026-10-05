@@ -29,7 +29,7 @@ export default async function ExamResult({ params }: { params: Promise<{ book: s
       {result.showFeedback && result.items.map((it, i) => (
         <div key={i} className="book-card result-card">
           <p style={{ marginTop: 0 }}>{it.stem}</p>
-          <p className="ui" style={{ fontSize: ".9rem", color: it.correct ? "#2a7d3f" : "#b4451f" }}>
+          <p className="ui" style={{ fontSize: ".9rem", color: it.correct ? "var(--ok)" : "var(--danger)" }}>
             {it.correct ? "Correct" : "Incorrect"} - you chose: {it.selected}
           </p>
           {!it.correct && it.answer && <p className="ui" style={{ fontSize: ".9rem" }}>Correct answer: {it.answer}</p>}

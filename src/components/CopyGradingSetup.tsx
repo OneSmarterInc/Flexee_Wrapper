@@ -77,7 +77,7 @@ export default function CopyGradingSetup({
       <button type="button" className="nav-button secondary" disabled={busy || !from} onClick={look}>
         {busy ? "Reading…" : "Preview the copy"}
       </button>
-      {error && !preview && <p role="alert" style={{ color: "#b4451f", margin: 0 }}>{error}</p>}
+      {error && !preview && <p role="alert" style={{ color: "var(--danger)", margin: 0 }}>{error}</p>}
 
       <dialog ref={dialog} className="ui fx-dialog" aria-labelledby="copy-h">
         <h2 id="copy-h">Copy from {preview?.from.name}?</h2>
@@ -110,7 +110,7 @@ export default function CopyGradingSetup({
               </p>
             )}
             {preview.unmatched.length > 0 && (
-              <p style={{ fontSize: ".85rem", color: "#b4451f" }}>
+              <p style={{ fontSize: ".85rem", color: "var(--danger)" }}>
                 {preview.unmatched.length} column{preview.unmatched.length === 1 ? "" : "s"} match no copied category
                 and would be left uncategorised, not deleted: {preview.unmatched.join(", ")}.
               </p>

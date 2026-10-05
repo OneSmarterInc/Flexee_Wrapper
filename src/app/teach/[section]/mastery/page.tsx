@@ -7,7 +7,7 @@ import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 const cell = { border: "1px solid var(--rule)", padding: ".4rem .6rem", textAlign: "left" } as const;
-const pctColor = (p: number | null) => p == null ? "var(--muted)" : p >= 75 ? "#2a7d3f" : p >= 50 ? "var(--ink)" : "#b4451f";
+const pctColor = (p: number | null) => p == null ? "var(--muted)" : p >= 75 ? "var(--ok)" : p >= 50 ? "var(--ink)" : "var(--danger)";
 
 export default async function Mastery({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;

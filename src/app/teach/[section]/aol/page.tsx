@@ -6,7 +6,7 @@ import { aolConfig, aolReport, getSettings, listPrograms, programOutcomesFor } f
 import { saveAolSettingsAction, toggleProgramMapAction, setEvidenceAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
 export const dynamic = "force-dynamic";
-const field = { padding: ".4rem .5rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".4rem .5rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 const cell = { border: "1px solid var(--rule)", padding: ".35rem .55rem", textAlign: "left", verticalAlign: "top" } as const;
 const small = { border: "none", background: "transparent", cursor: "pointer", font: "inherit", padding: 0 } as const;
 

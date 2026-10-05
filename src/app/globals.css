@@ -9,6 +9,13 @@
   --rule: #dce3ec;
   --mark: #e9eef5;
   --figbg: #eef2f7;
+  /* Spec 21. --rule is the decorative divider and stays where it is; --field-border is the edge of
+     a control, which WCAG 1.4.11 asks to reach 3:1 against what is around it. The figures for every
+     pair are computed from these values by test:a11y-colour, not asserted here. */
+  --field-border: #767f91;
+  --danger: #b4451f;
+  --ok: #26713a;
+  --focus: #12233f;
   --shadow: 0 18px 45px rgba(18, 35, 63, .08);
   --maxread: 44rem;
   color-scheme: light;
@@ -24,6 +31,10 @@
   --rule: #263349;
   --mark: #1b2536;
   --figbg: #172033;
+  --field-border: #717f98;
+  --danger: #f2a28a;
+  --ok: #7fc98f;
+  --focus: #e3ebff;
   --shadow: 0 18px 45px rgba(0, 0, 0, .22);
   color-scheme: dark;
 }
@@ -31,6 +42,7 @@
   :root:not([data-theme="light"]) {
     --paper: #0f1522; --panel: #141c2b; --panel-soft: #172033; --ink: #d7deea; --navy: #e3ebff;
     --muted: #9aa8bd; --link: #8fb4e6; --rule: #263349; --mark: #1b2536; --figbg: #172033;
+    --field-border: #717f98; --danger: #f2a28a; --ok: #7fc98f; --focus: #e3ebff;
     --shadow: 0 18px 45px rgba(0, 0, 0, .22);
     color-scheme: dark;
   }
@@ -38,6 +50,34 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+
+/* Spec 21 rule 5. One focus ring, for everything, declared before anything that might want its own.
+   --focus is the deepest navy in light mode and near-white in dark, and outline-offset puts the
+   ring on the page rather than on the control, so it is visible even on a filled button whose own
+   colour is close to the ring's. A few places set a radius to match their shape; none switch it
+   off. Keyboard focus only, so a mouse click does not leave a ring behind it. */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* A control's edge is an interface component: 1.4.11 asks 3:1 of it, which --rule (a divider at
+   1.1:1) never had. Anything that does not set its own border picks this up. */
+input,
+select,
+textarea {
+  border-color: var(--field-border);
+}
+
+/* Rule 5's 44px, for the controls that are not .nav-button. A checkbox stays its own size; what
+   grows is the label around it, which is what a finger actually has to hit. */
+button,
+input[type="button"],
+input[type="submit"],
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]) {
+  min-height: 2.75rem;
+}
 body {
   margin: 0;
   min-width: 0;
@@ -155,10 +195,10 @@ article thead th { background: var(--mark); color: var(--navy); font-weight: 600
 .catalog form.ui { align-items: stretch; max-width: 28rem; }
 .catalog input {
   min-width: 0;
-  min-height: 2.7rem;
+  min-height: 2.75rem;
 }
 .catalog button[type="submit"] {
-  min-height: 2.7rem;
+  min-height: 2.75rem;
   font-weight: 600;
 }
 

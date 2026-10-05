@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { registerUploadAction } from "@/app/library/actions";
 
-const field = { padding: ".55rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".55rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 // Sends the zip straight from the browser to private Blob storage, then records the upload,
 // which starts the intake. The book id says which library book this is a version of.
@@ -49,7 +49,7 @@ export default function UploadForm({ books }: { books: { id: string; title: stri
         <input type="file" accept=".zip,application/zip" onChange={(e) => setFile(e.target.files?.[0] ?? null)} style={{ display: "block", marginTop: ".3rem" }} />
       </label>
       <button className="nav-button primary" type="submit" disabled={!!busy}>{busy ?? "Upload and check"}</button>
-      {error && <p style={{ color: "#b4451f" }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
     </form>
   );
 }

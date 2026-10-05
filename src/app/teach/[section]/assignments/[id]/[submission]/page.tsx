@@ -7,7 +7,7 @@ import { gradeAction, reopenAction } from "@/app/assignment-actions";
 import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
-const field = { padding: ".5rem .65rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+const field = { padding: ".5rem .65rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function GradePage({ params, searchParams }: { params: Promise<{ section: string; id: string; submission: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const [{ section, id, submission }, sp] = await Promise.all([params, searchParams]);
@@ -23,7 +23,7 @@ export default async function GradePage({ params, searchParams }: { params: Prom
       <h1>{student}</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>Submitted {formatLocal(s.submittedAt)}{s.late ? " · late" : ""} · {s.status === "graded" ? `graded ${s.score} / ${a.points}` : "not graded yet"}</p>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
       {s.text && <div className="ui" style={{ whiteSpace: "pre-wrap", border: "1px solid var(--rule)", borderRadius: "8px", padding: "1rem" }}>{s.text}</div>}
       {files.length > 0 && <ul className="ui">{files.map((f) => <li key={f.id}><a href={`/api/files/submission/${f.id}`}>{f.fileName}</a> <span style={{ color: "var(--muted)" }}>({(f.sizeBytes / 1024).toFixed(0)} KB)</span></li>)}</ul>}
       <form action={gradeAction} className="ui" style={{ display: "grid", gap: ".55rem", maxWidth: "40rem", marginTop: "1.2rem" }}>

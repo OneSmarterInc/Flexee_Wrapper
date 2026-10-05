@@ -27,7 +27,7 @@ export default async function AssignmentPage({ params, searchParams }: { params:
       <h1>{a.title}</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>{a.kind === "case_study" ? "Case study" : "Assignment"} · due {formatLocal(a.dueAt)} · {a.points} points · {a.published ? "published" : "draft"}</p>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
 
       <form action={setAssignmentAssistantAction} className="ui" style={{ margin: "1rem 0", padding: ".7rem .8rem", border: "1px solid var(--rule)", borderRadius: "8px" }}>
         <input type="hidden" name="sectionId" value={section} />
@@ -50,8 +50,8 @@ export default async function AssignmentPage({ params, searchParams }: { params:
           {rows.map((r) => (
             <tr key={r.enrolmentId}>
               <td style={cell}>{r.name}{r.isDemo && <span style={demoTag}>Demo</span>}</td>
-              <td style={cell}>{r.submission ? <>{formatLocal(r.submission.submittedAt)}{r.submission.late && <strong style={{ color: "#b4451f" }}> · late</strong>}</> : <span style={{ color: "var(--muted)" }}>not submitted</span>}</td>
-              <td style={cell}>{r.submission?.status === "graded" ? `${r.submission.score} / ${a.points}` : r.submission ? <span style={{ color: "#b4451f" }}>to grade</span> : ""}</td>
+              <td style={cell}>{r.submission ? <>{formatLocal(r.submission.submittedAt)}{r.submission.late && <strong style={{ color: "var(--danger)" }}> · late</strong>}</> : <span style={{ color: "var(--muted)" }}>not submitted</span>}</td>
+              <td style={cell}>{r.submission?.status === "graded" ? `${r.submission.score} / ${a.points}` : r.submission ? <span style={{ color: "var(--danger)" }}>to grade</span> : ""}</td>
               <td style={cell}>{r.submission && <Link href={`/teach/${section}/assignments/${a.id}/${r.submission.id}`}>{r.submission.status === "graded" ? "View" : "Grade"} →</Link>}</td>
             </tr>
           ))}

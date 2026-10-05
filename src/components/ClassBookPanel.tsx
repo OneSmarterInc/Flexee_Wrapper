@@ -7,7 +7,7 @@ export default function ClassBookPanel({ sectionId, back, bookId, published, pub
 }) {
   const title = library.find((b) => b.id === bookId)?.title ?? bookId;
   const box = { border: "1px solid var(--rule)", borderRadius: "8px", padding: ".9rem 1rem", margin: "1rem 0" } as const;
-  const field = { padding: ".45rem .6rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
+  const field = { padding: ".45rem .6rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
   return (
     <div className="ui" style={box}>
       <div className="s" style={{ color: "var(--muted)" }}>Book</div>
@@ -16,7 +16,7 @@ export default function ClassBookPanel({ sectionId, back, bookId, published, pub
           <strong>{title}</strong>{" "}
           {published
             ? <span style={{ color: "var(--navy)" }}>· Published{publishedAt ? ` ${publishedAt.toISOString().slice(0, 10)}` : ""} — students can read it</span>
-            : <span style={{ color: "#b4451f" }}>· Not published — students cannot see it yet</span>}
+            : <span style={{ color: "var(--danger)" }}>· Not published — students cannot see it yet</span>}
         </div>
         <form action={published ? unpublishBookAction : publishBookAction}>
           <input type="hidden" name="sectionId" value={sectionId} />

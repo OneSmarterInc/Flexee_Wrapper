@@ -81,7 +81,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
         <p className="ui">{book.title}</p>
       </div><Link className="nav-button primary" href={`/teach/${section}/assignments`}>Manage assignments</Link></header>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
-      {sp.error && <p className="ui" style={{ color: "#b4451f" }}>{sp.error}</p>}
+      {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
       <div className="workspace-stats ui" aria-label="Class summary">
         <div className="workspace-stat"><strong>{realStudents}</strong><span>Students{demoCount ? ` (+${demoCount} demo)` : ""}</span></div>
         <div className="workspace-stat"><strong>{updates}</strong><span>Content updates to review</span></div>
@@ -130,8 +130,8 @@ export default async function SectionDashboard({ params, searchParams }: { param
           <button type="submit" className="nav-button ghost">Generate a new code</button>
         </form>
       </div>
-      {sp.synced && <p className="ui" style={{ color: "#2a7d3f" }}>Synced roster from the LMS — added {sp.synced} of {sp.seen} member(s).</p>}
-      {sp.sync_error && <p className="ui" style={{ color: "#b4451f" }}>{sp.sync_error}</p>}
+      {sp.synced && <p className="ui" style={{ color: "var(--ok)" }}>Synced roster from the LMS — added {sp.synced} of {sp.seen} member(s).</p>}
+      {sp.sync_error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.sync_error}</p>}
       {notSetUp > 0 && (
         <p className="ui" style={{ color: "var(--muted)", fontSize: ".8rem" }}>
           The invitation-links file contains sign-in links. Treat it like a list of passwords: send it
