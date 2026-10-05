@@ -4,12 +4,13 @@ import { currentUser } from "@/lib/auth";
 import { ownedSection, sectionRoster, pendingInvites } from "@/lib/roster";
 import { sectionContentStatus } from "@/lib/versions";
 import { sectionHasNrps } from "@/lib/lti";
-import { syncRosterAction, sendInviteAction, sendAllInvitesAction, copyInviteLinkAction, withdrawStudentAction } from "@/app/actions";
+import { syncRosterAction, sendAllInvitesAction } from "@/app/actions";
+import ClassRoster, { type RosterRow } from "@/components/ClassRoster";
 import RemoveStudent from "@/components/RemoveStudent";
 import { REMOVE_PHRASE, actionsFor, describeAction } from "@/lib/class-actions";
 import { inviteStatesFor, type InviteState } from "@/lib/recovery";
 import { getBook } from "@/lib/content";
-import { regenerateCodeAction, removeStudentAction } from "@/app/actions";
+import { regenerateCodeAction } from "@/app/actions";
 import ClassBookPanel from "@/components/ClassBookPanel";
 import { classBookState } from "@/lib/publish";
 import { listBooks } from "@/lib/content";
@@ -18,7 +19,6 @@ import WorkspaceShell from "@/components/WorkspaceShell";
 export const dynamic = "force-dynamic";
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".65rem .7rem", textAlign: "left" } as const;
 const linkBtn = { border: "none", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit", padding: 0 } as const;
-const stateTag = { marginLeft: ".4rem", padding: ".05rem .35rem", border: "1px solid var(--rule)", borderRadius: "4px", fontSize: ".7rem", color: "var(--muted)" } as const;
 const rosterBtn = { padding: ".35rem .8rem", border: "1px solid var(--link)", borderRadius: "6px", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit" } as const;
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -59,6 +59,17 @@ export default async function SectionDashboard({ params, searchParams }: { param
   const realStudents = students.filter((r) => r.withdrawnAt == null).length - demoCount;
   const notSetUp = students.filter((r) => r.withdrawnAt == null && !isDemo(r.userId) && inviteStates.get(r.userId)?.state !== "set up").length;
   const log = await actionsFor(section, 10);
+  // The rows the selectable list works from. The page keeps the states and the counts; the
+  // component keeps the selection.
+  const rosterRows: RosterRow[] = allStudents.map((r) => {
+    const st = inviteStates.get(r.userId);
+    return {
+      enrolmentId: r.enrolmentId, userId: r.userId, name: r.name, email: r.email ?? null,
+      state: inviteLabel(st), stateKey: (st?.state ?? "none") as RosterRow["stateKey"],
+      demo: isDemo(r.userId), withdrawn: r.withdrawnAt != null,
+      withdrawnOn: r.withdrawnAt ? r.withdrawnAt.toISOString().slice(0, 10) : null,
+    };
+  });
 
   return (
     <WorkspaceShell active="faculty" isAdmin={user.systemRole === "admin"} canTeach displayName={user.displayName}
@@ -148,6 +159,9 @@ export default async function SectionDashboard({ params, searchParams }: { param
           </Link></>
         )}
       </p>
+      <ClassRoster sectionId={section} rows={rosterRows} showWithdrawn={showWithdrawn} phrase={REMOVE_PHRASE} />
+
+      <h3 className="ui" style={{ marginTop: "1.4rem", font: "inherit", fontWeight: 600 }}>Faculty, and students waiting to join</h3>
       <table className="ui" style={{ width: "100%", borderCollapse: "collapse", fontSize: ".9rem" }}>
         <thead><tr><th style={cell}>Name</th><th style={cell}>Email</th><th style={cell}>Role</th><th style={cell}>Account</th><th style={cell}></th></tr></thead>
         <tbody>
@@ -157,37 +171,6 @@ export default async function SectionDashboard({ params, searchParams }: { param
               <td style={cell}>
                 <RemoveStudent sectionId={section} enrolmentId={r.enrolmentId}
                   name={r.name} role="instructor" phrase={REMOVE_PHRASE} back={`/teach/${section}#roster`} />
-              </td>
-            </tr>
-          ))}
-          {students.map((r) => (
-            <tr key={r.enrolmentId} style={r.withdrawnAt ? { color: "var(--muted)" } : undefined}>
-              <td style={cell}>{r.name}{r.withdrawnAt && <span style={stateTag}>Withdrawn</span>}</td>
-              <td style={cell}>{r.email}</td><td style={cell}>student</td>
-              <td style={cell}>{r.withdrawnAt ? `Withdrawn ${r.withdrawnAt.toISOString().slice(0, 10)}` : inviteLabel(inviteStates.get(r.userId))}</td>
-              <td style={cell}>
-                <div style={{ display: "flex", gap: ".8rem", flexWrap: "wrap" }}>
-                  {!isDemo(r.userId) && r.withdrawnAt == null && (
-                    <form action={sendInviteAction}>
-                      <input type="hidden" name="sectionId" value={section} />
-                      <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
-                      <button type="submit" style={linkBtn}>{inviteStates.get(r.userId)?.state === "set up" ? "Send a reset link" : "Resend invitation"}</button>
-                    </form>
-                  )}
-                  <form action={copyInviteLinkAction}>
-                    <input type="hidden" name="sectionId" value={section} />
-                    <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
-                    <button type="submit" style={linkBtn}>Copy link</button>
-                  </form>
-                  <form action={withdrawStudentAction}>
-                    <input type="hidden" name="sectionId" value={section} />
-                    <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
-                    <input type="hidden" name="restore" value={r.withdrawnAt ? "1" : "0"} />
-                    <button type="submit" style={linkBtn}>{r.withdrawnAt ? "Restore" : "Withdraw"}</button>
-                  </form>
-                  <RemoveStudent sectionId={section} enrolmentId={r.enrolmentId}
-                    name={r.name} role="student" phrase={REMOVE_PHRASE} back={`/teach/${section}#roster`} />
-                </div>
               </td>
             </tr>
           ))}

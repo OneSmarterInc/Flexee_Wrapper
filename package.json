@@ -43,6 +43,7 @@
     "test:assistant": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-assistant.ts",
     "test:assistant-class": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-assistant-class.ts",
     "test:withdraw": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-withdraw.ts",
+    "test:select-act": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-select-act.ts",
     "test:remove": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-remove.ts",
     "test:ai-seam": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-ai-seam.ts",
     "cleanup:test-data": "node --env-file-if-exists=.env --import ./scripts/run-support/register.mjs --experimental-strip-types scripts/cleanup-test-data.ts",

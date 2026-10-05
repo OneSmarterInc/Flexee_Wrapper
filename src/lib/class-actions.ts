@@ -3,7 +3,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   classActions, enrolments, examAttempts, submissions, lineItemScores, bookmarks,
-  assistantThreads, simCompletions, simLaunches, simTranscripts,
+  assistantThreads, simCompletions, simLaunches, simTranscripts, identities,
 } from "@/db/schema";
 import { canManageClass } from "@/lib/publish";
 
@@ -211,4 +211,55 @@ export async function removeStudents(
   });
   await logAction(sectionId, actorId, "remove", cost.length, sums);
   return { ok: true, removed: cost.length, cost };
+}
+
+// ---------------------------------------------------------------- bulk resend (§1)
+
+export type ResendResult =
+  | { ok: true; sent: number; skipped: number; reasons: Record<string, number> }
+  | { ok: false; error: string };
+
+/**
+ * Resend invitations to the selected students (Spec 19 §1, rule 2).
+ *
+ * It skips a demo account (D2L's demo address is nobody's inbox), a student who has already set a
+ * password, a withdrawn student, and anyone who has had their three for the hour. The reasons are
+ * counted and reported, because "sent 24, skipped 6" with no explanation is a worse answer than
+ * either number alone.
+ */
+export async function resendTo(
+  actorId: string, sectionId: string, enrolmentIds: string[], baseUrl: string,
+): Promise<ResendResult> {
+  if (!(await canManageClass(actorId, sectionId))) {
+    return { ok: false, error: "Only this class's faculty or an administrator can do that." };
+  }
+  const ids = [...new Set(enrolmentIds.filter(Boolean))];
+  if (!ids.length) return { ok: false, error: "Nobody was selected." };
+  const rows = await db().select({
+    id: enrolments.id, userId: enrolments.userId, role: enrolments.role,
+    isDemo: enrolments.isDemo, withdrawnAt: enrolments.withdrawnAt,
+    email: identities.subject, hash: identities.passwordHash,
+  }).from(enrolments)
+    .leftJoin(identities, and(eq(identities.userId, enrolments.userId), eq(identities.provider, "password")))
+    .where(and(eq(enrolments.sectionId, sectionId), inArray(enrolments.id, ids)));
+  if (rows.length !== ids.length) return { ok: false, error: "Some of those students are not in this class." };
+
+  const { rateLimit, sendSetPasswordInvite, RESEND_MAX_PER_HOUR } = await import("@/lib/recovery");
+  const reasons: Record<string, number> = {};
+  const skip = (why: string) => { reasons[why] = (reasons[why] ?? 0) + 1; };
+  let sent = 0;
+  for (const r of rows) {
+    if (r.role !== "student") { skip("not a student"); continue; }
+    if (r.isDemo) { skip("demo account"); continue; }
+    if (r.withdrawnAt) { skip("withdrawn"); continue; }
+    if (!r.email) { skip("no email address"); continue; }
+    if (r.hash != null) { skip("already set up"); continue; }
+    if (!(await rateLimit(`invite:${r.userId}`, RESEND_MAX_PER_HOUR, 3600))) { skip("three already this hour"); continue; }
+    const res = await sendSetPasswordInvite(r.userId, sectionId, r.email, baseUrl);
+    if (res.ok) sent++;
+    else skip(res.error ?? "send failed");
+  }
+  const skipped = rows.length - sent;
+  await logAction(sectionId, actorId, "resend", sent, skipped ? { skipped } : {});
+  return { ok: true, sent, skipped, reasons };
 }
