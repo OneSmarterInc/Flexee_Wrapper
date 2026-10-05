@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { recordUpload, approveUpload, dismissUpload, dismissAllNotAdded } from "@/lib/library";
+import { recordUpload, approveUpload, dismissUpload, dismissAllNotAdded, retryIntake } from "@/lib/library";
 import { retireBook, restoreBook } from "@/lib/retire";
 
 export async function registerUploadAction(input: { bookId: string; blobPath: string; fileName: string; sizeBytes: number }) {
@@ -67,4 +67,15 @@ export async function dismissAllAction(formData: FormData) {
   const note = n === expected ? "" : ` (${expected} when the page was drawn)`;
   redirect(`/library?ok=${encodeURIComponent(
     `Dismissed ${n} record${n === 1 ? "" : "s"}${note}. No uploaded file was touched.`)}#uploads`);
+}
+
+// Spec 22 §6: the Retry button on a record whose start failed.
+export async function retryIntakeAction(formData: FormData) {
+  const id = String(formData.get("id") || "");
+  const user = await currentUser();
+  if (!user) redirect(`/login?next=${encodeURIComponent(`/library/${id}`)}`);
+  const r = await retryIntake(user!.id, id);
+  redirect(`/library/${id}?${r.ok
+    ? "ok=" + encodeURIComponent("Starting the check again.")
+    : "error=" + encodeURIComponent(r.error)}`);
 }

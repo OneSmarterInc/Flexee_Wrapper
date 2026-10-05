@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { canUpload, canApprove, getUpload, mayDismiss, canDismiss } from "@/lib/library";
 import { getBook } from "@/lib/content";
-import { approveUploadAction, dismissUploadAction } from "@/app/library/actions";
+import { approveUploadAction, dismissUploadAction, retryIntakeAction } from "@/app/library/actions";
 import { STATUS } from "@/lib/library-status";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
@@ -59,7 +59,19 @@ export default async function UploadPage({ params, searchParams }: { params: Pro
       )}
       {sp.ok && !done && <p className="ui" role="status" style={{ color: "var(--navy)" }}>{sp.ok}</p>}
       {sp.error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.error}</p>}
-      {u!.message && <p className="ui">{u!.message}</p>}
+      {u!.message && <p className="ui" role={u!.status === "failed" ? "alert" : undefined}>{u!.message}</p>}
+      {/* Spec 22 §6: the start failed, which is a different thing from the book being wrong. The
+          button is here rather than only in the message, because "try again" with nothing to click
+          is advice, not a remedy. */}
+      {u!.status === "failed" && (await canDismiss(user!.id, u!)) && (
+        <form action={retryIntakeAction} className="ui" style={{ margin: ".4rem 0 1rem" }}>
+          <input type="hidden" name="id" value={u!.id} />
+          <button className="nav-button primary" type="submit">Retry</button>
+          <span style={{ color: "var(--muted)", marginLeft: ".7rem", fontSize: ".88rem" }}>
+            Starts the check again on the file you already uploaded.
+          </span>
+        </form>
+      )}
       {u!.runUrl && <p className="ui"><a href={u!.runUrl} target="_blank" rel="noreferrer">Intake run log →</a></p>}
       {mayApprove && (
         <form action={approveUploadAction} className="ui" style={{ margin: "1rem 0" }}>

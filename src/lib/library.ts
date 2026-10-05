@@ -33,16 +33,63 @@ type Fetch = typeof fetch;
 let _fetch: Fetch = (...a) => fetch(...a);
 export function setDispatchFetch(f: Fetch) { _fetch = f; } // tests
 
-export async function dispatchIntake(action: "check" | "publish", uploadId: string, bookId: string, env = process.env): Promise<Result> {
+/**
+ * Spec 22 §6: what a failed start says, and whether it is worth trying again.
+ *
+ * A 503 from GitHub and a 404 from a wrong repository name are the same event today — both tell
+ * the reader to ask a developer to check settings that, in the 503 case, are perfectly fine. The
+ * two are different things: one passes on its own, the other never will.
+ */
+export const DISPATCH_RETRIES = 3;
+const RETRY_WAIT_MS = 700;
+
+export function temporary(status: number) {
+  // 5xx is GitHub; 429 is its rate limiter, which also clears on its own.
+  return status >= 500 || status === 429;
+}
+
+export function dispatchMessage(status: number) {
+  if (temporary(status)) {
+    return `GitHub was briefly unavailable (${status}); try again.`;
+  }
+  if (status === 401 || status === 403 || status === 404 || status === 422) {
+    return `Could not start the intake (GitHub answered ${status}). Ask a developer to check the runner settings.`;
+  }
+  return `Could not start the intake (GitHub answered ${status}).`;
+}
+
+export async function dispatchIntake(
+  action: "check" | "publish", uploadId: string, bookId: string, env = process.env,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<Result & { status?: number; retriable?: boolean }> {
   const token = env.GITHUB_DISPATCH_TOKEN, repo = env.GITHUB_REPO;
-  if (!token || !repo) return { ok: false, error: "The intake runner is not set up (GITHUB_DISPATCH_TOKEN and GITHUB_REPO are missing). Ask your developer." };
-  const res = await _fetch(`https://api.github.com/repos/${repo}/actions/workflows/library-intake.yml/dispatches`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
-    body: JSON.stringify({ ref: env.GITHUB_REF || "main", inputs: { upload_id: uploadId, book_id: bookId, action } }),
-  });
-  if (res.status === 204) return { ok: true };
-  return { ok: false, error: `Could not start the intake (GitHub answered ${res.status}). Ask your developer to check the runner settings.` };
+  if (!token || !repo) return { ok: false, error: "The intake runner is not set up (GITHUB_DISPATCH_TOKEN and GITHUB_REPO are missing). Ask your developer.", retriable: false };
+
+  let status = 0;
+  for (let attempt = 1; attempt <= DISPATCH_RETRIES; attempt++) {
+    let res: Response;
+    try {
+      res = await _fetch(`https://api.github.com/repos/${repo}/actions/workflows/library-intake.yml/dispatches`, {
+        method: "POST",
+        // The token goes in a header and nowhere else. It is never put in a message, a report or a
+        // log line, which test:github-errors checks over every path through this function.
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+        body: JSON.stringify({ ref: env.GITHUB_REF || "main", inputs: { upload_id: uploadId, book_id: bookId, action } }),
+      });
+    } catch {
+      // A network error is the same kind of event as a 503: nothing is wrong with the settings.
+      status = 503;
+      if (attempt < DISPATCH_RETRIES) { await wait(RETRY_WAIT_MS * attempt); continue; }
+      break;
+    }
+    status = res.status;
+    if (status === 204) return { ok: true, status };
+    // Only a temporary answer is worth repeating. A 404 will be a 404 three times over, and
+    // three calls would just take three times as long to tell the reader the same thing.
+    if (!temporary(status) || attempt === DISPATCH_RETRIES) break;
+    await wait(RETRY_WAIT_MS * attempt);
+  }
+  return { ok: false, error: dispatchMessage(status), status, retriable: temporary(status) };
 }
 
 // ---- uploads ---------------------------------------------------------------------------------------
@@ -153,4 +200,29 @@ export async function approveUpload(userId: string, id: string): Promise<Result>
 export async function setStatus(id: string, status: UploadStatus,
   extra: { report?: string | null; registerVersion?: string | null; runUrl?: string | null; message?: string | null; publishedAt?: Date | null } = {}) {
   await db().update(libraryUploads).set({ status, ...extra, updatedAt: new Date() }).where(eq(libraryUploads.id, id));
+}
+
+/**
+ * Spec 22 §6: start the intake again on a record whose start failed.
+ *
+ * Only a failed record, and only where the failure was the start rather than the book: a stopped
+ * record has a report to fix first, and retrying it would produce the same report. Allowed to the
+ * uploader or an admin, the same people who may add it or dismiss it.
+ */
+export async function retryIntake(userId: string, id: string): Promise<Result> {
+  const u = await getUpload(id);
+  if (!u) return { ok: false, error: "That upload record no longer exists." };
+  if (!(await canDismiss(userId, u))) {
+    return { ok: false, error: "Only the person who uploaded it, or an administrator, can start it again." };
+  }
+  if (u.status !== "failed") {
+    return { ok: false, error: u.status === "stopped"
+      ? "That intake ran and stopped on the report above. Fix the book and upload it again."
+      : "That upload is not in a state to be started again." };
+  }
+  if (await isRetired(u.bookId)) return { ok: false, error: "This book is retired; restore it first." };
+  await setStatus(id, "checking", { message: null });
+  const d = await dispatchIntake("check", id, u.bookId);
+  if (!d.ok) { await setStatus(id, "failed", { message: d.error }); return { ok: false, error: d.error }; }
+  return { ok: true };
 }
