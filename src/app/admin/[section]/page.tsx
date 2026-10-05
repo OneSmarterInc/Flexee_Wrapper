@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { getBook, listBooks } from "@/lib/content";
+import { getBook } from "@/lib/content";
+import { listBooksForPicker } from "@/lib/retire";
 import { classById } from "@/lib/admin";
 import { demoUserIds } from "@/lib/d2l-import";
 import { sectionRoster, pendingInvites } from "@/lib/roster";
@@ -100,7 +101,7 @@ export default async function AdminClass({ params, searchParams }: {
   const cls = await classById(sectionId);
   if (!cls) redirect("/admin?error=" + encodeURIComponent("That class no longer exists."));
   const [roster, invites, book, library] = await Promise.all([
-    sectionRoster(sectionId), pendingInvites(sectionId), getBook(cls.bookId).catch(() => null), listBooks(),
+    sectionRoster(sectionId), pendingInvites(sectionId), getBook(cls.bookId).catch(() => null), listBooksForPicker({ keep: cls.bookId }),
   ]);
   const by = (role: string) => roster.filter((r) => r.role === role).map((r) => ({ enrolmentId: r.enrolmentId, name: r.name, email: r.email, userId: r.userId }))
     .sort((a, b) => a.name.localeCompare(b.name));

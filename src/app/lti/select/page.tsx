@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { verifyDeepLinkState } from "@/lib/lti";
-import { listBooks } from "@/lib/content";
+import { listBooksForPicker } from "@/lib/retire";
 import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export default async function DeepLinkSelect() {
   let ok = false;
   try { if (dl) { await verifyDeepLinkState(dl); ok = true; } } catch { ok = false; }
   if (!ok) return <main id="main" className="catalog"><h1>Choose content</h1><p className="ui" style={{ color: "var(--danger)" }}>This page must be opened from your LMS via a deep-linking launch.</p></main>;
-  const books = await listBooks();
+  const books = await listBooksForPicker();
   return (
     <main id="main" className="catalog">
       <h1>Choose a book to add</h1>

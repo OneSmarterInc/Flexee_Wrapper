@@ -13,7 +13,7 @@ import { getBook } from "@/lib/content";
 import { regenerateCodeAction } from "@/app/actions";
 import ClassBookPanel from "@/components/ClassBookPanel";
 import { classBookState } from "@/lib/publish";
-import { listBooks } from "@/lib/content";
+import { listBooksForPicker } from "@/lib/retire";
 import WorkspaceShell from "@/components/WorkspaceShell";
 import { classPageTitle } from "@/lib/page-title";
 
@@ -48,7 +48,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
   const sec = await ownedSection(user!.id, section);
   if (!sec) redirect("/faculty");
   const [book, roster, invites, content, hasNrps, sp] = await Promise.all([getBook(sec.bookId), sectionRoster(section), pendingInvites(section), sectionContentStatus(section, sec.bookId), sectionHasNrps(section), searchParams]);
-  const [bookState, library, inviteStates] = await Promise.all([classBookState(section), listBooks(), inviteStatesFor(section)]);
+  const [bookState, library, inviteStates] = await Promise.all([classBookState(section), listBooksForPicker({ keep: sec.bookId }), inviteStatesFor(section)]);
   const updates = content.filter((c) => c.hasUpdate).length;
   const showWithdrawn = sp.show_withdrawn === "1";
   const allStudents = roster.filter((r) => r.role === "student");

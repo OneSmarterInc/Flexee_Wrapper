@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { listBooks } from "@/lib/content";
+import { listBooksForPicker } from "@/lib/retire";
 import { allClasses } from "@/lib/admin";
 import { createClassAction } from "@/app/admin/actions";
 import WorkspaceShell from "@/components/WorkspaceShell";
@@ -16,7 +17,9 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   const user = await currentUser();
   if (!user) redirect("/login?next=/admin");
   if (user.systemRole !== "admin") redirect("/?error=" + encodeURIComponent("That page is for administrators."));
-  const [classes, books, sp] = await Promise.all([allClasses(), listBooks(), searchParams]);
+  // Two lists on purpose (Spec 22 §1): `books` names the book every class already uses, retired
+  // or not, and `pickable` is what the form below may offer.
+  const [classes, books, pickable, sp] = await Promise.all([allClasses(), listBooks(), listBooksForPicker(), searchParams]);
   const titles = new Map(books.map((b) => [b.id, b.title]));
   const published = classes.filter((c) => c.bookPublished).length;
   const students = classes.reduce((total, c) => total + c.students, 0);
@@ -81,12 +84,12 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
       <section className="workspace-panel ui" id="new-class" aria-labelledby="new-class-heading">
         <h2 id="new-class-heading">Create a class</h2>
         <p>After creation you will be taken to the class page to add people and publish its book.</p>
-        {books.length === 0 ? <p>No books are in the library yet. <Link href="/library">Add a book first</Link>.</p> : (
+        {pickable.length === 0 ? <p>No books are in the library yet. <Link href="/library">Add a book first</Link>.</p> : (
           <form action={createClassAction} className="ui workspace-form-grid">
             <label>Book
               <select name="bookId" required defaultValue="">
                 <option value="">Select a book</option>
-                {books.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
+                {pickable.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
               </select>
             </label>
             <label>Class name

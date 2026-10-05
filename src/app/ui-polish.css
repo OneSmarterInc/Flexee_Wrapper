@@ -631,3 +631,10 @@
   border-radius: 4px; font-size: .7rem; color: var(--muted);
 }
 @media (max-width: 640px) { .roster-bar, .roster-quick { align-items: stretch; } }
+
+/* Spec 22: a row in the library's book list — the book on the left, its one action on the right. */
+.library-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .8rem; flex-wrap: wrap;
+}
+.library-row form { margin: 0; }

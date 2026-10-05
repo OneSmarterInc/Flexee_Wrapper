@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { libraryUploads, enrolments, users } from "@/db/schema";
 import { isAdmin } from "@/lib/admin";
+import { isRetired } from "@/lib/retire";
 
 // Books enter the library by upload. Faculty or admins upload a book folder as a zip (downloaded
 // from Drive); the intake runs in GitHub Actions (.github/workflows/library-intake.yml), using the
@@ -48,6 +49,9 @@ export async function dispatchIntake(action: "check" | "publish", uploadId: stri
 export async function recordUpload(userId: string, u: { bookId: string; blobPath: string; fileName: string; sizeBytes: number }): Promise<Result> {
   if (!(await canUpload(userId))) return { ok: false, error: "Only faculty and administrators can upload books." };
   if (!validBookId(u.bookId)) return { ok: false, error: "Book id must be lowercase letters and digits, starting with a letter (e.g. sad, mis3000, mis4950)." };
+  // Spec 22 decision 7: validBookId stays permissive, but a retired id is refused here rather than
+  // silently reviving the book by uploading over it. Restoring is a deliberate act an admin takes.
+  if (await isRetired(u.bookId)) return { ok: false, error: "This book is retired; restore it first." };
   if (!new RegExp(`^uploads/${u.bookId}/[^/]+\\.zip$`, "i").test(u.blobPath) || !u.fileName.toLowerCase().endsWith(".zip"))
     return { ok: false, error: "Upload a .zip of the book's folder." };
   if (u.sizeBytes < 1 || u.sizeBytes > 200 * 1024 * 1024)

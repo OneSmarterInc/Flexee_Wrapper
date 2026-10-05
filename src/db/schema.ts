@@ -775,3 +775,17 @@ export const classActions = pgTable(
   },
   (t) => [index("class_actions_section_idx").on(t.sectionId, t.createdAt)],
 );
+
+/**
+ * Spec 22 §1: the books an administrator has retired. Present means retired.
+ *
+ * Keyed by book id, because there is no books table to add a column to — listBooks() walks the
+ * content store — and because a flag in book.manifest.json would be wiped by the next re-upload.
+ * A class already using a retired book keeps working; what changes is that the book stops
+ * appearing in the pickers.
+ */
+export const retiredBooks = pgTable("retired_books", {
+  bookId: text("book_id").primaryKey(),
+  retiredAt: timestamp("retired_at", { withTimezone: true }).defaultNow().notNull(),
+  retiredBy: text("retired_by").references((): any => users.id, { onDelete: "set null" }),
+});

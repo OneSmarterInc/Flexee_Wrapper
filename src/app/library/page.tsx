@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { listBooks } from "@/lib/content";
 import { canUpload, listUploads } from "@/lib/library";
+import { libraryShelf, retireCost } from "@/lib/retire";
+import { retireBookAction, restoreBookAction } from "@/app/library/actions";
 import UploadForm from "@/app/library/UploadForm";
 import { STATUS } from "@/lib/library-status";
 import BackButton from "@/components/BackButton";
@@ -14,11 +15,19 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Book library" };
 
 
-export default async function Library() {
+export default async function Library({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; retire?: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/login?next=/library");
   if (!(await canUpload(user!.id))) redirect("/?error=" + encodeURIComponent("The library is for faculty and administrators."));
-  const [books, uploads] = await Promise.all([listBooks(), listUploads()]);
+  const admin = user!.systemRole === "admin";
+  const [shelf, uploads, sp] = await Promise.all([libraryShelf(), listUploads(), searchParams]);
+  const live = shelf.filter((s) => !s.retired);
+  const retired = shelf.filter((s) => s.retired);
+  // The confirmation step. ?retire=<id> renders the count and a pair of buttons, so the count is
+  // read before the action rather than after it, and with no script at all.
+  const asked = sp.retire && admin ? live.find((s) => s.book.id === sp.retire) : null;
+  const cost = asked ? await retireCost(asked.book.id) : null;
+  const pickable = live.map((s) => s.book);
   const busy = uploads.some((u) => u.status === "checking" || u.status === "publishing");
   return (
     <WorkspaceShell active={user.systemRole === "admin" ? "admin" : "faculty"}
@@ -31,17 +40,79 @@ export default async function Library() {
       <header className="workspace-heading"><div><div className="page-kicker ui">Book library</div><h1>Books and uploads</h1><p className="ui">
         Books in the library. Adding a book here does not show it to any student: each class's faculty publish a book to their own class.
       </p></div><Link className="nav-button primary" href="#upload">Upload a book</Link></header>
+      {sp.ok && <p className="workspace-alert ui" role="status">{sp.ok}</p>}
+      {sp.error && <p className="workspace-alert error ui" role="alert">{sp.error}</p>}
+
       <section className="workspace-panel ui" id="books"><h2>Books in the library</h2>
-      {books.length === 0 && <p>No books have been added yet.</p>}
+      {live.length === 0 && <p>No books have been added yet.</p>}
+
+      {asked && cost && (
+        <div className="workspace-alert ui" role="group" aria-labelledby="retire-heading" style={{ marginBottom: "1rem" }}>
+          <h3 id="retire-heading" style={{ margin: "0 0 .3rem", fontSize: "1rem" }}>Retire {asked.book.title}?</h3>
+          <p className="ui" style={{ margin: ".2rem 0" }}>{cost.sentence}</p>
+          <p className="ui" style={{ margin: ".2rem 0", color: "var(--muted)", fontSize: ".88rem" }}>
+            It disappears from the forms that choose a book for a class or an upload, and from the
+            list an LMS offers. Nothing is deleted and you can restore it here.
+          </p>
+          <div className="fx-dialog-actions" style={{ justifyContent: "flex-start" }}>
+            <form action={retireBookAction}>
+              <input type="hidden" name="bookId" value={asked.book.id} />
+              <button className="nav-button danger" type="submit">Retire {asked.book.id}</button>
+            </form>
+            <Link className="nav-button ghost" href="/library#books">Cancel</Link>
+          </div>
+        </div>
+      )}
+
       <ul className="ui" style={{ listStyle: "none", padding: 0 }}>
         {/* Spec 15: "Title: Subtitle" when there is one. The id stays in brackets — uploaders type
             ids for new books, so it still earns its place. */}
-        {books.map((b) => <li key={b.id} style={{ padding: ".3rem 0", borderBottom: "1px solid var(--rule)" }}><strong>{b.title}{b.subtitle ? `: ${b.subtitle}` : ""}</strong> <span style={{ color: "var(--muted)" }}>({b.id})</span></li>)}
+        {live.map((s) => (
+          <li key={s.book.id} className="library-row" style={{ padding: ".4rem 0", borderBottom: "1px solid var(--rule)" }}>
+            <span><strong>{s.book.title}{s.book.subtitle ? `: ${s.book.subtitle}` : ""}</strong>{" "}
+              <span style={{ color: "var(--muted)" }}>({s.book.id})</span>
+              {s.classes > 0 && <span style={{ color: "var(--muted)", fontSize: ".85rem" }}> · {s.classes} class{s.classes === 1 ? "" : "es"}</span>}
+            </span>
+            {admin && (
+              <Link className="nav-button ghost" href={`/library?retire=${encodeURIComponent(s.book.id)}#books`}>
+                Retire<span className="visually-hidden"> {s.book.title}</span>
+              </Link>
+            )}
+          </li>
+        ))}
       </ul>
       </section>
 
+      {/* Admin-only (decision 5): faculty neither retire a book nor see the retired ones. */}
+      {admin && retired.length > 0 && (
+        <section className="workspace-panel ui" id="retired"><h2>Retired</h2>
+        <p className="ui" style={{ color: "var(--muted)" }}>
+          Out of the forms that choose a book, and out of the list an LMS offers. Still readable by
+          every class already using it.
+        </p>
+        <ul className="ui" style={{ listStyle: "none", padding: 0 }}>
+          {retired.map((s) => (
+            <li key={s.book.id} className="library-row" style={{ padding: ".4rem 0", borderBottom: "1px solid var(--rule)" }}>
+              <span><strong>{s.book.title}</strong> <span style={{ color: "var(--muted)" }}>({s.book.id})</span>
+                <span style={{ color: "var(--muted)", fontSize: ".85rem" }}>
+                  {" "}· retired {s.retired!.retiredAt.toISOString().slice(0, 10)}
+                  {s.classes > 0 ? ` · ${s.classes} class${s.classes === 1 ? "" : "es"} still using it` : ""}
+                </span>
+              </span>
+              <form action={restoreBookAction}>
+                <input type="hidden" name="bookId" value={s.book.id} />
+                <button className="nav-button secondary" type="submit">
+                  Restore<span className="visually-hidden"> {s.book.title}</span>
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+        </section>
+      )}
+
       <section className="workspace-panel ui" id="upload"><h2>Upload a book or a new version</h2><p>The intake checks the package before it can be used in classes.</p>
-      <UploadForm books={books.map((b) => ({ id: b.id, title: b.title }))} />
+      <UploadForm books={pickable.map((b) => ({ id: b.id, title: b.title }))} />
       </section>
 
       <section className="workspace-panel ui" id="uploads"><h2>Upload records</h2>

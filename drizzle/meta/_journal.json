@@ -162,6 +162,13 @@
       "when": 1791479616249,
       "tag": "0022_withdrawn_enrolments",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791566016249,
+      "tag": "0023_retired_books",
+      "breakpoints": true
     }
   ]
 }
