@@ -4,8 +4,12 @@ import { currentUser } from "@/lib/auth";
 import { messagesFor, threadFor } from "@/lib/assistant/store";
 import { formatLocal } from "@/lib/time";
 import LogoutButton from "@/components/LogoutButton";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "A conversation with the assistant" };
+
 
 /**
  * One conversation (Spec 20 §3). Readable by the student who owns it and the class's faculty, and
@@ -23,7 +27,7 @@ export default async function Thread({ params }: { params: Promise<{ thread: str
   const messages = await messagesFor(thread);
 
   return (
-    <main className="catalog" style={{ maxWidth: "44rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "44rem" }}>
       <LogoutButton />
       <p className="ui">
         <Link href={t.as === "faculty" ? `/teach/${t.sectionId}/assistant` : "/student"}>

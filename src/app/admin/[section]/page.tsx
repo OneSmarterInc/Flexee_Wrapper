@@ -10,8 +10,13 @@ import RemoveStudent from "@/components/RemoveStudent";
 import { REMOVE_PHRASE } from "@/lib/class-actions";
 import ClassBookPanel from "@/components/ClassBookPanel";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Class setup", params);
+
 
 function People({ role, sectionId, people, invites }: {
   role: "instructor" | "student"; sectionId: string;
@@ -28,7 +33,7 @@ function People({ role, sectionId, people, invites }: {
         : "Add students by email or upload a CSV class list. They can read the book after it is published to this class."}</p>
       <div className="workspace-table-wrap">
         <table className="workspace-table">
-          <thead><tr><th>{title}</th><th>Email</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>{title}</th><th>Email</th><th>Status</th><th><span className="visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             {people.length === 0 && invites.length === 0 && <tr><td colSpan={4}>No {title.toLowerCase()} added yet.</td></tr>}
             {people.map((person) => (

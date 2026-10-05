@@ -6,8 +6,13 @@ import { openExamsForSection } from "@/lib/assessment";
 import { startExamAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import { bookPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ book: string }> }) =>
+  bookPageTitle("Exams and quizzes", params);
+
 
 export default async function StudentExams({ params }: { params: Promise<{ book: string }> }) {
   const { book } = await params;
@@ -18,7 +23,7 @@ export default async function StudentExams({ params }: { params: Promise<{ book:
   const exams = await openExamsForSection(enr.sectionId, enr.id);
 
   return (
-    <main className="catalog exam-list">
+    <main id="main" className="catalog exam-list">
       <LogoutButton />
       <div className="back-strip ui">
         <BackButton fallbackHref={`/${book}`} />

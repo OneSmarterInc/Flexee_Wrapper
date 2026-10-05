@@ -5,8 +5,13 @@ import { ownedSection } from "@/lib/roster";
 import { examsForSection, questionCounts } from "@/lib/assessment";
 import { createExamAction, examStatusAction } from "@/app/actions";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Exams and quizzes", params);
+
 const field = { padding: ".5rem .6rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
 
@@ -25,7 +30,7 @@ export default async function Exams({ params }: { params: Promise<{ section: str
       <section className="workspace-panel ui" id="exams"><h2>Class exams</h2>
 
       <table className="ui" style={{ width: "100%", borderCollapse: "collapse", fontSize: ".9rem" }}>
-        <thead><tr><th style={cell}>Title</th><th style={cell}>Blueprint</th><th style={cell}>Status</th><th style={cell}></th></tr></thead>
+        <thead><tr><th style={cell}>Title</th><th style={cell}>Blueprint</th><th style={cell}>Status</th><th style={cell}><span className="visually-hidden">Actions</span></th></tr></thead>
         <tbody>
           {list.length === 0 && <tr><td style={cell} colSpan={4}>No exams yet.</td></tr>}
           {list.map((e) => {
@@ -66,14 +71,14 @@ export default async function Exams({ params }: { params: Promise<{ section: str
             <option value="any">any difficulty</option><option value="recall">recall</option>
             <option value="apply">apply</option><option value="analyse">analyse</option>
           </select>
-          <input name="count" type="number" min={1} defaultValue={5} style={{ ...field, width: "5rem" }} title="How many questions" />
+          <label className="field-stack">Questions<input name="count" type="number" min={1} defaultValue={5} style={{ ...field, width: "5rem" }} /></label>
         </div>
         <div style={{ display: "flex", gap: ".5rem" }}>
           <select name="feedback" style={{ ...field, flex: 1 }} aria-label="When students see answers">
             <option value="after_close">feedback after close</option>
             <option value="immediate">feedback immediately</option>
           </select>
-          <input name="attemptLimit" type="number" min={1} defaultValue={1} style={{ ...field, width: "6rem" }} title="Attempts allowed" />
+          <label className="field-stack">Attempts<input name="attemptLimit" type="number" min={1} defaultValue={1} style={{ ...field, width: "6rem" }} /></label>
           <select name="kind" style={{ ...field, width: "7rem" }} aria-label="Exam or quiz" title="A quiz counts the highest attempt; an exam counts the first">
             <option value="exam">Exam</option>
             <option value="quiz">Quiz</option>

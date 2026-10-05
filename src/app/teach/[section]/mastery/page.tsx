@@ -4,8 +4,13 @@ import { currentUser } from "@/lib/auth";
 import { ownedSection } from "@/lib/roster";
 import { classMastery, studentMastery, outcomeRollup } from "@/lib/mastery";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Mastery", params);
+
 const cell = { border: "1px solid var(--rule)", padding: ".4rem .6rem", textAlign: "left" } as const;
 const pctColor = (p: number | null) => p == null ? "var(--muted)" : p >= 75 ? "var(--ok)" : p >= 50 ? "var(--ink)" : "var(--danger)";
 
@@ -19,7 +24,7 @@ export default async function Mastery({ params }: { params: Promise<{ section: s
   const anyData = cls.some((c) => c.pct != null);
 
   return (
-    <main className="catalog">
+    <main id="main" className="catalog">
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link></p>
       <h1>Mastery of learning</h1>

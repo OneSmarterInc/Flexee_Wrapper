@@ -4,8 +4,12 @@ import { currentUser } from "@/lib/auth";
 import { teachingByTerm } from "@/lib/course";
 import { listBooks } from "@/lib/content";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "My teaching" };
+
 
 export default async function FacultyHome({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const user = await currentUser();

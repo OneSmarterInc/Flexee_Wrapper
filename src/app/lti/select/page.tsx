@@ -1,16 +1,20 @@
 import { cookies } from "next/headers";
 import { verifyDeepLinkState } from "@/lib/lti";
 import { listBooks } from "@/lib/content";
+import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Choose a book" };
+
 
 export default async function DeepLinkSelect() {
   const dl = (await cookies()).get("lti_dl")?.value;
   let ok = false;
   try { if (dl) { await verifyDeepLinkState(dl); ok = true; } } catch { ok = false; }
-  if (!ok) return <main className="catalog"><h1>Choose content</h1><p className="ui" style={{ color: "var(--danger)" }}>This page must be opened from your LMS via a deep-linking launch.</p></main>;
+  if (!ok) return <main id="main" className="catalog"><h1>Choose content</h1><p className="ui" style={{ color: "var(--danger)" }}>This page must be opened from your LMS via a deep-linking launch.</p></main>;
   const books = await listBooks();
   return (
-    <main className="catalog">
+    <main id="main" className="catalog">
       <h1>Choose a book to add</h1>
       <p className="ui" style={{ color: "var(--muted)" }}>Select the Flexee book to place in this course. It will be added as a link students launch.</p>
       {books.map((b) => (

@@ -5,7 +5,12 @@ import { ownedSection } from "@/lib/roster";
 import { listAnnouncements } from "@/lib/course";
 import { addAnnouncementAction, deleteAnnouncementAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Announcements", params);
+
 const field = { padding: ".55rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "100%" } as const;
 
 export default async function Announcements({ params }: { params: Promise<{ section: string }> }) {
@@ -16,7 +21,7 @@ export default async function Announcements({ params }: { params: Promise<{ sect
   if (!sec) redirect("/teach");
   const items = await listAnnouncements(section);
   return (
-    <main className="catalog" style={{ maxWidth: "42rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "42rem" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link></p>
       <h1>Announcements</h1>

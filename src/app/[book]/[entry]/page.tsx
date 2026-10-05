@@ -14,8 +14,13 @@ import PageTurn from "@/components/PageTurn";
 import FigureList from "@/components/FigureList";
 import AssistantPanel from "@/components/AssistantPanel";
 import { panelFor } from "@/lib/assistant/panel";
+import { entryPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ book: string; entry: string }> }) =>
+  entryPageTitle(params);
+
 
 export default async function EntryPage({ params }: { params: Promise<{ book: string; entry: string }> }) {
   const { book, entry } = await params;
@@ -42,7 +47,7 @@ export default async function EntryPage({ params }: { params: Promise<{ book: st
       <Bookmarker bookId={book} entryId={entry} chapterVersion={manifest.version} />
       <div className="shell">
         <Spine bookId={book} current={entry} />
-        <main className="reading">
+        <main id="main" className="reading">
           <PageTurn bookId={book} prev={prev} next={next} />
           <div className="reading-inner">
             <div className="reader-toolbar ui">

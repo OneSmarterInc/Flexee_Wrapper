@@ -5,8 +5,12 @@ import { listBooks } from "@/lib/content";
 import { allClasses } from "@/lib/admin";
 import { createClassAction } from "@/app/admin/actions";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Administration" };
+
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
   const user = await currentUser();
@@ -56,7 +60,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         ) : (
           <div className="workspace-table-wrap">
             <table className="workspace-table">
-              <thead><tr><th>Class</th><th>Book</th><th>Faculty</th><th>Students</th><th>Book access</th><th></th></tr></thead>
+              <thead><tr><th>Class</th><th>Book</th><th>Faculty</th><th>Students</th><th>Book access</th><th><span className="visually-hidden">Set up</span></th></tr></thead>
               <tbody>
                 {classes.map((c) => (
                   <tr key={c.id}>

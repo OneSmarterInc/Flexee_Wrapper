@@ -5,8 +5,13 @@ import { classById } from "@/lib/admin";
 import { canImport, emailDomain } from "@/lib/d2l-import";
 import D2LImport from "@/components/D2LImport";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Import a class list from D2L", params);
+
 
 export default async function ImportFromD2L({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
@@ -16,7 +21,7 @@ export default async function ImportFromD2L({ params }: { params: Promise<{ sect
   const sec = await classById(section);
   if (!sec) redirect("/faculty");
   return (
-    <main className="catalog">
+    <main id="main" className="catalog">
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link></p>
       <h1>Import from D2L</h1>

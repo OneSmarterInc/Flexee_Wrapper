@@ -15,8 +15,13 @@ import ClassBookPanel from "@/components/ClassBookPanel";
 import { classBookState } from "@/lib/publish";
 import { listBooks } from "@/lib/content";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Class record", params);
+
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".65rem .7rem", textAlign: "left" } as const;
 const linkBtn = { border: "none", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit", padding: 0 } as const;
 const rosterBtn = { padding: ".35rem .8rem", border: "1px solid var(--link)", borderRadius: "6px", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit" } as const;
@@ -175,7 +180,7 @@ export default async function SectionDashboard({ params, searchParams }: { param
 
       <h3 className="ui" style={{ marginTop: "1.4rem", font: "inherit", fontWeight: 600 }}>Faculty, and students waiting to join</h3>
       <table className="ui" style={{ width: "100%", borderCollapse: "collapse", fontSize: ".9rem" }}>
-        <thead><tr><th style={cell}>Name</th><th style={cell}>Email</th><th style={cell}>Role</th><th style={cell}>Account</th><th style={cell}></th></tr></thead>
+        <thead><tr><th style={cell}>Name</th><th style={cell}>Email</th><th style={cell}>Role</th><th style={cell}>Account</th><th style={cell}><span className="visually-hidden">Actions</span></th></tr></thead>
         <tbody>
           {instructors.map((r) => (
             <tr key={r.enrolmentId}>

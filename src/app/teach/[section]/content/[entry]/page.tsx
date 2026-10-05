@@ -8,8 +8,13 @@ import { sectionContentPins } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { publishToSectionAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("A chapter's changes", params);
+
 
 export default async function ReviewPage({ params }: { params: Promise<{ section: string; entry: string }> }) {
   const { section, entry } = await params;
@@ -26,7 +31,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ section
   const lines = pinned ? await diffVersions(pinned.id, latest.id) : [];
 
   return (
-    <main className="catalog" style={{ maxWidth: "52rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "52rem" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}/content`}>← Content</Link></p>
       <h1>{latest.title}</h1>

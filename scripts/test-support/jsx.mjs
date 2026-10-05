@@ -23,6 +23,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 export async function resolve(spec, ctx, next) {
   const stub = STUBS.get(spec);
   if (stub) return { url: pathToFileURL(path.join(here, stub)).href, shortCircuit: true };
+  // Next treats a stylesheet import as a side effect it handles at build time. Node cannot load one
+  // at all, so the root layout could not be imported without this. Nothing a test asserts comes
+  // from the stylesheet; the colour tokens are read as text by test:a11y-colour instead.
+  if (spec.endsWith(".css")) return { url: pathToFileURL(path.join(here, "empty.mjs")).href, shortCircuit: true };
   return next(spec, ctx);
 }
 

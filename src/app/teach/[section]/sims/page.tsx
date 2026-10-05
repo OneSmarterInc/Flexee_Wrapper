@@ -7,8 +7,13 @@ import { formatLocal } from "@/lib/time";
 import { simColumnsFor, categoriesFor, SIM_RULES, SIM_RULE_LABELS, isParticipation, type SimRule } from "@/lib/gradebook";
 import { addClassSimAction, removeClassSimAction, setSimRuleAction, setSimPointsAction } from "@/app/sim-actions";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Simulations", params);
+
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".4rem .6rem", textAlign: "left" } as const;
 const mins = (s: number | null) => (s == null ? "" : `${Math.round(s / 60)} min`);
 const field = { padding: ".35rem .45rem", border: "1px solid var(--field-border)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
@@ -28,7 +33,7 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
   const title = new Map(available.concat(inClass).map((s) => [s.id, s.title]));
   const launch = (sim: string, extra = "") => `/sims/launch?sim=${encodeURIComponent(sim)}&section=${encodeURIComponent(section)}${extra}`;
   return (
-    <main className="catalog" style={{ maxWidth: "56rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "56rem" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec!.name}</Link></p>
       <h1>Simulations</h1>

@@ -8,8 +8,13 @@ import { setAssignmentAssistantAction } from "@/app/actions";
 import AssignmentFields from "@/components/AssignmentFields";
 import FilePicker from "@/components/FilePicker";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("An assignment", params);
+
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".45rem .6rem", textAlign: "left" } as const;
 
 export default async function AssignmentPage({ params, searchParams }: { params: Promise<{ section: string; id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -21,7 +26,7 @@ export default async function AssignmentPage({ params, searchParams }: { params:
   const { assignment: a, files, rows } = v!;
   const submitted = rows.filter((r) => r.submission).length;
   return (
-    <main className="catalog" style={{ maxWidth: "56rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "56rem" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}/assignments`}>← Assignments</Link></p>
       <h1>{a.title}</h1>
@@ -45,7 +50,7 @@ export default async function AssignmentPage({ params, searchParams }: { params:
 
       <h2 style={{ color: "var(--navy)" }}>Submissions — {submitted} of {rows.length}</h2>
       <table className="ui" style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead><tr><th style={cell}>Student</th><th style={cell}>Submitted</th><th style={cell}>Score</th><th style={cell}></th></tr></thead>
+        <thead><tr><th style={cell}>Student</th><th style={cell}>Submitted</th><th style={cell}>Score</th><th style={cell}><span className="visually-hidden">Grading</span></th></tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.enrolmentId}>

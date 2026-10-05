@@ -7,8 +7,13 @@ import { formatLocal } from "@/lib/time";
 import { createAssignmentAction } from "@/app/assignment-actions";
 import AssignmentFields from "@/components/AssignmentFields";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Assignments", params);
+
 
 export default async function Assignments({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const [{ section }, sp] = await Promise.all([params, searchParams]);

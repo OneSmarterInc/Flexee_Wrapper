@@ -5,8 +5,13 @@ import { enrolmentForBook } from "@/lib/enrolment";
 import { simsForClass } from "@/lib/sims";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import { bookPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ book: string }> }) =>
+  bookPageTitle("Simulations", params);
+
 
 export default async function MySims({ params }: { params: Promise<{ book: string }> }) {
   const { book } = await params;
@@ -17,7 +22,7 @@ export default async function MySims({ params }: { params: Promise<{ book: strin
   if (enr!.role === "instructor") redirect(`/teach/${enr!.sectionId}/sims`);
   const list = await simsForClass(enr!.sectionId, true);
   return (
-    <main className="catalog" style={{ maxWidth: "44rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "44rem" }}>
       <LogoutButton />
       <div className="back-strip ui"><BackButton fallbackHref={`/${book}`} /><Link className="nav-button ghost" href={`/${book}`}>Course home</Link></div>
       <h1>Simulations</h1>

@@ -4,8 +4,13 @@ import { currentUser } from "@/lib/auth";
 import { ownedSection } from "@/lib/roster";
 import { questionBankForChapter, questionCounts } from "@/lib/assessment";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("The question bank", params);
+
 
 type Option = { id: string; text: string; correct?: boolean };
 function options(json: string): Option[] {

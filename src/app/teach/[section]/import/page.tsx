@@ -4,8 +4,13 @@ import { currentUser } from "@/lib/auth";
 import { ownedSection } from "@/lib/roster";
 import RosterImport from "@/components/RosterImport";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Add students", params);
+
 
 export default async function ImportPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
@@ -14,7 +19,7 @@ export default async function ImportPage({ params }: { params: Promise<{ section
   const sec = await ownedSection(user!.id, section);
   if (!sec) redirect("/teach");
   return (
-    <main className="catalog">
+    <main id="main" className="catalog">
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link></p>
       <h1>Import roster</h1>

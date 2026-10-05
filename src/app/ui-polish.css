@@ -591,6 +591,19 @@
   transform: none;
 }
 
+/* Spec 21 rule 2. A label above its control, for the compact rows where a label beside it would
+   not fit. Several of these controls had only a title attribute, which a screen reader may or may
+   not read and a sighted reader only sees on hover. */
+.field-stack {
+  display: grid;
+  gap: .2rem;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .01em;
+}
+
 /* --- Spec 19: the selectable class list -------------------------------------------------------- */
 .roster-bar {
   display: flex; gap: .6rem; align-items: center; flex-wrap: wrap;

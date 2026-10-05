@@ -8,8 +8,13 @@ import { show, type CountedAttempt } from "@/lib/grading";
 import { formatLocal } from "@/lib/time";
 import { setExamRulesAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("An exam", params);
+
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
 const field = { padding: ".35rem .45rem", border: "1px solid var(--field-border)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
@@ -33,7 +38,7 @@ export default async function ExamResults({ params, searchParams }: { params: Pr
   const detail = chosen ? await attemptsForStudent(exam, chosen.enrolmentId, rule) : null;
 
   return (
-    <main className="catalog">
+    <main id="main" className="catalog">
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}/exams`}>← Exams</Link></p>
       <h1>{e.title}</h1>

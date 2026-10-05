@@ -5,7 +5,12 @@ import { ownedSection } from "@/lib/roster";
 import { getSyllabus } from "@/lib/course";
 import { setSyllabusAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Syllabus", params);
+
 
 export default async function Syllabus({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { section } = await params;
@@ -15,7 +20,7 @@ export default async function Syllabus({ params, searchParams }: { params: Promi
   if (!sec) redirect("/teach");
   const [syl, sp] = await Promise.all([getSyllabus(section), searchParams]);
   return (
-    <main className="catalog" style={{ maxWidth: "44rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "44rem" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link></p>
       <h1>Syllabus</h1>

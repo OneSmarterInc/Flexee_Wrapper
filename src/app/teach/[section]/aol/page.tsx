@@ -5,7 +5,12 @@ import { ownedSection } from "@/lib/roster";
 import { aolConfig, aolReport, getSettings, listPrograms, programOutcomesFor } from "@/lib/aol";
 import { saveAolSettingsAction, toggleProgramMapAction, setEvidenceAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Assurance of learning", params);
+
 const field = { padding: ".4rem .5rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 const cell = { border: "1px solid var(--rule)", padding: ".35rem .55rem", textAlign: "left", verticalAlign: "top" } as const;
 const small = { border: "none", background: "transparent", cursor: "pointer", font: "inherit", padding: 0 } as const;
@@ -20,7 +25,7 @@ export default async function Aol({ params }: { params: Promise<{ section: strin
   const pos = settings.program ? await programOutcomesFor(settings.program) : [];
   const manual = cfg.lineItems.filter((l) => l.kind === "manual");
   return (
-    <main className="catalog" style={{ maxWidth: "58rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "58rem" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link> · <Link href={`/teach/${section}/syllabus`}>Syllabus outcomes</Link></p>
       <h1>Assurance of learning</h1>

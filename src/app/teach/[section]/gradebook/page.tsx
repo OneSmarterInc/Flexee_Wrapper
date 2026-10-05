@@ -14,8 +14,13 @@ import {
 import LogoutButton from "@/components/LogoutButton";
 import CopyGradingSetup from "@/components/CopyGradingSetup";
 import { copyableClasses } from "@/lib/grading-copy";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("Gradebook", params);
+
 const cell = { border: "1px solid var(--rule)", padding: ".4rem .55rem", textAlign: "left", whiteSpace: "nowrap" } as const;
 const num = { ...cell, textAlign: "right", fontVariantNumeric: "tabular-nums" } as const;
 const field = { padding: ".3rem .4rem", border: "1px solid var(--field-border)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "4rem" } as const;
@@ -34,7 +39,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
   const copyFrom = await copyableClasses(user!.id, section);
 
   return (
-    <main className="catalog" style={{ maxWidth: "min(100%, 70rem)" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "min(100%, 70rem)" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link></p>
       <h1>Gradebook</h1>
@@ -63,10 +68,10 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                   <th style={{ ...cell, color: "var(--muted)", fontWeight: 400 }}>weight →</th>
                   {items.map((it) => <th key={it.id} style={num}>{isParticipation(it)
                     ? <span style={{ color: "var(--muted)" }}>—</span>
-                    : <input name={`weight_${it.id}`} defaultValue={it.weight} style={field} type="number" min={0} step="0.5" />}</th>)}
-                  {categorised && categories.map((c) => <th key={c.id} style={num} />)}
-                  <th style={num}><button type="submit" className="nav-button primary">Save</button></th>
-                  {categorised && <th style={num} />}
+                    : <input name={`weight_${it.id}`} defaultValue={it.weight} style={field} type="number" min={0} step="0.5" aria-label={`Weight for ${it.title}`} />}</th>)}
+                  {categorised && categories.map((c) => <td key={c.id} style={num} />)}
+                  <td style={num}><button type="submit" className="nav-button primary">Save</button></td>
+                  {categorised && <td style={num} />}
                 </tr>
               </thead>
               <tbody>
@@ -87,7 +92,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                         <td key={it.id} style={num}>
                           <form action={setScoreAction} style={{ display: "inline-flex", gap: ".2rem" }}>
                             <input type="hidden" name="sectionId" value={section} /><input type="hidden" name="lineItemId" value={it.id} /><input type="hidden" name="enrolmentId" value={s.enrolmentId} />
-                            <input name="points" defaultValue={c.points ?? ""} placeholder="—" style={{ ...field, width: "3.2rem" }} />
+                            <input name="points" defaultValue={c.points ?? ""} placeholder="—" style={{ ...field, width: "3.2rem" }} aria-label={`${it.title} for ${s.name}`} />
                           </form>
                         </td>
                       );
@@ -158,7 +163,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                   <th style={{ ...num, color: Math.abs(categories.reduce((t, c) => t + c.weight, 0) - 100) < 0.01 ? "var(--ok)" : "var(--danger)" }}>
                     {show(categories.reduce((t, c) => t + c.weight, 0))}%
                   </th>
-                  <th style={num} />
+                  <td style={num} />
                 </tr>
               </tfoot>
             </table>
@@ -220,8 +225,8 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
       <form action={addLineItemAction} className="ui" style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", alignItems: "end" }}>
         <input type="hidden" name="sectionId" value={section} />
         <input name="title" placeholder="Column title (e.g. Participation)" required style={{ ...field, width: "16rem" }} />
-        <input name="maxPoints" type="number" min={1} defaultValue={100} style={field} title="Max points" />
-        <input name="weight" type="number" min={0} step="0.5" defaultValue={1} style={field} title="Weight" />
+        <label className="field-stack">Max points<input name="maxPoints" type="number" min={1} defaultValue={100} style={field} /></label>
+        <label className="field-stack">Weight<input name="weight" type="number" min={0} step="0.5" defaultValue={1} style={field} /></label>
         <button type="submit" className="nav-button primary">Add</button>
       </form>
 

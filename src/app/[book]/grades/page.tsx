@@ -8,8 +8,13 @@ import { formatLocal } from "@/lib/time";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
 import { WITHDRAWN_NOTICE } from "@/lib/withdraw";
+import { bookPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ book: string }> }) =>
+  bookPageTitle("My grades", params);
+
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
 const num = { ...cell, textAlign: "right", fontVariantNumeric: "tabular-nums" } as const;
 
@@ -24,7 +29,7 @@ export default async function MyGrades({ params }: { params: Promise<{ book: str
   const g = await gradesForStudent(enr!.sectionId, enr!.id);
 
   return (
-    <main className="catalog" style={{ maxWidth: "46rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "46rem" }}>
       <LogoutButton />
       <div className="back-strip ui"><BackButton fallbackHref={`/${book}`} /><Link className="nav-button ghost" href={`/${book}`}>Course home</Link></div>
       <h1>My grades</h1>

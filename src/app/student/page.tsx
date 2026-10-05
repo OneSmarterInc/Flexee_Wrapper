@@ -6,8 +6,12 @@ import { userClasses } from "@/lib/enrolment";
 import { WITHDRAWN_NOTICE } from "@/lib/withdraw";
 import { enrollByCodeAction } from "@/app/actions";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "My classes" };
+
 
 export default async function StudentHome({ searchParams }: { searchParams: Promise<{ error?: string; need?: string; joined?: string }> }) {
   const user = await currentUser();

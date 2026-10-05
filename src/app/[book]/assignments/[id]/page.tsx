@@ -7,8 +7,13 @@ import { formatLocal } from "@/lib/time";
 import { submitAction } from "@/app/assignment-actions";
 import FilePicker from "@/components/FilePicker";
 import LogoutButton from "@/components/LogoutButton";
+import { bookPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ book: string }> }) =>
+  bookPageTitle("An assignment", params);
+
 const field = { padding: ".55rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function MyAssignment({ params, searchParams }: { params: Promise<{ book: string; id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -23,7 +28,7 @@ export default async function MyAssignment({ params, searchParams }: { params: P
   const graded = s?.status === "graded";
   const closed = !!a.dueAt && new Date() > a.dueAt && !a.allowLate;
   return (
-    <main className="catalog" style={{ maxWidth: "46rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "46rem" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/${book}/assignments`}>← Assignments</Link></p>
       <h1>{a.title}</h1>

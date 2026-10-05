@@ -5,8 +5,13 @@ import { enrolmentForBook } from "@/lib/enrolment";
 import { attemptEnrolmentId, attemptResult } from "@/lib/assessment";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import { bookPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ book: string }> }) =>
+  bookPageTitle("An exam result", params);
+
 
 export default async function ExamResult({ params }: { params: Promise<{ book: string; attempt: string }> }) {
   const { book, attempt } = await params;
@@ -18,7 +23,7 @@ export default async function ExamResult({ params }: { params: Promise<{ book: s
   if (!result) redirect(`/${book}/exams`);
 
   return (
-    <main className="catalog exam-result" style={{ maxWidth: "44rem" }}>
+    <main id="main" className="catalog exam-result" style={{ maxWidth: "44rem" }}>
       <LogoutButton />
       <div className="back-strip ui">
         <BackButton fallbackHref={`/${book}/exams`} />

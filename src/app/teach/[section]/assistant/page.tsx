@@ -9,8 +9,13 @@ import { NOTICE } from "@/lib/assistant/answer";
 import { setAssistantSettingsAction, replyToQuestionAction } from "@/app/actions";
 import { formatLocal } from "@/lib/time";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("The course assistant", params);
+
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".6rem .7rem", textAlign: "left" } as const;
 const field = { padding: ".4rem .5rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "9rem" } as const;
 
@@ -136,7 +141,7 @@ export default async function ClassAssistant({ params, searchParams }: {
             <caption style={{ captionSide: "top", textAlign: "left", padding: ".3rem 0", color: "var(--muted)" }}>
               Every conversation in this class. Students see only their own.
             </caption>
-            <thead><tr><th style={cell}>Student</th><th style={cell}>Opened with</th><th style={cell}>Last message</th><th style={cell}></th></tr></thead>
+            <thead><tr><th style={cell}>Student</th><th style={cell}>Opened with</th><th style={cell}>Last message</th><th style={cell}><span className="visually-hidden">Conversation</span></th></tr></thead>
             <tbody>
               {threads.map((t) => (
                 <tr key={t.id}>

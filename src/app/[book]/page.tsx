@@ -9,8 +9,13 @@ import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
 import AssistantPanel from "@/components/AssistantPanel";
 import { panelFor } from "@/lib/assistant/panel";
+import { bookPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ book: string }> }) =>
+  bookPageTitle("Course home", params);
+
 
 export default async function CourseHome({ params }: { params: Promise<{ book: string }> }) {
   const { book } = await params;
@@ -31,7 +36,7 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
   const [ann, due, syl, panel] = await Promise.all([listAnnouncements(enr.sectionId), upcoming(enr.sectionId, 5), getSyllabus(enr.sectionId), panelFor(user!.id, book)]);
   if (withdrawn) {
     return (
-      <main className="catalog course-home" style={{ maxWidth: "44rem" }}>
+      <main id="main" className="catalog course-home" style={{ maxWidth: "44rem" }}>
         <LogoutButton />
         <p className="ui"><Link href="/student">← My classes</Link></p>
         <h1>{manifest.title}</h1>
@@ -42,7 +47,7 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
   }
 
   return (
-    <main className="catalog course-home" style={{ maxWidth: "44rem" }}>
+    <main id="main" className="catalog course-home" style={{ maxWidth: "44rem" }}>
       <LogoutButton />
       <div className="back-strip ui">
         <BackButton fallbackHref="/student" />

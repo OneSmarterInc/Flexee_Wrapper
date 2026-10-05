@@ -4,8 +4,12 @@ import { currentUser } from "@/lib/auth";
 import { visibleSims } from "@/lib/sims";
 import { updateSimAction, addSimAction, grantPreviewAction } from "@/app/sim-actions";
 import LogoutButton from "@/components/LogoutButton";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Simulations" };
+
 const field = { padding: ".45rem .6rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function SimCatalogue({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -15,7 +19,7 @@ export default async function SimCatalogue({ searchParams }: { searchParams: Pro
   if (user!.systemRole !== "admin") redirect("/?error=" + encodeURIComponent("That page is for administrators."));
   const list = await visibleSims(user!.id);
   return (
-    <main className="catalog" style={{ maxWidth: "60rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "60rem" }}>
       <LogoutButton />
       <p className="ui"><Link href="/admin">← Administration</Link></p>
       <h1>Simulations catalogue</h1>

@@ -6,8 +6,12 @@ import { approveUploadAction } from "@/app/library/actions";
 import { STATUS } from "@/lib/library-status";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "A book upload" };
+
 
 export default async function UploadPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
@@ -20,7 +24,7 @@ export default async function UploadPage({ params, searchParams }: { params: Pro
   const working = u!.status === "checking" || u!.status === "publishing";
   const mayApprove = u!.status === "ready" && (await canApprove(user!.id, u!));
   return (
-    <main className="catalog teach-home" style={{ maxWidth: "52rem" }}>
+    <main id="main" className="catalog teach-home" style={{ maxWidth: "52rem" }}>
       {working && <meta httpEquiv="refresh" content="10" />}
       <LogoutButton />
       <div className="back-strip ui">

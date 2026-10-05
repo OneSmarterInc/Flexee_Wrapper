@@ -7,10 +7,12 @@ export default function AssignmentFields({ a }: { a?: { title: string; kind: str
   return (
     <>
       <input name="title" placeholder="Title" defaultValue={a?.title} required style={field} />
-      <select name="kind" defaultValue={a?.kind ?? "assignment"} style={field}>
-        <option value="assignment">Assignment</option>
-        <option value="case_study">Case study</option>
-      </select>
+      <label className="field-stack">Kind
+        <select name="kind" defaultValue={a?.kind ?? "assignment"} style={field}>
+          <option value="assignment">Assignment</option>
+          <option value="case_study">Case study</option>
+        </select>
+      </label>
       <textarea name="instructions" placeholder="Instructions for students" defaultValue={a?.instructions} rows={6} style={field} />
       <label>Due <input type="datetime-local" name="due" defaultValue={toLocalInput(a?.dueAt ?? null)} style={field} />
         <span style={{ color: "var(--muted)", marginLeft: ".4rem" }}>({APP_TZ.replace("_", " ")} time)</span></label>

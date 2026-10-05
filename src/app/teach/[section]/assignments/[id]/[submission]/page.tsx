@@ -5,8 +5,13 @@ import { submissionForFaculty } from "@/lib/assignments";
 import { formatLocal } from "@/lib/time";
 import { gradeAction, reopenAction } from "@/app/assignment-actions";
 import LogoutButton from "@/components/LogoutButton";
+import { classPageTitle } from "@/lib/page-title";
 
 export const dynamic = "force-dynamic";
+
+export const generateMetadata = ({ params }: { params: Promise<{ section: string }> }) =>
+  classPageTitle("A submission", params);
+
 const field = { padding: ".5rem .65rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
 export default async function GradePage({ params, searchParams }: { params: Promise<{ section: string; id: string; submission: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -17,7 +22,7 @@ export default async function GradePage({ params, searchParams }: { params: Prom
   if (!v || v.assignment.id !== id || v.assignment.sectionId !== section) redirect(`/teach/${section}/assignments/${id}`);
   const { assignment: a, submission: s, student, files } = v!;
   return (
-    <main className="catalog" style={{ maxWidth: "52rem" }}>
+    <main id="main" className="catalog" style={{ maxWidth: "52rem" }}>
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}/assignments/${id}`}>← {a.title}</Link></p>
       <h1>{student}</h1>

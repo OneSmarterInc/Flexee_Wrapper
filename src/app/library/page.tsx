@@ -7,8 +7,12 @@ import UploadForm from "@/app/library/UploadForm";
 import { STATUS } from "@/lib/library-status";
 import BackButton from "@/components/BackButton";
 import WorkspaceShell from "@/components/WorkspaceShell";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Book library" };
+
 
 export default async function Library() {
   const user = await currentUser();

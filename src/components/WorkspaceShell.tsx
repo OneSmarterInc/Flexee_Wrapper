@@ -32,7 +32,7 @@ export default function WorkspaceShell({ active, isAdmin, canTeach, displayName,
           <Link href="/account">Account settings</Link>
         </div>
       </aside>
-      <main className="catalog workspace-main">
+      <main id="main" className="catalog workspace-main">
         <div className="workspace-topline ui">{active === "admin" ? "Administration" : active === "faculty" ? "Faculty" : "Student"} workspace</div>
         {children}
       </main>

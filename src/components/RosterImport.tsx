@@ -65,7 +65,7 @@ export default function RosterImport({ sectionId }: { sectionId: string }) {
 
   return (
     <div className="ui" style={{ display: "grid", gap: "1rem" }}>
-      <input type="file" accept=".csv,text/csv" onChange={onFile} />
+      <label className="field-stack">A CSV with the students’ email addresses<input type="file" accept=".csv,text/csv" onChange={onFile} /></label>
       {headers.length > 0 && (
         <>
           <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
