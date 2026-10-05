@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { enrolments, sections, bookmarks } from "@/db/schema";
 
@@ -7,13 +7,37 @@ import { enrolments, sections, bookmarks } from "@/db/schema";
 // Faculty can always open their class's book (to prepare it); a student only once the class's
 // faculty have published it. Every book page goes through here.
 export async function enrolmentForBook(userId: string, bookId: string) {
+  // Spec 19: a withdrawn enrolment grants nothing. This is the gate nine student pages share, so
+  // excluding it here is what makes withdrawal mean something — and a page added later gets the
+  // safe answer without having to remember. The two pages a withdrawn student may still see ask
+  // through `enrolmentForBookAnyState` instead.
   const rows = await db()
     .select({ id: enrolments.id, role: enrolments.role, sectionId: sections.id, publishedAt: sections.bookPublishedAt })
     .from(enrolments)
     .innerJoin(sections, eq(sections.id, enrolments.sectionId))
-    .where(and(eq(enrolments.userId, userId), eq(sections.bookId, bookId)));
+    .where(and(eq(enrolments.userId, userId), eq(sections.bookId, bookId), isNull(enrolments.withdrawnAt)));
   const pick = rows.find((r) => r.role === "instructor") ?? rows.find((r) => r.role !== "instructor" && r.publishedAt);
   return pick ? { id: pick.id, role: pick.role, sectionId: pick.sectionId } : null;
+}
+
+/**
+ * The same lookup, withdrawal and all, for the two places a withdrawn student is still shown
+ * something (decisions 1 and 2): the course home page, which tells them where they stand, and
+ * their own grades page, which stays readable.
+ */
+export async function enrolmentForBookAnyState(userId: string, bookId: string) {
+  const rows = await db()
+    .select({ id: enrolments.id, role: enrolments.role, sectionId: sections.id,
+              publishedAt: sections.bookPublishedAt, withdrawnAt: enrolments.withdrawnAt })
+    .from(enrolments)
+    .innerJoin(sections, eq(sections.id, enrolments.sectionId))
+    .where(and(eq(enrolments.userId, userId), eq(sections.bookId, bookId)));
+  const pick = rows.find((r) => r.role === "instructor")
+    ?? rows.find((r) => r.role !== "instructor" && r.publishedAt)
+    ?? rows.find((r) => r.withdrawnAt != null);
+  return pick
+    ? { id: pick.id, role: pick.role, sectionId: pick.sectionId, withdrawnAt: pick.withdrawnAt ?? null }
+    : null;
 }
 
 export async function userEnrolments(userId: string) {
@@ -28,11 +52,13 @@ export async function userEnrolments(userId: string) {
 export async function userClasses(userId: string) {
   const rows = await db()
     .select({ sectionId: sections.id, name: sections.name, term: sections.term, bookId: sections.bookId,
-              role: enrolments.role, publishedAt: sections.bookPublishedAt })
+              role: enrolments.role, publishedAt: sections.bookPublishedAt, withdrawnAt: enrolments.withdrawnAt })
     .from(enrolments)
     .innerJoin(sections, eq(sections.id, enrolments.sectionId))
     .where(eq(enrolments.userId, userId));
-  return rows.map((r) => ({ ...r, published: !!r.publishedAt, canOpen: r.role === "instructor" || !!r.publishedAt }))
+  // A withdrawn class is still listed — being told nothing would be worse — but it cannot be opened.
+  return rows.map((r) => ({ ...r, published: !!r.publishedAt, withdrawn: r.withdrawnAt != null,
+                            canOpen: r.withdrawnAt == null && (r.role === "instructor" || !!r.publishedAt) }))
     .sort((a, b) => (b.term ?? "").localeCompare(a.term ?? "") || a.name.localeCompare(b.name));
 }
 
@@ -43,7 +69,7 @@ export async function userClasses(userId: string) {
  */
 export async function firstStudentSection(userId: string) {
   const r = await db().select({ sectionId: enrolments.sectionId }).from(enrolments)
-    .where(and(eq(enrolments.userId, userId), eq(enrolments.role, "student"))).limit(1);
+    .where(and(eq(enrolments.userId, userId), eq(enrolments.role, "student"), isNull(enrolments.withdrawnAt))).limit(1);
   return r[0]?.sectionId ?? null;
 }
 

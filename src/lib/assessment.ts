@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, desc, not } from "drizzle-orm";
+import { and, eq, inArray, desc, not, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { questions, exams, examAttempts, examResponses, enrolments, users, identities, sections } from "@/db/schema";
 import { countedScore, type CountedAttempt } from "@/lib/grading";
@@ -246,7 +246,8 @@ export async function examResults(examId: string) {
     // Spec 18: a class average and an item analysis are about the class. Before this they counted
     // every enrolment with an attempt, so an instructor's own run through the exam was already in
     // both figures; the demo account would have been too.
-    .where(and(eq(examAttempts.examId, examId), eq(enrolments.role, "student"), not(enrolments.isDemo)));
+    .where(and(eq(examAttempts.examId, examId), eq(enrolments.role, "student"), not(enrolments.isDemo),
+               isNull(enrolments.withdrawnAt)));   // Spec 19
   const submitted = attempts.filter((a) => a.submittedAt);
   const attemptIds = submitted.map((a) => a.id);
   const responses = attemptIds.length ? await db().select().from(examResponses).where(inArray(examResponses.attemptId, attemptIds)) : [];

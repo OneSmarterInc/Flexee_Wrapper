@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { enrolmentForBook } from "@/lib/enrolment";
+import { enrolmentForBookAnyState } from "@/lib/enrolment";
 import { gradesForStudent } from "@/lib/gradebook";
 import { show } from "@/lib/grading";
 import { formatLocal } from "@/lib/time";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import { WITHDRAWN_NOTICE } from "@/lib/withdraw";
 
 export const dynamic = "force-dynamic";
 const cell = { border: "1px solid var(--rule)", padding: ".45rem .7rem", textAlign: "left" } as const;
@@ -16,7 +17,7 @@ export default async function MyGrades({ params }: { params: Promise<{ book: str
   const { book } = await params;
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/${book}/grades`)}`);
-  const enr = await enrolmentForBook(user!.id, book);
+  const enr = await enrolmentForBookAnyState(user!.id, book);
   if (!enr) redirect(`/?need=${book}`);
   if (enr!.role === "instructor") redirect(`/teach/${enr!.sectionId}/gradebook`);
   // a student's own enrolment only — never another student's
@@ -27,6 +28,7 @@ export default async function MyGrades({ params }: { params: Promise<{ book: str
       <LogoutButton />
       <div className="back-strip ui"><BackButton fallbackHref={`/${book}`} /><Link className="nav-button ghost" href={`/${book}`}>Course home</Link></div>
       <h1>My grades</h1>
+      {enr!.withdrawnAt && <p className="ui" role="status">{WITHDRAWN_NOTICE}</p>}
 
       {!g || (g.graded.length === 0 && g.participation.length === 0) ? (
         <p className="ui" style={{ color: "var(--muted)" }}>Nothing has been graded yet. Your grade appears here as work is marked.</p>

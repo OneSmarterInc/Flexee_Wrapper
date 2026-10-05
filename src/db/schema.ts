@@ -101,11 +101,16 @@ export const enrolments = pgTable(
     // see the student view, so it is never emailed and never counted in a class statistic — but it
     // stays in the grade export, so the file still matches D2L's own row.
     isDemo: boolean("is_demo").notNull().default(false),
+    // Spec 19: withdrawal. Null means active. Every record hanging off this enrolment stays; what
+    // goes is access to the class and presence in every count, export and bulk action.
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+    withdrawnBy: text("withdrawn_by").references((): any => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex("enrolments_section_user_uq").on(t.sectionId, t.userId),
     index("enrolments_section_demo_idx").on(t.sectionId, t.isDemo),
+    index("enrolments_section_withdrawn_idx").on(t.sectionId, t.withdrawnAt),
   ],
 );
 

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, lt } from "drizzle-orm";
+import { and, count, eq, isNotNull, lt } from "drizzle-orm";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   generateKeyPair, exportJWK, exportPKCS8, importPKCS8, importJWK,
@@ -229,7 +229,13 @@ export async function pushSectionGrades(sectionId: string) {
   if (!platform) throw new Error("Platform not found");
 
   const { gradebook } = await import("@/lib/gradebook");
+  // Spec 19 decision 4: gradebook() leaves withdrawn students out, so the push does too. The
+  // count is reported, because silently pushing fewer grades than there are students would look
+  // like a fault rather than a decision.
   const { items, students } = await gradebook(sectionId);
+  const withdrawn = Number((await db().select({ c: count() }).from(enrolments)
+    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"),
+               isNotNull(enrolments.withdrawnAt))))[0]?.c ?? 0);
 
   // enrolment -> LMS user sub (from the stored lti identity, de-namespaced)
   const roster = await db().select({ enrolmentId: enrolments.id, subject: identities.subject })
@@ -248,7 +254,7 @@ export async function pushSectionGrades(sectionId: string) {
       pushed++;
     }
   }
-  return { pushed, skipped };
+  return { pushed, skipped, withdrawn };
 }
 
 export async function sectionHasLtiLink(sectionId: string) {

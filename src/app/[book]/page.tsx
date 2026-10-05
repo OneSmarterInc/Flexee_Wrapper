@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getBook, getEntry } from "@/lib/content";
 import { currentUser } from "@/lib/auth";
-import { enrolmentForBook, getBookmark } from "@/lib/enrolment";
+import { enrolmentForBookAnyState, getBookmark } from "@/lib/enrolment";
+import { WITHDRAWN_NOTICE } from "@/lib/withdraw";
 import { listAnnouncements, upcoming, getSyllabus } from "@/lib/course";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
@@ -15,8 +16,11 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
   const { book } = await params;
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent("/" + book)}`);
-  const enr = await enrolmentForBook(user!.id, book);
+  // Spec 19 decisions 1 and 2: a withdrawn student still sees this page, with the line, rather
+  // than a redirect that reads like a fault.
+  const enr = await enrolmentForBookAnyState(user!.id, book);
   if (!enr) redirect(`/?need=${book}`);
+  const withdrawn = enr.withdrawnAt != null;
 
   const manifest = await getBook(book);
   const bm = await getBookmark(enr.id, book);
@@ -25,6 +29,17 @@ export default async function CourseHome({ params }: { params: Promise<{ book: s
   const resumeHref = `/${book}/${entry}${bm?.sectionAnchor ? `#${bm.sectionAnchor}` : ""}`;
 
   const [ann, due, syl, panel] = await Promise.all([listAnnouncements(enr.sectionId), upcoming(enr.sectionId, 5), getSyllabus(enr.sectionId), panelFor(user!.id, book)]);
+  if (withdrawn) {
+    return (
+      <main className="catalog course-home" style={{ maxWidth: "44rem" }}>
+        <LogoutButton />
+        <p className="ui"><Link href="/student">← My classes</Link></p>
+        <h1>{manifest.title}</h1>
+        <p className="ui" role="status">{WITHDRAWN_NOTICE}</p>
+        <p className="ui"><Link className="nav-button secondary" href={`/${book}/grades`}>My grades</Link></p>
+      </main>
+    );
+  }
 
   return (
     <main className="catalog course-home" style={{ maxWidth: "44rem" }}>

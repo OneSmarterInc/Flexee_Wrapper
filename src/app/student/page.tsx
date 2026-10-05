@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { listBooks } from "@/lib/content";
 import { currentUser } from "@/lib/auth";
 import { userClasses } from "@/lib/enrolment";
+import { WITHDRAWN_NOTICE } from "@/lib/withdraw";
 import { enrollByCodeAction } from "@/app/actions";
 import WorkspaceShell from "@/components/WorkspaceShell";
 
@@ -45,9 +46,12 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           <div className="workspace-actions">
             {classes.map((c) => (
               <div key={c.sectionId} className="workspace-action course-workspace-card">
-                <span className={`workspace-status${c.canOpen ? "" : " waiting"}`}>{c.canOpen ? "Book available" : "Book not published"}</span>
+                <span className={`workspace-status${c.canOpen ? "" : " waiting"}`}>{c.withdrawn ? "No longer enrolled" : c.canOpen ? "Book available" : "Book not published"}</span>
                 <strong style={{ marginTop: ".7rem" }}>{c.name}</strong>
                 <span>{titles.get(c.bookId) ?? c.bookId}{c.term ? ` · ${c.term}` : ""} · {c.role === "instructor" ? "Faculty" : "Student"}</span>
+                {c.withdrawn ? (
+                  <p className="ui" style={{ color: "var(--muted)", marginTop: ".6rem" }}>{WITHDRAWN_NOTICE}</p>
+                ) : (
                 <div className="button-row ui">
                   {c.canOpen ? (
                     <>
@@ -60,6 +64,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
                   ) : <p className="ui" style={{ color: "var(--muted)", margin: 0 }}>Your class&apos;s book will appear after it is published.</p>}
                   {c.role === "instructor" && <Link className="nav-button ghost" href={`/teach/${c.sectionId}`}>Manage teaching</Link>}
                 </div>
+                )}
               </div>
             ))}
           </div>

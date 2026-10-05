@@ -364,7 +364,7 @@ export async function pushGradesAction(formData: FormData) {
   const sectionId = clean(formData.get("sectionId"));
   if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
   const { pushSectionGrades } = await import("@/lib/lti");
-  try { const r = await pushSectionGrades(sectionId); redirect(`/teach/${sectionId}/gradebook?pushed=${r.pushed}&skipped=${r.skipped}`); }
+  try { const r = await pushSectionGrades(sectionId); redirect(`/teach/${sectionId}/gradebook?pushed=${r.pushed}&skipped=${r.skipped}&withdrawn=${r.withdrawn}`); }
   catch (e: any) { if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e; redirect(`/teach/${sectionId}/gradebook?push_error=${encodeURIComponent(e.message)}`); }
 }
 
@@ -604,4 +604,22 @@ export async function replyToQuestionAction(formData: FormData) {
     } catch { /* never breaks the reply */ }
   }
   redirect(`/teach/${sectionId}/assistant?ok=${encodeURIComponent("Reply sent.")}`);
+}
+
+// --- Spec 19: withdraw and restore, from the class list ---
+
+export async function withdrawStudentAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  const enrolmentId = clean(formData.get("enrolmentId"));
+  const restore = formData.get("restore") === "1";
+  if (!user) redirect("/login");
+  const { withdrawStudents, restoreStudents } = await import("@/lib/withdraw");
+  const r = restore
+    ? await restoreStudents(user!.id, sectionId, [enrolmentId])
+    : await withdrawStudents(user!.id, sectionId, [enrolmentId]);
+  const q = r.ok
+    ? `ok=${encodeURIComponent(restore ? "Restored." : "Withdrawn. Their work is kept.")}`
+    : `error=${encodeURIComponent(r.error)}`;
+  redirect(`/teach/${sectionId}?${q}#roster`);
 }

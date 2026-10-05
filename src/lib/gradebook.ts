@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { lineItems, lineItemScores, exams, examAttempts, enrolments, users, identities, gradingCategories, letterScales, simCompletions, sims } from "@/db/schema";
 import {
@@ -59,6 +59,7 @@ async function simCompletionsFor(simId: string, sectionId: string): Promise<Map<
       eq(enrolments.userId, simCompletions.userId),
       eq(enrolments.sectionId, sectionId),
       eq(enrolments.role, "student"),      // a faculty or preview completion never scores
+      isNull(enrolments.withdrawnAt),      // Spec 19: nor a withdrawn student's
     ))
     .where(and(eq(simCompletions.simId, simId), eq(simCompletions.sectionId, sectionId)))
     .orderBy(simCompletions.createdAt);
@@ -107,12 +108,15 @@ export const isParticipation = (it: { kind: string; scoreRule: string | null }) 
 export type Cell = { points: number | null; max: number; completedAt?: Date | null };
 export type CategoryResult = { id: string; name: string; weight: number; dropLowest: number; pct: number | null };
 
-export async function gradebook(sectionId: string) {
+export async function gradebook(sectionId: string, opts: { includeWithdrawn?: boolean } = {}) {
   const items = await listLineItems(sectionId);
-  const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject, d2lUsername: users.d2lUsername, isDemo: enrolments.isDemo })
+  // Spec 19: a withdrawn student is out of the gradebook and therefore out of all five exports,
+  // unless the faculty page asks to see them.
+  const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject, d2lUsername: users.d2lUsername, isDemo: enrolments.isDemo, withdrawnAt: enrolments.withdrawnAt })
     .from(enrolments).innerJoin(users, eq(users.id, enrolments.userId))
     .leftJoin(identities, and(eq(identities.userId, users.id), eq(identities.provider, "password")))
-    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")));
+    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"),
+               ...(opts.includeWithdrawn ? [] : [isNull(enrolments.withdrawnAt)])));
 
   const [categories, bands] = await Promise.all([categoriesFor(sectionId), letterBandsFor(sectionId)]);
   const categorised = categories.length > 0;
@@ -179,7 +183,10 @@ export async function gradebook(sectionId: string) {
  * student sees is the same arithmetic their faculty see — never a second implementation.
  */
 export async function gradesForStudent(sectionId: string, enrolmentId: string) {
-  const { items, students, categories, bands, categorised } = await gradebook(sectionId);
+  // Spec 19 decision 2: a withdrawn student keeps a read-only grades page, so their own row has to
+  // be here. Every total is computed per student, so including them changes nothing for anybody
+  // else — the class's figures are the ones that exclude them, and those are elsewhere.
+  const { items, students, categories, bands, categorised } = await gradebook(sectionId, { includeWithdrawn: true });
   const mine = students.find((s) => s.enrolmentId === enrolmentId);
   if (!mine) return null;
   // Spec 12: participation columns are reported apart from graded work — they carry no mark and

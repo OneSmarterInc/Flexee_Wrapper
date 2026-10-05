@@ -131,11 +131,13 @@ export async function classCompletions(userId: string, sectionId: string) {
   if (!(await ownedSection(userId, sectionId))) return null;
   // Spec 18: a list, so a demo's play is shown rather than hidden — labelled, because faculty use
   // this page to check the sim works and should see their own run.
-  const rows = await db().select({ c: simCompletions, name: users.displayName, isDemo: enrolments.isDemo }).from(simCompletions)
+  const rows = await db().select({ c: simCompletions, name: users.displayName, isDemo: enrolments.isDemo, withdrawnAt: enrolments.withdrawnAt }).from(simCompletions)
     .innerJoin(users, eq(users.id, simCompletions.userId))
     .leftJoin(enrolments, and(eq(enrolments.userId, simCompletions.userId), eq(enrolments.sectionId, sectionId)))
     .where(eq(simCompletions.sectionId, sectionId)).orderBy(desc(simCompletions.createdAt));
-  return rows.map((r) => ({ ...r.c, name: r.name, isDemo: r.isDemo === true, metrics: parse(r.c.metrics) }));
+  // A list, so a withdrawn student's play is shown and labelled rather than vanishing.
+  return rows.map((r) => ({ ...r.c, name: r.name, isDemo: r.isDemo === true,
+                            withdrawn: r.withdrawnAt != null, metrics: parse(r.c.metrics) }));
 }
 
 // ---- launch (Wrapper -> sim) ---------------------------------------------------------------------
@@ -151,6 +153,8 @@ export async function prepareLaunch(userId: string, simId: string, sectionId: st
     if (!(await visibleSims(userId)).some((x) => x.id === simId)) return fail("That simulation is not available to you.", 403);
     role = s.published && attached ? "faculty" : "faculty_preview";
   } else if (enr?.role === "student") {
+    // Spec 19: a withdrawn student has no access to the class, and that includes its simulations.
+    if (enr.withdrawnAt) return fail("You are no longer enrolled in this class.", 403);
     if (!attached || !s.published) return fail("That simulation is not open in your class.", 403);
     const sec = (await db().select({ p: sections.bookPublishedAt }).from(sections).where(eq(sections.id, sectionId)).limit(1))[0];
     if (!sec) return fail("That class no longer exists.", 404);

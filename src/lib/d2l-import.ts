@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, not, or } from "drizzle-orm";
+import { and, eq, inArray, not, or, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import type { DbOrTx } from "@/db";
 import { users, identities, enrolments } from "@/db/schema";
@@ -40,6 +40,8 @@ export type RowPlan = ParsedRow & {
   hasPassword?: boolean;
   /** Something faculty should see about this row before confirming. */
   warning?: string;
+  /** Spec 19: this person was withdrawn from the class, and an import does not undo that. */
+  withdrawn?: boolean;
 };
 
 export type Preview = {
@@ -48,7 +50,7 @@ export type Preview = {
   problems: ClassList["problems"];
   counts: {
     willCreate: number; haveAccounts: number; alreadyInClass: number;
-    skipped: number; problems: number; demo: number; willEmail: number;
+    skipped: number; problems: number; demo: number; withdrawn: number; willEmail: number;
   };
   /** Students on the class who are not in this file. Listed, never removed. */
   missing: { name: string; email: string | null }[];
@@ -85,7 +87,8 @@ async function candidates(list: ClassList, x: DbOrTx = db()) {
  * Decide what each row means, without writing anything. The preview and the commit both go
  * through this, so what faculty are shown is what happens.
  */
-function planRows(list: ClassList, found: Awaited<ReturnType<typeof candidates>>, enrolled: Set<string>) {
+function planRows(list: ClassList, found: Awaited<ReturnType<typeof candidates>>, enrolled: Set<string>,
+                  withdrawn: Set<string> = new Set()) {
   const rows: RowPlan[] = [];
   const problems = [...list.problems];
   for (const r of list.students) {
@@ -109,6 +112,7 @@ function planRows(list: ClassList, found: Awaited<ReturnType<typeof candidates>>
       : undefined;
     rows.push({
       ...r, plan,
+      ...(m && withdrawn.has(m.userId) ? { withdrawn: true } : {}),
       ...(m ? { matchedBy: byU ? "username" as const : "email" as const, hasPassword: m.hasPassword } : {}),
       ...(emailOnFile ? { emailOnFile } : {}),
       ...(clash ? { warning: clash } : {}),
@@ -123,14 +127,16 @@ function planRows(list: ClassList, found: Awaited<ReturnType<typeof candidates>>
  * belong to nobody and the one on file is not ours to guess at; and an account that already has a
  * password needs no invitation.
  */
-export const wouldEmail = (r: RowPlan) => !r.demo && !r.emailOnFile && !r.hasPassword;
+export const wouldEmail = (r: RowPlan) => !r.demo && !r.emailOnFile && !r.hasPassword && !r.withdrawn;
 
 /** Nothing is written here. */
 export async function previewImport(sectionId: string, list: ClassList): Promise<Preview> {
   const found = await candidates(list);
-  const enrolled = new Set((await db().select({ userId: enrolments.userId }).from(enrolments)
-    .where(eq(enrolments.sectionId, sectionId))).map((e) => e.userId));
-  const { rows, problems } = planRows(list, found, enrolled);
+  const enrolRows = await db().select({ userId: enrolments.userId, withdrawnAt: enrolments.withdrawnAt })
+    .from(enrolments).where(eq(enrolments.sectionId, sectionId));
+  const enrolled = new Set(enrolRows.map((e) => e.userId));
+  const withdrawn = new Set(enrolRows.filter((e) => e.withdrawnAt != null).map((e) => e.userId));
+  const { rows, problems } = planRows(list, found, enrolled, withdrawn);
 
   const inFile = new Set(list.students.map((r) => r.email));
   const roster = await db().select({ name: users.displayName, email: identities.subject })
@@ -151,6 +157,7 @@ export async function previewImport(sectionId: string, list: ClassList): Promise
       skipped: list.others.length,
       problems: problems.length,
       demo: rows.filter((r) => r.demo).length,
+      withdrawn: rows.filter((r) => r.withdrawn).length,
       willEmail: rows.filter(wouldEmail).length,
     },
     missing,
@@ -167,6 +174,8 @@ export type CommitResult = {
   notSent: { email: string; reason: string }[];
   skippedUsernames: number;
   emailDiffers: number;
+  /** Rows the import left withdrawn (decision 3). Restoring is a deliberate act. */
+  withdrawn: number;
   problems: ClassList["problems"];
 };
 
@@ -186,21 +195,25 @@ export async function commitImport(
 ): Promise<CommitResult> {
   const out: CommitResult = {
     created: 0, enrolled: 0, alreadyInClass: 0, demo: 0, invited: 0,
-    notSent: [], skippedUsernames: 0, emailDiffers: 0, problems: [],
+    notSent: [], skippedUsernames: 0, emailDiffers: 0, withdrawn: 0, problems: [],
   };
   const invite: { userId: string; email: string }[] = [];
 
   await db().transaction(async (tx) => {
     const found = await candidates(list, tx);
-    const enrolled = new Set((await tx.select({ userId: enrolments.userId }).from(enrolments)
-      .where(eq(enrolments.sectionId, sectionId))).map((e) => e.userId));
-    const { rows, problems } = planRows(list, found, enrolled);
+    const enrolRows = await tx.select({ userId: enrolments.userId, withdrawnAt: enrolments.withdrawnAt })
+      .from(enrolments).where(eq(enrolments.sectionId, sectionId));
+    const enrolled = new Set(enrolRows.map((e) => e.userId));
+    // Spec 19 decision 3: a re-import leaves a withdrawal standing and reports it.
+    const withdrawn = new Set(enrolRows.filter((e) => e.withdrawnAt != null).map((e) => e.userId));
+    const { rows, problems } = planRows(list, found, enrolled, withdrawn);
     out.problems = problems;
 
     for (const r of rows) {
       const m = r.matchedBy === "username" ? found.byUsername.get(r.userName) : found.byEmail.get(r.email);
       if (r.demo) out.demo++;
       if (r.emailOnFile) out.emailDiffers++;
+      if (r.withdrawn) out.withdrawn++;
       // The username goes on the account unless another account already holds it — the index is
       // unique, and a clash is a roster problem to report, not a reason to lose the student.
       const owner = found.byUsername.get(r.userName);
@@ -259,7 +272,8 @@ export async function notSetUp(sectionId: string) {
   const rows = await db().select({ userId: enrolments.userId, email: identities.subject, hash: identities.passwordHash })
     .from(enrolments)
     .innerJoin(identities, and(eq(identities.userId, enrolments.userId), eq(identities.provider, "password")))
-    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"), not(enrolments.isDemo)));
+    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"), not(enrolments.isDemo),
+               isNull(enrolments.withdrawnAt)));   // Spec 19: a withdrawn student waits for nothing
   return rows.filter((r) => r.hash == null && r.email).map((r) => ({ userId: r.userId, email: r.email }));
 }
 

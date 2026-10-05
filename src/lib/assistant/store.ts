@@ -268,7 +268,10 @@ export async function studentEnrolmentForBook(userId: string, bookId: string) {
     id: enrolments.id, sectionId: sections.id, publishedAt: sections.bookPublishedAt,
   }).from(enrolments)
     .innerJoin(sections, eq(sections.id, enrolments.sectionId))
-    .where(and(eq(enrolments.userId, userId), eq(sections.bookId, bookId), eq(enrolments.role, "student")))
+    // Spec 19 decision 2: a withdrawn student cannot use the assistant. They keep their grades
+    // page; they do not keep the thing that reads the book to them.
+    .where(and(eq(enrolments.userId, userId), eq(sections.bookId, bookId), eq(enrolments.role, "student"),
+               isNull(enrolments.withdrawnAt)))
     .limit(1))[0];
   return r ?? null;
 }

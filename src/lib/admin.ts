@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, sql, count } from "drizzle-orm";
+import { and, eq, sql, count, isNull, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users, identities, sections, enrolments, rosterInvites } from "@/db/schema";
 
@@ -26,9 +26,13 @@ export async function setAdminByEmail(email: string, admin = true) {
 /** Every class, newest term first, with its instructors' names and head counts. */
 export async function allClasses() {
   const secs = await db().select().from(sections);
+  // Spec 19: a withdrawn student is not one of the class's students, here either.
   const counts = await db()
     .select({ sectionId: enrolments.sectionId, role: enrolments.role, n: count() })
-    .from(enrolments).groupBy(enrolments.sectionId, enrolments.role);
+    .from(enrolments).where(isNull(enrolments.withdrawnAt)).groupBy(enrolments.sectionId, enrolments.role);
+  const withdrawnCounts = await db()
+    .select({ sectionId: enrolments.sectionId, n: count() })
+    .from(enrolments).where(isNotNull(enrolments.withdrawnAt)).groupBy(enrolments.sectionId);
   const invites = await db()
     .select({ sectionId: rosterInvites.sectionId, n: count() })
     .from(rosterInvites).groupBy(rosterInvites.sectionId);
@@ -42,6 +46,7 @@ export async function allClasses() {
     bookPublished: !!s.bookPublishedAt,
     instructors: faculty.filter((f) => f.sectionId === s.id).map((f) => f.name),
     students: byRole(s.id, "student"),
+    withdrawn: Number(withdrawnCounts.find((w) => w.sectionId === s.id)?.n ?? 0),
     pendingInvites: Number(invites.find((i) => i.sectionId === s.id)?.n ?? 0),
   })).sort((a, b) => (b.term.localeCompare(a.term)) || a.name.localeCompare(b.name));
 }

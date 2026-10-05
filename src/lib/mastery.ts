@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, not } from "drizzle-orm";
+import { and, eq, inArray, not, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { learningObjectives, questions, exams, examAttempts, examResponses, enrolments, users, identities, sectionOutcomes, outcomeObjectiveMap, sections } from "@/db/schema";
 
@@ -24,6 +24,7 @@ export async function sectionResponses(sectionId: string, opts: { includeDemo?: 
     .innerJoin(enrolments, eq(enrolments.id, examAttempts.enrolmentId))
     .where(and(inArray(examAttempts.examId, examRows.map((e) => e.id)),
                eq(enrolments.role, "student"),
+               isNull(enrolments.withdrawnAt),     // Spec 19
                ...(opts.includeDemo ? [] : [not(enrolments.isDemo)])));
   const submitted = attempts.filter((a) => a); // all; unsubmitted have no responses
   if (!submitted.length) return [];
@@ -59,7 +60,7 @@ export async function studentMastery(sectionId: string, bookId: string) {
   const roster = await db().select({ enrolmentId: enrolments.id, name: users.displayName, email: identities.subject, role: enrolments.role, isDemo: enrolments.isDemo })
     .from(enrolments).innerJoin(users, eq(users.id, enrolments.userId))
     .leftJoin(identities, and(eq(identities.userId, users.id), eq(identities.provider, "password")))
-    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")));
+    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"), isNull(enrolments.withdrawnAt)));
   const cell = new Map<string, { served: number; correct: number }>();
   for (const r of rows) { if (!r.objectiveId) continue; const k = `${r.enrolmentId}:${r.objectiveId}`; const a = cell.get(k) ?? { served: 0, correct: 0 }; a.served++; if (r.correct) a.correct++; cell.set(k, a); }
   const students = roster.filter((s) => rows.some((r) => r.enrolmentId === s.enrolmentId)).map((s) => ({

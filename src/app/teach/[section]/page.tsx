@@ -4,7 +4,7 @@ import { currentUser } from "@/lib/auth";
 import { ownedSection, sectionRoster, pendingInvites } from "@/lib/roster";
 import { sectionContentStatus } from "@/lib/versions";
 import { sectionHasNrps } from "@/lib/lti";
-import { syncRosterAction, sendInviteAction, sendAllInvitesAction, copyInviteLinkAction } from "@/app/actions";
+import { syncRosterAction, sendInviteAction, sendAllInvitesAction, copyInviteLinkAction, withdrawStudentAction } from "@/app/actions";
 import RemoveStudent from "@/components/RemoveStudent";
 import { REMOVE_PHRASE, actionsFor, describeAction } from "@/lib/class-actions";
 import { inviteStatesFor, type InviteState } from "@/lib/recovery";
@@ -18,6 +18,7 @@ import WorkspaceShell from "@/components/WorkspaceShell";
 export const dynamic = "force-dynamic";
 const cell = { borderBottom: "1px solid var(--rule)", padding: ".65rem .7rem", textAlign: "left" } as const;
 const linkBtn = { border: "none", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit", padding: 0 } as const;
+const stateTag = { marginLeft: ".4rem", padding: ".05rem .35rem", border: "1px solid var(--rule)", borderRadius: "4px", fontSize: ".7rem", color: "var(--muted)" } as const;
 const rosterBtn = { padding: ".35rem .8rem", border: "1px solid var(--link)", borderRadius: "6px", background: "transparent", color: "var(--link)", cursor: "pointer", font: "inherit" } as const;
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -35,7 +36,7 @@ function inviteLabel(s: InviteState | undefined) {
   }
 }
 
-export default async function SectionDashboard({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ synced?: string; seen?: string; sync_error?: string; invite_link?: string; ok?: string; error?: string }> }) {
+export default async function SectionDashboard({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ synced?: string; seen?: string; sync_error?: string; invite_link?: string; ok?: string; error?: string; show_withdrawn?: string }> }) {
   const { section } = await params;
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}`)}`);
@@ -44,14 +45,19 @@ export default async function SectionDashboard({ params, searchParams }: { param
   const [book, roster, invites, content, hasNrps, sp] = await Promise.all([getBook(sec.bookId), sectionRoster(section), pendingInvites(section), sectionContentStatus(section, sec.bookId), sectionHasNrps(section), searchParams]);
   const [bookState, library, inviteStates] = await Promise.all([classBookState(section), listBooks(), inviteStatesFor(section)]);
   const updates = content.filter((c) => c.hasUpdate).length;
-  const students = roster.filter((r) => r.role === "student");
+  const showWithdrawn = sp.show_withdrawn === "1";
+  const allStudents = roster.filter((r) => r.role === "student");
+  const withdrawnCount = allStudents.filter((r) => r.withdrawnAt != null).length;
+  // Spec 19: withdrawn students are out of the list, and out of every count on this page, until
+  // the toggle asks for them.
+  const students = showWithdrawn ? allStudents : allStudents.filter((r) => r.withdrawnAt == null);
   const instructors = roster.filter((r) => r.role === "instructor");
   // Spec 18: a demo is not one of the class's students for counting purposes, and is never part
   // of a bulk resend. It is still listed, labelled "Demo".
   const isDemo = (userId: string) => inviteStates.get(userId)?.state === "demo";
-  const demoCount = students.filter((r) => isDemo(r.userId)).length;
-  const realStudents = students.length - demoCount;
-  const notSetUp = students.filter((r) => !isDemo(r.userId) && inviteStates.get(r.userId)?.state !== "set up").length;
+  const demoCount = students.filter((r) => isDemo(r.userId) && r.withdrawnAt == null).length;
+  const realStudents = students.filter((r) => r.withdrawnAt == null).length - demoCount;
+  const notSetUp = students.filter((r) => r.withdrawnAt == null && !isDemo(r.userId) && inviteStates.get(r.userId)?.state !== "set up").length;
   const log = await actionsFor(section, 10);
 
   return (
@@ -135,7 +141,13 @@ export default async function SectionDashboard({ params, searchParams }: { param
           </form>
         )}
       </div>
-      <p className="ui" style={{ color: "var(--muted)" }}>{realStudents} student{realStudents === 1 ? "" : "s"}{demoCount ? ` · ${demoCount} demo` : ""} · {instructors.length} instructor{instructors.length === 1 ? "" : "s"}{invites.length ? ` · ${invites.length} invited` : ""}</p>
+      <p className="ui" style={{ color: "var(--muted)" }}>{realStudents} student{realStudents === 1 ? "" : "s"}{demoCount ? ` · ${demoCount} demo` : ""} · {instructors.length} instructor{instructors.length === 1 ? "" : "s"}{invites.length ? ` · ${invites.length} invited` : ""}
+        {withdrawnCount > 0 && (
+          <> · <Link href={`/teach/${section}${showWithdrawn ? "" : "?show_withdrawn=1"}#roster`}>
+            {showWithdrawn ? "hide" : "show"} {withdrawnCount} withdrawn
+          </Link></>
+        )}
+      </p>
       <table className="ui" style={{ width: "100%", borderCollapse: "collapse", fontSize: ".9rem" }}>
         <thead><tr><th style={cell}>Name</th><th style={cell}>Email</th><th style={cell}>Role</th><th style={cell}>Account</th><th style={cell}></th></tr></thead>
         <tbody>
@@ -149,12 +161,13 @@ export default async function SectionDashboard({ params, searchParams }: { param
             </tr>
           ))}
           {students.map((r) => (
-            <tr key={r.enrolmentId}>
-              <td style={cell}>{r.name}</td><td style={cell}>{r.email}</td><td style={cell}>student</td>
-              <td style={cell}>{inviteLabel(inviteStates.get(r.userId))}</td>
+            <tr key={r.enrolmentId} style={r.withdrawnAt ? { color: "var(--muted)" } : undefined}>
+              <td style={cell}>{r.name}{r.withdrawnAt && <span style={stateTag}>Withdrawn</span>}</td>
+              <td style={cell}>{r.email}</td><td style={cell}>student</td>
+              <td style={cell}>{r.withdrawnAt ? `Withdrawn ${r.withdrawnAt.toISOString().slice(0, 10)}` : inviteLabel(inviteStates.get(r.userId))}</td>
               <td style={cell}>
                 <div style={{ display: "flex", gap: ".8rem", flexWrap: "wrap" }}>
-                  {!isDemo(r.userId) && (
+                  {!isDemo(r.userId) && r.withdrawnAt == null && (
                     <form action={sendInviteAction}>
                       <input type="hidden" name="sectionId" value={section} />
                       <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
@@ -165,6 +178,12 @@ export default async function SectionDashboard({ params, searchParams }: { param
                     <input type="hidden" name="sectionId" value={section} />
                     <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
                     <button type="submit" style={linkBtn}>Copy link</button>
+                  </form>
+                  <form action={withdrawStudentAction}>
+                    <input type="hidden" name="sectionId" value={section} />
+                    <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
+                    <input type="hidden" name="restore" value={r.withdrawnAt ? "1" : "0"} />
+                    <button type="submit" style={linkBtn}>{r.withdrawnAt ? "Restore" : "Withdraw"}</button>
                   </form>
                   <RemoveStudent sectionId={section} enrolmentId={r.enrolmentId}
                     name={r.name} role="student" phrase={REMOVE_PHRASE} back={`/teach/${section}#roster`} />

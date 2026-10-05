@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, not } from "drizzle-orm";
+import { and, asc, eq, inArray, not, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { assignments, assignmentFiles, submissions, submissionFiles, enrolments, users, lineItems, lineItemScores } from "@/db/schema";
 import { ownedSection } from "@/lib/roster";
@@ -107,7 +107,8 @@ export async function classAssignments(userId: string, sectionId: string) {
   const subs = list.length ? await db().select({ a: submissions.assignmentId, s: submissions.status }).from(submissions)
     .innerJoin(enrolments, eq(enrolments.id, submissions.enrolmentId))
     .where(and(inArray(submissions.assignmentId, list.map((x) => x.id)),
-               eq(enrolments.role, "student"), not(enrolments.isDemo))) : [];
+               eq(enrolments.role, "student"), not(enrolments.isDemo),
+               isNull(enrolments.withdrawnAt))) : [];   // Spec 19
   return list.map((a) => ({ ...a,
     submitted: subs.filter((s) => s.a === a.id).length,
     graded: subs.filter((s) => s.a === a.id && s.s === "graded").length }));
@@ -119,7 +120,8 @@ export async function assignmentForFaculty(userId: string, id: string) {
   const files = await db().select().from(assignmentFiles).where(eq(assignmentFiles.assignmentId, id)).orderBy(asc(assignmentFiles.createdAt));
   // The submission list is a list: the demo stays in it, labelled.
   const students = await db().select({ enrolmentId: enrolments.id, name: users.displayName, isDemo: enrolments.isDemo }).from(enrolments)
-    .innerJoin(users, eq(users.id, enrolments.userId)).where(and(eq(enrolments.sectionId, a.sectionId), eq(enrolments.role, "student")));
+    .innerJoin(users, eq(users.id, enrolments.userId))
+    .where(and(eq(enrolments.sectionId, a.sectionId), eq(enrolments.role, "student"), isNull(enrolments.withdrawnAt)));
   const subs = await db().select().from(submissions).where(eq(submissions.assignmentId, id));
   const rows = students.map((s) => ({ ...s, submission: subs.find((x) => x.enrolmentId === s.enrolmentId) ?? null }))
     .sort((x, y) => x.name.localeCompare(y.name));

@@ -18,13 +18,14 @@ const cell = { border: "1px solid var(--rule)", padding: ".4rem .55rem", textAli
 const num = { ...cell, textAlign: "right", fontVariantNumeric: "tabular-nums" } as const;
 const field = { padding: ".3rem .4rem", border: "1px solid var(--rule)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "4rem" } as const;
 
-export default async function Gradebook({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ pushed?: string; skipped?: string; push_error?: string; grading_ok?: string; grading_error?: string }> }) {
+export default async function Gradebook({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ pushed?: string; skipped?: string; withdrawn?: string; push_error?: string; grading_ok?: string; grading_error?: string; show_withdrawn?: string }> }) {
   const { section } = await params;
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}/gradebook`)}`);
   const sec = await ownedSection(user!.id, section);
   if (!sec) redirect("/teach");
-  const { items, students, categories, bands, categorised } = await gradebook(section);
+  const showWithdrawn = (await searchParams).show_withdrawn === "1";
+  const { items, students, categories, bands, categorised } = await gradebook(section, { includeWithdrawn: showWithdrawn });
   const [ltiLinked, spx] = await Promise.all([sectionHasLtiLink(section), searchParams]);
   // Spec 17: a row D2L cannot match, flagged where the export is.
   const noD2lKey = students.filter((s) => !d2lKey(s)).length;
@@ -69,7 +70,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                 {students.length === 0 && <tr><td style={cell} colSpan={items.length + 2 + (categorised ? categories.length + 1 : 0)}>No students enrolled yet.</td></tr>}
                 {students.map((s) => (
                   <tr key={s.enrolmentId}>
-                    <td style={cell}>{s.name}{s.isDemo && <span style={demoTag}>Demo</span>}<div style={{ color: "var(--muted)", fontSize: ".78rem" }}>{s.email}</div></td>
+                    <td style={cell}>{s.name}{s.isDemo && <span style={demoTag}>Demo</span>}{s.withdrawnAt && <span style={demoTag}>Withdrawn</span>}<div style={{ color: "var(--muted)", fontSize: ".78rem" }}>{s.email}</div></td>
                     {items.map((it) => {
                       const c = s.cells[it.id];
                       if (isParticipation(it)) return (
@@ -221,6 +222,13 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
         <button type="submit" style={{ ...field, width: "auto", cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Add</button>
       </form>
 
+      <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>
+        <Link href={`/teach/${section}/gradebook${showWithdrawn ? "" : "?show_withdrawn=1"}`}>
+          {showWithdrawn ? "Hide withdrawn students" : "Show withdrawn students"}
+        </Link>
+        {showWithdrawn ? " — withdrawn students are shown here but are left out of every export." : ""}
+      </p>
+
       <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Export</h2>
       <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>
         Download a CSV to import into your LMS. Confirm the exact shape against your institution's importer.
@@ -241,7 +249,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
       {ltiLinked && (
         <>
           <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Push grades to the LMS</h2>
-          {spx.pushed && <p className="ui" style={{ color: "#2a7d3f" }}>Pushed {spx.pushed} score(s){spx.skipped && Number(spx.skipped) > 0 ? `, skipped ${spx.skipped} (no score or no LMS user)` : ""}.</p>}
+          {spx.pushed && <p className="ui" style={{ color: "#2a7d3f" }}>Pushed {spx.pushed} score(s){spx.skipped && Number(spx.skipped) > 0 ? `, skipped ${spx.skipped} (no score or no LMS user)` : ""}{spx.withdrawn && Number(spx.withdrawn) > 0 ? `, and ${spx.withdrawn} withdrawn student(s) were left out` : ""}.</p>}
           {spx.push_error && <p className="ui" style={{ color: "#b4451f" }}>{spx.push_error}</p>}
           <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>This section is linked to an LMS via LTI. Push creates a line item per column and sends each student's points.</p>
           <form action={pushGradesAction}><input type="hidden" name="sectionId" value={section} /><button type="submit" style={{ padding: ".55rem 1rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Push grades to LMS</button></form>

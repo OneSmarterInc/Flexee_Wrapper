@@ -55,6 +55,10 @@ export async function sectionRoster(sectionId: string) {
       enrolmentId: enrolments.id, role: enrolments.role, userId: enrolments.userId,
       name: users.displayName, email: identities.subject,
       d2lUsername: users.d2lUsername,
+      // Spec 19: the class list keeps withdrawn rows and hides them behind a toggle, so the
+      // roster reports the state rather than filtering it.
+      withdrawnAt: enrolments.withdrawnAt,
+      isDemo: enrolments.isDemo,
     })
     .from(enrolments)
     .innerJoin(users, eq(users.id, enrolments.userId))
@@ -105,8 +109,12 @@ export async function removeEnrolment(sectionId: string, enrolmentId: string) {
 export async function enrollByCode(userId: string, joinCode: string) {
   const sec = (await db().select().from(sections).where(eq(sections.joinCode, joinCode.toUpperCase().trim())).limit(1))[0];
   if (!sec) return null;
+  // `onConflictDoNothing` already leaves a withdrawal standing (decision 3): joining again with
+  // the code does not undo being withdrawn, and the caller reports it.
   await db().insert(enrolments).values({ sectionId: sec.id, userId }).onConflictDoNothing();
-  return sec;
+  const row = (await db().select({ withdrawnAt: enrolments.withdrawnAt }).from(enrolments)
+    .where(and(eq(enrolments.sectionId, sec.id), eq(enrolments.userId, userId))).limit(1))[0];
+  return { ...sec, withdrawn: row?.withdrawnAt != null };
 }
 
 // Enrol (or re-role) a user in a class. Faculty are never demoted by a later student list:
@@ -117,6 +125,9 @@ export async function enrollByCode(userId: string, joinCode: string) {
 export async function enrolAs(sectionId: string, userId: string, role: ClassRole,
                               opts: { tx?: DbOrTx; isDemo?: boolean } = {}) {
   const x = opts.tx ?? db();
+  // Spec 19 decision 3: `withdrawn_at` is deliberately NOT in the update set. A re-import, a join
+  // by code and an LTI roster sync all leave a withdrawal standing — restoring someone is an act a
+  // member of staff takes on purpose, not a side effect of a sync running overnight.
   await x.insert(enrolments).values({ sectionId, userId, role, isDemo: opts.isDemo ?? false })
     .onConflictDoUpdate({
       target: [enrolments.sectionId, enrolments.userId],

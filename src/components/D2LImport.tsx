@@ -5,7 +5,7 @@ import { confirmLabel, emailSentence, nothingToWrite } from "@/lib/d2l";
 type Row = {
   line: number; name: string; userName: string; orgDefinedId: string; role: string; email: string;
   plan: "create" | "enrol existing" | "already in class";
-  demo: boolean; matchedBy?: "username" | "email"; emailOnFile?: string; hasPassword?: boolean;
+  demo: boolean; withdrawn?: boolean; matchedBy?: "username" | "email"; emailOnFile?: string; hasPassword?: boolean;
   note?: string; warning?: string;
 };
 type Preview = {
@@ -14,7 +14,7 @@ type Preview = {
   problems: { line: number; reason: string; detail?: string }[];
   counts: {
     willCreate: number; haveAccounts: number; alreadyInClass: number;
-    skipped: number; problems: number; demo: number; willEmail: number;
+    skipped: number; problems: number; demo: number; withdrawn: number; willEmail: number;
   };
   missing: { name: string; email: string | null }[];
   domain: string;
@@ -69,6 +69,7 @@ export default function D2LImport({ sectionId }: { sectionId: string }) {
         `${r.alreadyInClass} already in the class`,
       ];
       if (r.demo) bits.push(`${r.demo} demo account${r.demo === 1 ? "" : "s"} (never emailed)`);
+      if (r.withdrawn) bits.push(`${r.withdrawn} withdrawn earlier and left withdrawn — restore from the class list`);
       if (r.emailDiffers) bits.push(`${r.emailDiffers} matched by D2L username with a different email on file (not invited)`);
       if (r.skippedUsernames) bits.push(`${r.skippedUsernames} D2L username${r.skippedUsernames === 1 ? "" : "s"} not stored (already in use)`);
       if (r.problems?.length) bits.push(`${r.problems.length} problem row${r.problems.length === 1 ? "" : "s"} skipped`);
@@ -149,6 +150,7 @@ export default function D2LImport({ sectionId }: { sectionId: string }) {
                     <td style={{ ...cell, color: "var(--muted)" }}>{r.orgDefinedId || "—"} (ignored)</td>
                     <td style={cell}>
                       {r.demo ? "demo account: created, never emailed" : r.plan}
+                      {r.withdrawn && <div style={{ ...muted, color: "#b4451f" }}>withdrawn earlier — restore from the class list</div>}
                       {r.emailOnFile && <div style={muted}>existing account, email on file differs ({r.emailOnFile}) — enrolled, not invited</div>}
                       {!r.demo && !r.emailOnFile && r.matchedBy === "username" && <div style={muted}>matched by D2L username</div>}
                     </td>
