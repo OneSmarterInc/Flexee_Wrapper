@@ -118,7 +118,7 @@ export default function D2LImport({ sectionId }: { sectionId: string }) {
               ? " The demo account is never emailed."
               : " Every student in this class has set a password, or is the demo account."}
           </p>
-          <button onClick={emailInvitations} disabled={busy || emailStep.count === 0} style={primary}>
+          <button onClick={emailInvitations} disabled={busy || emailStep.count === 0} className="nav-button primary">
             Email {emailStep.count} invitation{emailStep.count === 1 ? "" : "s"} now
           </button>
         </div>
@@ -181,7 +181,7 @@ export default function D2LImport({ sectionId }: { sectionId: string }) {
           )}
 
           <div>
-            <button onClick={createAccounts} disabled={busy || nothingToDo} style={nothingToDo ? disabled : primary}>
+            <button onClick={createAccounts} disabled={busy || nothingToDo} className="nav-button primary">
               {planLabel}
             </button>
             <p style={{ ...muted, marginTop: ".5rem" }}>
@@ -201,5 +201,3 @@ const muted = { color: "var(--muted)", fontSize: ".78rem" } as const;
 const tag = { marginLeft: ".4rem", padding: ".05rem .35rem", border: "1px solid var(--rule)", borderRadius: "4px", fontSize: ".7rem", color: "var(--muted)" } as const;
 const h3 = { font: "inherit", fontWeight: 600, margin: "0 0 .3rem" } as const;
 const list = { margin: 0, paddingLeft: "1.2rem", color: "var(--muted)", fontSize: ".85rem" } as const;
-const primary = { padding: ".55rem 1rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" } as const;
-const disabled = { ...primary, background: "var(--rule)", color: "var(--muted)", cursor: "not-allowed" } as const;

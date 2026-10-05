@@ -23,7 +23,7 @@ export default async function Syllabus({ params, searchParams }: { params: Promi
       <form action={setSyllabusAction} className="ui" style={{ display: "grid", gap: ".6rem" }}>
         <input type="hidden" name="sectionId" value={section} />
         <textarea name="content" rows={18} defaultValue={syl?.content ?? ""} placeholder="Course syllabus — policies, grading, schedule overview…" style={{ padding: ".7rem", border: "1px solid var(--rule)", borderRadius: "8px", background: "var(--panel)", color: "var(--ink)", font: "inherit", lineHeight: 1.5 }} />
-        <button type="submit" style={{ padding: ".6rem 1rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit", width: "fit-content" }}>Save syllabus</button>
+        <button type="submit" className="nav-button primary">Save syllabus</button>
       </form>
     </main>
   );

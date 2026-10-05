@@ -50,7 +50,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ section
         <input type="hidden" name="sectionId" value={section} />
         <input type="hidden" name="entryId" value={entry} />
         <input type="hidden" name="versionId" value={latest.id} />
-        <button type="submit" className="ui" style={{ padding: ".6rem 1rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>
+        <button type="submit" className="ui nav-button primary">
           Publish v{latest.version} to this section
         </button>
       </form>

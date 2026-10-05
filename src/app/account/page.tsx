@@ -6,7 +6,6 @@ import { changeEmailAction, resendVerifyAction } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
 export const dynamic = "force-dynamic";
 const field = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
-const btn = { padding: ".6rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" } as const;
 
 export default async function Account({ searchParams }: { searchParams: Promise<{ sent?: string; error?: string; verified?: string }> }) {
   const user = await currentUser();
@@ -38,7 +37,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
       <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>If you signed up with a typo, correct it here &mdash; we&apos;ll send a new confirmation.</p>
       <form action={changeEmailAction} className="ui" style={{ display: "flex", gap: ".5rem" }}>
         <input name="email" type="email" placeholder="New email" required style={{ ...field, flex: 1 }} />
-        <button type="submit" style={btn}>Update</button>
+        <button type="submit" className="nav-button primary">Update</button>
       </form>
     </main>
   );

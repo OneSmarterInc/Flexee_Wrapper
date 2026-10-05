@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { verifyDeepLinkState } from "@/lib/lti";
 import { listBooks } from "@/lib/content";
 export const dynamic = "force-dynamic";
-const btn = { padding: ".4rem .9rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" } as const;
 
 export default async function DeepLinkSelect() {
   const dl = (await cookies()).get("lti_dl")?.value;
@@ -19,7 +18,7 @@ export default async function DeepLinkSelect() {
           <div><div className="t">{b.title}</div><div className="s">{b.subtitle ?? ""}</div></div>
           <form action="/api/lti/deeplink/return" method="post">
             <input type="hidden" name="book" value={b.id} />
-            <button type="submit" style={btn}>Add this book</button>
+            <button type="submit" className="nav-button primary">Add this book</button>
           </form>
         </div>
       ))}

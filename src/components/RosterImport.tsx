@@ -88,7 +88,7 @@ export default function RosterImport({ sectionId }: { sectionId: string }) {
             </table>
           </div>
           <button onClick={commit} disabled={busy || valid.length === 0}
-            style={{ padding: ".55rem 1rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit", width: "fit-content" }}>
+            className="nav-button primary">
             {busy ? "Adding…" : `Add ${valid.length} to the roster`}
           </button>
           {result && <p style={{ color: "var(--navy)" }}>{result}</p>}

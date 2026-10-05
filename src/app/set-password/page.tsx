@@ -2,7 +2,6 @@ import Link from "next/link";
 import { setPasswordAction } from "@/app/actions";
 export const dynamic = "force-dynamic";
 const field = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
-const btn = { padding: ".6rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" } as const;
 
 // Where a set-your-password invitation lands. The same page reports an expired or already-used
 // link, and points at Forgot password, which is the remedy the invitation email names.
@@ -26,7 +25,7 @@ export default async function SetPassword({ searchParams }: { searchParams: Prom
           <form action={setPasswordAction} className="ui" style={{ display: "grid", gap: ".7rem" }}>
             <input type="hidden" name="token" value={sp.token ?? ""} />
             <input name="password" type="password" placeholder="New password (8+ characters)" required minLength={8} style={field} />
-            <button type="submit" style={btn}>Set password and sign in</button>
+            <button type="submit" className="nav-button primary">Set password and sign in</button>
           </form>
         </>
       )}

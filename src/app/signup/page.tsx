@@ -32,7 +32,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <input name="name" placeholder="Your name" required style={fieldStyle} />
         <input name="email" type="email" placeholder="Email" required style={fieldStyle} />
         <input name="password" type="password" placeholder="Password (8+ characters)" required minLength={8} style={fieldStyle} />
-        <button type="submit" style={btnStyle}>Create account</button>
+        <button type="submit" className="nav-button primary">Create account</button>
       </form>
       <p className="ui" style={{ color: "var(--muted)", marginTop: "1rem" }}>
         Already have an account? <Link href="/login">Sign in</Link>
@@ -41,4 +41,3 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   );
 }
 const fieldStyle = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
-const btnStyle = { padding: ".6rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" } as const;

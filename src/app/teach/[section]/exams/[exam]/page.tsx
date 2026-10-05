@@ -65,7 +65,7 @@ export default async function ExamResults({ params, searchParams }: { params: Pr
             {COUNTED_ATTEMPT_RULES.map((r) => <option key={r} value={r}>{COUNTED_ATTEMPT_LABELS[r]}</option>)}
           </select>
         </label>
-        <button type="submit" style={{ padding: ".5rem .9rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Save</button>
+        <button type="submit" className="nav-button primary">Save</button>
       </form>
       <p className="ui" style={{ color: "var(--muted)", fontSize: ".82rem" }}>
         Changing which attempt counts recomputes the gradebook from the attempts already on record — no attempt is ever deleted.

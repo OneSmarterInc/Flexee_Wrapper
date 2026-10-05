@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <input type="hidden" name="next" value={sp.next ?? "/"} />
         <input name="email" type="email" placeholder="Email" required style={fieldStyle} />
         <input name="password" type="password" placeholder="Password" required style={fieldStyle} />
-        <button type="submit" style={btnStyle}>Sign in</button>
+        <button type="submit" className="nav-button primary">Sign in</button>
       </form>
       <p className="ui" style={{ color: "var(--muted)", marginTop: "1rem" }}>
         New here? <Link href="/signup">Create an account</Link> · <Link href="/forgot">Forgot password?</Link>
@@ -25,4 +25,3 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   );
 }
 const fieldStyle = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
-const btnStyle = { padding: ".6rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" } as const;

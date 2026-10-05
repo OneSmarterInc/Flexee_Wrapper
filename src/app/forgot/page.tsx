@@ -2,7 +2,6 @@ import Link from "next/link";
 import { forgotAction } from "@/app/actions";
 export const dynamic = "force-dynamic";
 const field = { padding: ".6rem .7rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
-const btn = { padding: ".6rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" } as const;
 
 export default async function Forgot({ searchParams }: { searchParams: Promise<{ sent?: string }> }) {
   const sp = await searchParams;
@@ -14,7 +13,7 @@ export default async function Forgot({ searchParams }: { searchParams: Promise<{
       ) : (
         <form action={forgotAction} className="ui" style={{ display: "grid", gap: ".7rem" }}>
           <input name="email" type="email" placeholder="Your email" required style={field} />
-          <button type="submit" style={btn}>Send reset link</button>
+          <button type="submit" className="nav-button primary">Send reset link</button>
         </form>
       )}
       <p className="ui" style={{ color: "var(--muted)", marginTop: "1rem" }}><Link href="/login">Back to sign in</Link></p>

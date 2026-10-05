@@ -34,7 +34,7 @@ export default async function Aol({ params }: { params: Promise<{ section: strin
         <label>Exceeds at %<br /><input name="exceedsPct" type="number" defaultValue={settings.exceedsPct} style={{ ...field, width: "5rem" }} /></label>
         <label>Target share %<br /><input name="targetPct" type="number" defaultValue={settings.targetPct} style={{ ...field, width: "5rem" }} /></label>
         <label>Minimum n<br /><input name="minN" type="number" defaultValue={settings.minN} style={{ ...field, width: "4.5rem" }} /></label>
-        <button type="submit" style={{ ...field, background: "var(--navy)", color: "#fff", border: "none", cursor: "pointer" }}>Save</button>
+        <button type="submit" className="nav-button primary">Save</button>
       </form>
 
       <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Mapping</h2>

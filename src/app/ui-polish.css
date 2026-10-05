@@ -563,7 +563,18 @@
 .fx-dialog-error { color: #b4451f; }
 .fx-dialog-actions { display: flex; gap: .7rem; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap; }
 .nav-button.danger { background: #b4451f; color: #fff; border: none; }
-.nav-button.danger:disabled { background: var(--rule); color: var(--muted); cursor: not-allowed; }
+/* One disabled look for every button, whichever variant it is. Named for each variant so it wins
+   on specificity rather than on the order of the file. */
+.nav-button:disabled,
+.nav-button.primary:disabled,
+.nav-button.secondary:disabled,
+.nav-button.danger:disabled {
+  background: var(--rule);
+  border-color: var(--rule);
+  color: var(--muted);
+  cursor: not-allowed;
+  transform: none;
+}
 
 /* --- Spec 19: the selectable class list -------------------------------------------------------- */
 .roster-bar {

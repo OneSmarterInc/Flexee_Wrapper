@@ -26,7 +26,7 @@ export default async function Schedule({ params }: { params: Promise<{ section: 
         <input name="title" placeholder="Item (e.g. Read Chapter 3)" required style={{ ...field, flex: "2 1 14rem" }} />
         <input name="dueAt" type="datetime-local" style={field} title="Due date/time" />
         <select name="kind" style={field}><option value="">type…</option><option>reading</option><option>exam</option><option>assignment</option><option>other</option></select>
-        <button type="submit" style={{ ...field, cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Add</button>
+        <button type="submit" className="nav-button primary">Add</button>
       </form>
       {items.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>Nothing scheduled yet.</p>}
       {items.length > 0 && (

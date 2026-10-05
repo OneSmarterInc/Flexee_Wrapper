@@ -24,7 +24,7 @@ export default async function Announcements({ params }: { params: Promise<{ sect
         <input type="hidden" name="sectionId" value={section} />
         <input name="title" placeholder="Title" required style={field} />
         <textarea name="body" placeholder="Message to the class" required rows={3} style={field} />
-        <button type="submit" style={{ ...field, width: "fit-content", cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Post</button>
+        <button type="submit" className="nav-button primary">Post</button>
       </form>
       {items.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>No announcements yet.</p>}
       {items.map((a) => (

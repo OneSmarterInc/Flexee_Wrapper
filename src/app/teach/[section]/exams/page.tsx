@@ -79,7 +79,7 @@ export default async function Exams({ params }: { params: Promise<{ section: str
             <option value="quiz">Quiz</option>
           </select>
         </div>
-        <button type="submit" style={{ ...field, cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Create (draft)</button>
+        <button type="submit" className="nav-button primary">Create (draft)</button>
       </form>
       <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem", marginTop: ".6rem" }}>
         A draw serves a random selection per student. Create as a draft, then open it when the class is ready.

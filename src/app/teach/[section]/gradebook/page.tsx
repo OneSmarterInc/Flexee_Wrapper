@@ -65,7 +65,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                     ? <span style={{ color: "var(--muted)" }}>—</span>
                     : <input name={`weight_${it.id}`} defaultValue={it.weight} style={field} type="number" min={0} step="0.5" />}</th>)}
                   {categorised && categories.map((c) => <th key={c.id} style={num} />)}
-                  <th style={num}><button type="submit" style={{ ...field, width: "auto", cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Save</button></th>
+                  <th style={num}><button type="submit" className="nav-button primary">Save</button></th>
                   {categorised && <th style={num} />}
                 </tr>
               </thead>
@@ -119,7 +119,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
           </p>
           <form action={applyStarterCategoriesAction}>
             <input type="hidden" name="sectionId" value={section} />
-            <button type="submit" style={{ padding: ".55rem 1rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>
+            <button type="submit" className="nav-button primary">
               Set up grading categories
             </button>
           </form>
@@ -162,7 +162,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                 </tr>
               </tfoot>
             </table>
-            <button type="submit" style={{ padding: ".5rem .9rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Save categories</button>
+            <button type="submit" className="nav-button primary">Save categories</button>
           </form>
 
           {items.length > 0 && (
@@ -187,7 +187,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                     ))}
                   </tbody>
                 </table>
-                <button type="submit" style={{ padding: ".5rem .9rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Save assignments</button>
+                <button type="submit" className="nav-button primary">Save assignments</button>
               </form>
               <p className="ui" style={{ color: "var(--muted)", fontSize: ".8rem" }}>A column in no category does not count towards the course grade.</p>
             </>
@@ -203,7 +203,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                 <input name={`band_min_${i}`} type="number" min={0} max={100} step="0.1" defaultValue={b.min} style={{ ...field, width: "4.4rem" }} aria-label="Minimum percentage" />
               </span>
             ))}
-            <button type="submit" style={{ padding: ".5rem .9rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Save scale</button>
+            <button type="submit" className="nav-button primary">Save scale</button>
           </form>
           <form action={setLetterBandsAction} style={{ marginTop: ".4rem" }}>
             <input type="hidden" name="sectionId" value={section} />
@@ -222,7 +222,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
         <input name="title" placeholder="Column title (e.g. Participation)" required style={{ ...field, width: "16rem" }} />
         <input name="maxPoints" type="number" min={1} defaultValue={100} style={field} title="Max points" />
         <input name="weight" type="number" min={0} step="0.5" defaultValue={1} style={field} title="Weight" />
-        <button type="submit" style={{ ...field, width: "auto", cursor: "pointer", background: "var(--navy)", color: "#fff", border: "none" }}>Add</button>
+        <button type="submit" className="nav-button primary">Add</button>
       </form>
 
       <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>
@@ -262,7 +262,7 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
           {spx.pushed && <p className="ui" style={{ color: "#2a7d3f" }}>Pushed {spx.pushed} score(s){spx.skipped && Number(spx.skipped) > 0 ? `, skipped ${spx.skipped} (no score or no LMS user)` : ""}{spx.withdrawn && Number(spx.withdrawn) > 0 ? `, and ${spx.withdrawn} withdrawn student(s) were left out` : ""}.</p>}
           {spx.push_error && <p className="ui" style={{ color: "#b4451f" }}>{spx.push_error}</p>}
           <p className="ui" style={{ color: "var(--muted)", fontSize: ".85rem" }}>This section is linked to an LMS via LTI. Push creates a line item per column and sends each student's points.</p>
-          <form action={pushGradesAction}><input type="hidden" name="sectionId" value={section} /><button type="submit" style={{ padding: ".55rem 1rem", border: "none", borderRadius: "6px", background: "var(--navy)", color: "#fff", cursor: "pointer", font: "inherit" }}>Push grades to LMS</button></form>
+          <form action={pushGradesAction}><input type="hidden" name="sectionId" value={section} /><button type="submit" className="nav-button primary">Push grades to LMS</button></form>
         </>
       )}
     </main>
