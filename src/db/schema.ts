@@ -150,6 +150,10 @@ export const libraryUploads = pgTable(
     message: text("message"),
     publishedBy: text("published_by").references(() => users.id, { onDelete: "set null" }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    // Spec 22 §2 (migration 0024): a record hidden from the list. The row stays, with who and
+    // when, and nothing in storage is touched.
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    dismissedBy: text("dismissed_by").references((): any => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

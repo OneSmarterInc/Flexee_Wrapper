@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { canUpload, listUploads } from "@/lib/library";
+import { canUpload, listUploads, dismissableFor } from "@/lib/library";
 import { libraryShelf, retireCost } from "@/lib/retire";
-import { retireBookAction, restoreBookAction } from "@/app/library/actions";
+import { retireBookAction, restoreBookAction, dismissUploadAction, dismissAllAction } from "@/app/library/actions";
 import UploadForm from "@/app/library/UploadForm";
 import { STATUS } from "@/lib/library-status";
 import BackButton from "@/components/BackButton";
@@ -20,7 +20,10 @@ export default async function Library({ searchParams }: { searchParams: Promise<
   if (!user) redirect("/login?next=/library");
   if (!(await canUpload(user!.id))) redirect("/?error=" + encodeURIComponent("The library is for faculty and administrators."));
   const admin = user!.systemRole === "admin";
-  const [shelf, uploads, sp] = await Promise.all([libraryShelf(), listUploads(), searchParams]);
+  const [shelf, uploads, dismissable, sp] = await Promise.all([
+    libraryShelf(), listUploads(), dismissableFor(user!.id), searchParams,
+  ]);
+  const dismissableIds = new Set(dismissable);
   const live = shelf.filter((s) => !s.retired);
   const retired = shelf.filter((s) => s.retired);
   // The confirmation step. ?retire=<id> renders the count and a pair of buttons, so the count is
@@ -117,16 +120,41 @@ export default async function Library({ searchParams }: { searchParams: Promise<
 
       <section className="workspace-panel ui" id="uploads"><h2>Upload records</h2>
       {uploads.length === 0 && <p className="ui" style={{ color: "var(--muted)" }}>None yet.</p>}
+
+      {/* The count comes from the same rule that will do the hiding, so the sentence and the act
+          cannot disagree (Spec 22 §2). */}
+      {dismissable.length > 0 && (
+        <form action={dismissAllAction} className="ui" style={{ margin: "0 0 .9rem" }}>
+          <input type="hidden" name="count" value={dismissable.length} />
+          <button className="nav-button secondary" type="submit">
+            Dismiss all not added ({dismissable.length})
+          </button>
+          <span style={{ color: "var(--muted)", marginLeft: ".7rem", fontSize: ".88rem" }}>
+            Hides the records. No uploaded file is touched.
+          </span>
+        </form>
+      )}
+
       {uploads.map((u) => {
         const [label, color] = STATUS[u.status] ?? [u.status, "var(--muted)"];
         return (
-          <Link key={u.id} className="book-card section-card" href={`/library/${u.id}`}>
-            <div>
-              <div className="t">{u.bookId} · {u.fileName}</div>
-              <div className="s">{u.uploaderName} · {u.createdAt.toISOString().slice(0, 16).replace("T", " ")}{u.registerVersion ? ` · register ${u.registerVersion}` : ""}</div>
-            </div>
-            <span className="ui" style={{ color }}>{label}</span>
-          </Link>
+          <div key={u.id} className="library-row" style={{ gap: ".6rem" }}>
+            <Link className="book-card section-card" href={`/library/${u.id}`} style={{ flex: 1 }}>
+              <div>
+                <div className="t">{u.bookId} · {u.fileName}</div>
+                <div className="s">{u.uploaderName} · {u.createdAt.toISOString().slice(0, 16).replace("T", " ")}{u.registerVersion ? ` · register ${u.registerVersion}` : ""}</div>
+              </div>
+              <span className="ui" style={{ color }}>{label}</span>
+            </Link>
+            {dismissableIds.has(u.id) && (
+              <form action={dismissUploadAction}>
+                <input type="hidden" name="id" value={u.id} />
+                <button className="nav-button ghost" type="submit">
+                  Dismiss<span className="visually-hidden"> the {u.bookId} record of {u.fileName}</span>
+                </button>
+              </form>
+            )}
+          </div>
         );
       })}
       </section>

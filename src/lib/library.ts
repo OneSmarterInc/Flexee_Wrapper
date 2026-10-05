@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { libraryUploads, enrolments, users } from "@/db/schema";
 import { isAdmin } from "@/lib/admin";
@@ -69,7 +69,62 @@ export async function listUploads(limit = 50) {
     createdAt: libraryUploads.createdAt, publishedAt: libraryUploads.publishedAt, uploadedBy: libraryUploads.uploadedBy,
     uploaderName: users.displayName,
   }).from(libraryUploads).innerJoin(users, eq(users.id, libraryUploads.uploadedBy))
+    .where(isNull(libraryUploads.dismissedAt))
     .orderBy(desc(libraryUploads.createdAt)).limit(limit);
+}
+
+// ---- dismissing a record (Spec 22 §2) --------------------------------------------------------
+
+/**
+ * The statuses a record may be dismissed in: everything short of being in the library.
+ *
+ * A record whose book was added is history — it is the receipt for a book students may be reading
+ * right now — so it is never dismissible (decision 5). `checking` and `publishing` are excluded too,
+ * for a different reason: the intake is still running and about to write to that row.
+ */
+export const DISMISSIBLE: UploadStatus[] = ["failed", "stopped", "ready"];
+
+export function mayDismiss(status: string) {
+  return (DISMISSIBLE as string[]).includes(status);
+}
+
+/** The uploader or any admin (decision 5). */
+export async function canDismiss(userId: string, upload: { uploadedBy: string }) {
+  return upload.uploadedBy === userId || (await isAdmin(userId));
+}
+
+export async function dismissUpload(userId: string, id: string): Promise<Result> {
+  const u = await getUpload(id);
+  if (!u) return { ok: false, error: "That upload record no longer exists." };
+  if (!(await canDismiss(userId, u))) {
+    return { ok: false, error: "Only the person who uploaded it, or an administrator, can dismiss a record." };
+  }
+  if (u.dismissedAt) return { ok: true };                      // already hidden; not an error
+  if (!mayDismiss(u.status)) {
+    return { ok: false, error: u.status === "published"
+      ? "That book is in the library, so its record is kept as history."
+      : "The intake is still running on that upload. Wait for it to finish." };
+  }
+  await db().update(libraryUploads).set({ dismissedAt: new Date(), dismissedBy: userId })
+    .where(eq(libraryUploads.id, id));
+  return { ok: true };
+}
+
+/** How many records a bulk dismiss would hide, counted from the same rule that will hide them. */
+export async function dismissableFor(userId: string) {
+  const admin = await isAdmin(userId);
+  const rows = await db().select({ id: libraryUploads.id, status: libraryUploads.status, uploadedBy: libraryUploads.uploadedBy })
+    .from(libraryUploads).where(isNull(libraryUploads.dismissedAt));
+  return rows.filter((r) => mayDismiss(r.status) && (admin || r.uploadedBy === userId)).map((r) => r.id);
+}
+
+/** Dismiss every record not yet added. The count shown first comes from `dismissableFor`. */
+export async function dismissAllNotAdded(userId: string): Promise<Result & { count?: number }> {
+  const ids = await dismissableFor(userId);
+  if (!ids.length) return { ok: true, count: 0 };
+  await db().update(libraryUploads).set({ dismissedAt: new Date(), dismissedBy: userId })
+    .where(and(inArray(libraryUploads.id, ids), isNull(libraryUploads.dismissedAt)));
+  return { ok: true, count: ids.length };
 }
 
 export async function getUpload(id: string) {

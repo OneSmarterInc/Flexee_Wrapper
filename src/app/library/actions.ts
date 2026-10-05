@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { recordUpload, approveUpload } from "@/lib/library";
+import { recordUpload, approveUpload, dismissUpload, dismissAllNotAdded } from "@/lib/library";
 import { retireBook, restoreBook } from "@/lib/retire";
 
 export async function registerUploadAction(input: { bookId: string; blobPath: string; fileName: string; sizeBytes: number }) {
@@ -41,4 +41,30 @@ export async function restoreBookAction(formData: FormData) {
   redirect(`/library?${r.ok
     ? "ok=" + encodeURIComponent(`${bookId} is back in the library.`)
     : "error=" + encodeURIComponent(r.error)}#books`);
+}
+
+// Spec 22 §2: dismiss a record, or every record not yet added. The uploader or any admin; never a
+// record whose book is in the library.
+export async function dismissUploadAction(formData: FormData) {
+  const id = String(formData.get("id") || "");
+  const user = await currentUser();
+  if (!user) redirect("/login?next=/library");
+  const r = await dismissUpload(user!.id, id);
+  redirect(`/library?${r.ok
+    ? "ok=" + encodeURIComponent("Record dismissed. The uploaded file is untouched.")
+    : "error=" + encodeURIComponent(r.error)}#uploads`);
+}
+
+export async function dismissAllAction(formData: FormData) {
+  const user = await currentUser();
+  if (!user) redirect("/login?next=/library");
+  // The count the page showed is re-counted here from the same rule, so what is hidden is what was
+  // described even if a record changed status in between.
+  const expected = Number(formData.get("count") || 0);
+  const r = await dismissAllNotAdded(user!.id);
+  if (!r.ok) redirect(`/library?error=${encodeURIComponent(r.error)}#uploads`);
+  const n = r.count ?? 0;
+  const note = n === expected ? "" : ` (${expected} when the page was drawn)`;
+  redirect(`/library?ok=${encodeURIComponent(
+    `Dismissed ${n} record${n === 1 ? "" : "s"}${note}. No uploaded file was touched.`)}#uploads`);
 }
