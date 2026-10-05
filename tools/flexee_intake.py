@@ -324,9 +324,39 @@ BRITISH = [r"catalogue", r"modell(?:ing|ed|er|ers)", r"labell(?:ed|ing)", r"canc
            r"centre\w*", r"programme\w*", r"defence", r"analys(?:e|ed|ing)", r"judgement",
            r"(?:organi|recogni|reali|prioriti|minimi|maximi|optimi|standardi|summari|utili|categori|characteri|"
            r"emphasi|finali|normali|authori|customi|formali|generali|initiali|locali|speciali|visuali|synchroni|"
-           r"critici|capitali|moderni|memori|apologi)s(?:e|ed|es|ing|ation|ations)"]
-BRITISH_RE = re.compile(r"\b(?:" + "|".join(BRITISH) + r")\b", re.I)
+           r"critici|capitali|moderni|memori|apologi)s(?:e|ed|es|ing|ation|ations)",
+           # Spec 22 §7, the forms the MIS 3000 scan turned up. Each is British-only: the American
+           # spelling of the same word is not matched, which the suite checks pair by pair.
+           r"fulfil(?!l)\w*",                      # fulfil, fulfilment — not fulfill, fulfillment
+           r"travell(?:ed|ing|er|ers)",            # not traveled, traveling
+           r"totall(?:ed|ing)",                    # not totaling
+           r"practis(?:e|ed|es|ing)",              # American uses practice as noun and verb alike
+           r"harbour\w*", r"labour\w*", r"neighbour\w*",
+           r"fibre\w*", r"theatre\w*", r"cheque\w*"]
+
+# Spec 22 §7: a prefix in front of any of them. The leading \b used to sit immediately before the
+# stem, and there is no word boundary inside "reorganise" or "unauthorised", so every prefixed form
+# was invisible. The group is optional, so an unprefixed word matches exactly as before.
+#
+# The six prefixes are named rather than written \w* for the ordinary reason: a bounded list is one
+# somebody can read and check. Measured over the three books it makes no difference today — none of
+# the stems in the list appears inside a longer word, so \w* finds the same single warning and
+# leaves "research", "undercover" and the rest alone just as this does — but that is a property of
+# the stems that are in the list now, not a guarantee about the next one added to it.
+BRITISH_PREFIX = r"(?:re|un|dis|mis|over|under)?"
+BRITISH_RE = re.compile(r"\b" + BRITISH_PREFIX + r"(?:" + "|".join(BRITISH) + r")\b", re.I)
 NEG_PARALLEL = re.compile(r"[^.!?]*\b(?:is|are|was|isn't|aren't) not\b[^.!?]{0,120}[.!?]\s+(?:It|This|That|They) (?:is|are|'s)\b[^.!?]*[.!?]")
+
+# Spec 22 §7: the phrasing scan skips a figure or table caption and a long description. A caption is
+# written to be read beside a picture, where the shape the scan looks for is often the right way to
+# say it. None of the three books trips the scan on a caption today, so this guards against a false
+# positive rather than removing one.
+CAPTION_LINE = re.compile(r"^\s*(?:>\s*Long description:|\*{0,2}(?:Figure|Table)\s+\d+\.\d+)", re.I)
+
+def prose_only(md):
+    """A chapter's markdown with its images and caption lines taken out, for the phrasing scan."""
+    kept = ["" if CAPTION_LINE.match(l) else l for l in md.split("\n")]
+    return re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", "\n".join(kept))
 SIM_LEAK = re.compile(r"\b(?:MVCFN|food[- ]bank|Studio Pack|hidden spec)\b", re.I)
 
 def sha(b): return hashlib.sha256(b).hexdigest()
@@ -443,7 +473,7 @@ def run(args):
             for pr in probs:
                 where = f"ch{n}" + (f" line {pr['line']}" if pr["line"] else "")
                 cap_warn.append(f"{where}: {pr['message']}")
-        for mt in NEG_PARALLEL.finditer(re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", md)): negpar.append(f"ch{n}: " + re.sub(r"\s+", " ", mt.group(0)).strip()[:140])
+        for mt in NEG_PARALLEL.finditer(prose_only(md)): negpar.append(f"ch{n}: " + re.sub(r"\s+", " ", mt.group(0)).strip()[:140])
         for mt in SIM_LEAK.finditer(md): leaks.append(f"ch{n}: '{mt.group(0)}'")
         alt_warn += figure_alt.alt_problems(md, n)
         th_warn += figure_alt.empty_table_headers(md, n)

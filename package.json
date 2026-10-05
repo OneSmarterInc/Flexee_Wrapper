@@ -49,6 +49,7 @@
     "test:headings": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-headings.ts",
     "test:book-id": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-book-id.ts",
     "test:github-errors": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-github-errors.ts",
+    "test:spelling": "python3 scripts/it_spelling.py",
     "test:reports": "python3 scripts/it_reports.py",
     "test:catalog": "python3 scripts/it_catalog.py",
     "test:dismiss": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-dismiss.ts",
