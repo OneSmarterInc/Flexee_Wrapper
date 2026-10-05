@@ -1,9 +1,9 @@
 import "server-only";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   classActions, enrolments, examAttempts, submissions, lineItemScores, bookmarks,
-  assistantThreads, simCompletions, simLaunches, simTranscripts, identities,
+  assistantThreads, simCompletions, simLaunches, simTranscripts, identities, users, sections,
 } from "@/db/schema";
 import { canManageClass } from "@/lib/publish";
 
@@ -262,4 +262,109 @@ export async function resendTo(
   const skipped = rows.length - sent;
   await logAction(sectionId, actorId, "resend", sent, skipped ? { skipped } : {});
   return { ok: true, sent, skipped, reasons };
+}
+
+// ---------------------------------------------------------------- the two admin deletions (§1)
+
+export type AccountCheck = {
+  canDelete: boolean;
+  reasons: string[];
+  counts: { classes: number; attempts: number; submissions: number; scores: number };
+};
+
+/**
+ * May this account be deleted? (Spec 19 rule 5.)
+ *
+ * Four conditions, all of them about not destroying something that matters: the account never set
+ * a password (so nobody is using it), it holds no work, it belongs to no other class, and it is
+ * neither faculty anywhere nor an administrator. Every failing condition is reported, so an admin
+ * who cannot delete an account learns all the reasons at once rather than one per attempt.
+ */
+export async function accountCheck(userId: string): Promise<AccountCheck> {
+  const reasons: string[] = [];
+  const u = (await db().select({ role: users.systemRole }).from(users).where(eq(users.id, userId)).limit(1))[0];
+  if (!u) return { canDelete: false, reasons: ["There is no such account."], counts: { classes: 0, attempts: 0, submissions: 0, scores: 0 } };
+  if (u.role === "admin") reasons.push("it is an administrator's account");
+
+  const idents = await db().select({ hash: identities.passwordHash, provider: identities.provider })
+    .from(identities).where(eq(identities.userId, userId));
+  if (idents.some((i) => i.provider === "password" && i.hash != null)) reasons.push("someone has set a password on it");
+  if (idents.some((i) => i.provider !== "password")) reasons.push("it signs in through the LMS");
+
+  const enrs = await db().select({ id: enrolments.id, role: enrolments.role }).from(enrolments)
+    .where(eq(enrolments.userId, userId));
+  if (enrs.some((e) => e.role === "instructor")) reasons.push("it teaches a class");
+  const classes = enrs.length;
+  const ids = enrs.map((e) => e.id);
+  const workCount = async (table: typeof examAttempts | typeof submissions | typeof lineItemScores) =>
+    ids.length
+      ? Number((await db().select({ c: count() }).from(table as typeof submissions)
+          .where(inArray((table as typeof submissions).enrolmentId, ids)))[0]?.c ?? 0)
+      : 0;
+  const counts = {
+    classes,
+    attempts: await workCount(examAttempts),
+    submissions: await workCount(submissions),
+    scores: await workCount(lineItemScores),
+  };
+  if (counts.attempts + counts.submissions + counts.scores > 0) reasons.push("it holds work");
+  if (classes > 1) reasons.push("it belongs to more than one class");
+  return { canDelete: reasons.length === 0, reasons, counts };
+}
+
+export type DeleteAccountResult = { ok: true } | { ok: false; error: string; reasons?: string[] };
+
+/**
+ * Delete an account and its dependents. **Admins only**, and only when `accountCheck` allows it.
+ * `sectionId` is the class the admin is working in, so the act can be logged against it.
+ */
+export async function deleteAccount(
+  actorId: string, sectionId: string, userId: string, opts: { confirm?: string } = {},
+): Promise<DeleteAccountResult> {
+  const { isAdmin } = await import("@/lib/admin");
+  if (!(await isAdmin(actorId))) return { ok: false, error: "Only an administrator can delete an account." };
+  if (actorId === userId) return { ok: false, error: "You cannot delete your own account." };
+  const check = await accountCheck(userId);
+  if (!check.canDelete) {
+    return { ok: false, error: `This account cannot be deleted: ${check.reasons.join("; ")}.`, reasons: check.reasons };
+  }
+  const name = (await db().select({ name: users.displayName }).from(users).where(eq(users.id, userId)).limit(1))[0]?.name ?? "";
+  if (opts.confirm?.trim() !== name.trim() || !name) {
+    return { ok: false, error: `Type the account's name exactly — "${name}" — to confirm.` };
+  }
+  // One statement: everything hanging off the account goes with it by cascade.
+  await db().delete(users).where(eq(users.id, userId));
+  await logAction(sectionId, actorId, "delete_account", 1, check.counts);
+  return { ok: true };
+}
+
+export type DeleteClassResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Delete a class. **Admins only**, and refused while any student enrolment exists — a withdrawn one
+ * included, because a withdrawal keeps the records and deleting the class would take them.
+ */
+export async function deleteClass(
+  actorId: string, sectionId: string, opts: { confirm?: string } = {},
+): Promise<DeleteClassResult> {
+  const { isAdmin } = await import("@/lib/admin");
+  if (!(await isAdmin(actorId))) return { ok: false, error: "Only an administrator can delete a class." };
+  const sec = (await db().select({ name: sections.name }).from(sections).where(eq(sections.id, sectionId)).limit(1))[0];
+  if (!sec) return { ok: false, error: "That class no longer exists." };
+  const students = Number((await db().select({ c: count() }).from(enrolments)
+    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"))))[0]?.c ?? 0);
+  if (students > 0) {
+    return {
+      ok: false,
+      error: `This class still has ${students} student enrolment${students === 1 ? "" : "s"}, ` +
+        "withdrawn ones included. Remove them first.",
+    };
+  }
+  if (opts.confirm?.trim() !== sec.name.trim()) {
+    return { ok: false, error: `Type the class's name exactly — "${sec.name}" — to confirm.` };
+  }
+  // The log goes first: the class's rows, this one among them, are about to cascade away.
+  await logAction(sectionId, actorId, "delete_class", 1);
+  await db().delete(sections).where(eq(sections.id, sectionId));
+  return { ok: true };
 }

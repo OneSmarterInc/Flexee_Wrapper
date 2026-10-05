@@ -5,7 +5,7 @@ import { getBook, listBooks } from "@/lib/content";
 import { classById } from "@/lib/admin";
 import { demoUserIds } from "@/lib/d2l-import";
 import { sectionRoster, pendingInvites } from "@/lib/roster";
-import { addPeopleAction, removeInviteAction } from "@/app/admin/actions";
+import { addPeopleAction, removeInviteAction, deleteClassAction, deleteAccountAction } from "@/app/admin/actions";
 import RemoveStudent from "@/components/RemoveStudent";
 import { REMOVE_PHRASE } from "@/lib/class-actions";
 import ClassBookPanel from "@/components/ClassBookPanel";
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 function People({ role, sectionId, people, invites }: {
   role: "instructor" | "student"; sectionId: string;
-  people: { enrolmentId: string; name: string; email: string | null }[];
+  people: { enrolmentId: string; name: string; email: string | null; userId: string }[];
   invites: { id: string; email: string; name: string | null }[];
 }) {
   const faculty = role === "instructor";
@@ -34,8 +34,29 @@ function People({ role, sectionId, people, invites }: {
             {people.map((person) => (
               <tr key={person.enrolmentId}>
                 <td>{person.name}</td><td>{person.email ?? "—"}</td><td><span className="workspace-status">Active</span></td>
-                <td><RemoveStudent sectionId={sectionId} enrolmentId={person.enrolmentId}
-                  name={person.name} role={role} phrase={REMOVE_PHRASE} back={`/admin/${sectionId}`} /></td>
+                <td>
+                  <RemoveStudent sectionId={sectionId} enrolmentId={person.enrolmentId}
+                    name={person.name} role={role} phrase={REMOVE_PHRASE} back={`/admin/${sectionId}`} />
+                  {!faculty && (
+                    <details style={{ marginTop: ".4rem" }}>
+                      <summary style={{ cursor: "pointer", fontSize: ".8rem", color: "var(--muted)" }}>Delete account…</summary>
+                      <p style={{ fontSize: ".78rem", color: "var(--muted)", margin: ".3rem 0" }}>
+                        Only for an account that never set a password, holds no work, and belongs to
+                        no other class. The server checks, and says why if it refuses.
+                      </p>
+                      <form action={deleteAccountAction} style={{ display: "grid", gap: ".3rem" }}>
+                        <input type="hidden" name="sectionId" value={sectionId} />
+                        <input type="hidden" name="userId" value={person.userId} />
+                        <label htmlFor={`del-acc-${person.enrolmentId}`} style={{ fontSize: ".78rem" }}>
+                          Type <code>{person.name}</code> to confirm
+                        </label>
+                        <input id={`del-acc-${person.enrolmentId}`} name="confirm" autoComplete="off" spellCheck={false}
+                          style={{ padding: ".3rem .4rem", border: "1px solid var(--rule)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" }} />
+                        <button type="submit" className="nav-button ghost" style={{ width: "fit-content" }}>Delete the account</button>
+                      </form>
+                    </details>
+                  )}
+                </td>
               </tr>
             ))}
             {invites.map((person) => (
@@ -111,6 +132,27 @@ export default async function AdminClass({ params, searchParams }: {
       </section>
       <People role="instructor" sectionId={sectionId} people={faculty} invites={invited("instructor")} />
       <People role="student" sectionId={sectionId} people={students} invites={invited("student")} />
+      <section className="workspace-panel ui" aria-labelledby="danger-heading">
+        <h2 id="danger-heading">Delete this class</h2>
+        <p>
+          Only an administrator can, and only once no student enrolment is left — withdrawn ones
+          included, because a withdrawal keeps a student's records and deleting the class would
+          take them. {students.length > 0
+            ? `This class still has ${students.length} student enrolment${students.length === 1 ? "" : "s"}.`
+            : "There are none left, so this class can go."}
+        </p>
+        <form action={deleteClassAction} style={{ display: "grid", gap: ".5rem", maxWidth: "26rem" }}>
+          <input type="hidden" name="sectionId" value={sectionId} />
+          <label htmlFor="del-class" style={{ fontSize: ".82rem", color: "var(--muted)" }}>
+            Type the class&apos;s name — <code>{cls.name}</code> — to confirm
+          </label>
+          <input id="del-class" name="confirm" autoComplete="off" spellCheck={false}
+            style={{ padding: ".45rem .5rem", border: "1px solid var(--rule)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" }} />
+          <button type="submit" className="nav-button danger" style={{ width: "fit-content" }}
+            disabled={students.length > 0}>Delete this class</button>
+        </form>
+      </section>
+
       <section className="workspace-panel ui" id="book" aria-labelledby="book-heading">
         <h2 id="book-heading">3. Check and publish the book</h2>
         <p>Faculty can prepare the book before publication. Students see it only after you publish it to this class.</p>

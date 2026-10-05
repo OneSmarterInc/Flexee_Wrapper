@@ -55,3 +55,26 @@ export async function removeInviteAction(formData: FormData) {
   await removeInvite(sectionId, clean(formData.get("inviteId")));
   redirect(msg(`/admin/${sectionId}`, "ok", "Invitation withdrawn."));
 }
+
+// --- Spec 19 §1: the two deletions only an administrator may make ---
+
+export async function deleteAccountAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  const userId = clean(formData.get("userId"));
+  if (!user) redirect("/login");
+  const { deleteAccount } = await import("@/lib/class-actions");
+  const r = await deleteAccount(user!.id, sectionId, userId, { confirm: String(formData.get("confirm") ?? "") });
+  redirect(msg(`/admin/${sectionId}`, r.ok ? "ok" : "error",
+    r.ok ? "Account deleted." : r.error));
+}
+
+export async function deleteClassAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  if (!user) redirect("/login");
+  const { deleteClass } = await import("@/lib/class-actions");
+  const r = await deleteClass(user!.id, sectionId, { confirm: String(formData.get("confirm") ?? "") });
+  if (!r.ok) redirect(msg(`/admin/${sectionId}`, "error", r.error));
+  redirect(msg("/admin", "ok", "Class deleted."));
+}
