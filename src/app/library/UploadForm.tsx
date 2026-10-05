@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { registerUploadAction } from "@/app/library/actions";
+import { displayBookId } from "@/lib/book-id";
 
 const field = { padding: ".55rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
@@ -38,7 +39,7 @@ export default function UploadForm({ books }: { books: { id: string; title: stri
     <form onSubmit={submit} className="ui" style={{ display: "grid", gap: ".6rem", maxWidth: "36rem" }}>
       <label>Which book is this?
         <select value={bookId} onChange={(e) => setBookId(e.target.value)} style={{ ...field, display: "block", marginTop: ".3rem", width: "100%" }}>
-          {books.map((b) => <option key={b.id} value={b.id}>{b.title} ({b.id}) — a new version</option>)}
+          {books.map((b) => <option key={b.id} value={b.id}>{b.title} ({displayBookId(b.id)}) — a new version</option>)}
           <option value="__new">A new book…</option>
         </select>
       </label>

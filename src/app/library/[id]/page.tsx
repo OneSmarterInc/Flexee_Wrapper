@@ -7,6 +7,7 @@ import { STATUS } from "@/lib/library-status";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
 import type { Metadata } from "next";
+import { displayBookId } from "@/lib/book-id";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function UploadPage({ params, searchParams }: { params: Pro
         <Link className="nav-button ghost" href="/library">Library</Link>
       </div>
       <div className="page-kicker ui">Library upload</div>
-      <h1>{u!.bookId}</h1>
+      <h1>{displayBookId(u!.bookId)}</h1>
       <p className="ui">{u!.fileName} · {(u!.sizeBytes / 1e6).toFixed(1)} MB{u!.registerVersion ? ` · register ${u!.registerVersion}` : ""}</p>
       <p className="ui" style={{ color, fontWeight: 600 }}>{label}{working ? " — this page refreshes itself" : ""}</p>
       {sp.ok && <p className="ui" style={{ color: "var(--navy)" }}>{sp.ok}</p>}

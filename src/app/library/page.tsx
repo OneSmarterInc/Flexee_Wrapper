@@ -9,6 +9,7 @@ import { STATUS } from "@/lib/library-status";
 import BackButton from "@/components/BackButton";
 import WorkspaceShell from "@/components/WorkspaceShell";
 import type { Metadata } from "next";
+import { displayBookId } from "@/lib/book-id";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <div className="fx-dialog-actions" style={{ justifyContent: "flex-start" }}>
             <form action={retireBookAction}>
               <input type="hidden" name="bookId" value={asked.book.id} />
-              <button className="nav-button danger" type="submit">Retire {asked.book.id}</button>
+              <button className="nav-button danger" type="submit">Retire {displayBookId(asked.book.id)}</button>
             </form>
             <Link className="nav-button ghost" href="/library#books">Cancel</Link>
           </div>
@@ -73,7 +74,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
         {live.map((s) => (
           <li key={s.book.id} className="library-row" style={{ padding: ".4rem 0", borderBottom: "1px solid var(--rule)" }}>
             <span><strong>{s.book.title}{s.book.subtitle ? `: ${s.book.subtitle}` : ""}</strong>{" "}
-              <span style={{ color: "var(--muted)" }}>({s.book.id})</span>
+              <span style={{ color: "var(--muted)" }}>({displayBookId(s.book.id)})</span>
               {s.classes > 0 && <span style={{ color: "var(--muted)", fontSize: ".85rem" }}> · {s.classes} class{s.classes === 1 ? "" : "es"}</span>}
             </span>
             {admin && (
@@ -96,7 +97,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
         <ul className="ui" style={{ listStyle: "none", padding: 0 }}>
           {retired.map((s) => (
             <li key={s.book.id} className="library-row" style={{ padding: ".4rem 0", borderBottom: "1px solid var(--rule)" }}>
-              <span><strong>{s.book.title}</strong> <span style={{ color: "var(--muted)" }}>({s.book.id})</span>
+              <span><strong>{s.book.title}</strong> <span style={{ color: "var(--muted)" }}>({displayBookId(s.book.id)})</span>
                 <span style={{ color: "var(--muted)", fontSize: ".85rem" }}>
                   {" "}· retired {s.retired!.retiredAt.toISOString().slice(0, 10)}
                   {s.classes > 0 ? ` · ${s.classes} class${s.classes === 1 ? "" : "es"} still using it` : ""}
@@ -141,7 +142,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <div key={u.id} className="library-row" style={{ gap: ".6rem" }}>
             <Link className="book-card section-card" href={`/library/${u.id}`} style={{ flex: 1 }}>
               <div>
-                <div className="t">{u.bookId} · {u.fileName}</div>
+                <div className="t">{displayBookId(u.bookId)} · {u.fileName}</div>
                 <div className="s">{u.uploaderName} · {u.createdAt.toISOString().slice(0, 16).replace("T", " ")}{u.registerVersion ? ` · register ${u.registerVersion}` : ""}</div>
               </div>
               <span className="ui" style={{ color }}>{label}</span>
@@ -150,7 +151,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
               <form action={dismissUploadAction}>
                 <input type="hidden" name="id" value={u.id} />
                 <button className="nav-button ghost" type="submit">
-                  Dismiss<span className="visually-hidden"> the {u.bookId} record of {u.fileName}</span>
+                  Dismiss<span className="visually-hidden"> the {displayBookId(u.bookId)} record of {u.fileName}</span>
                 </button>
               </form>
             )}

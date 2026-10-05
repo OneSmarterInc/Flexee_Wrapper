@@ -23,6 +23,7 @@ import argparse, hashlib, io, json, os, re, shutil, sys, zipfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import table_captions
 import figure_alt
+import catalog_number
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -346,6 +347,15 @@ def run(args):
          reg.get("built_to") or "register does not say which Flexee Book Standard version it follows ('Built to:')", "warn")
     if report["stop"]: return finish(report, out, book)
 
+    # Spec 22 §3: the catalog number, if the register names one. Scoped to the imprint table
+    # (decision 8), so the prose row MIS 4950's register also carries cannot be read instead. A
+    # mismatch stops here, before anything is unpacked: admitting a book under the wrong id would
+    # mean renaming it later, and that moves every class's book_id and every question id with it.
+    cat_level, cat_detail, catalog = catalog_number.check(reg_text, book)
+    gate("Catalog number", cat_level == "pass", cat_detail,
+         "fail" if cat_level == "stop" else "warn")
+    if report["stop"]: return finish(report, out, book)
+
     # 1b — the register against Drive, every section-0 entry, by folder
     if reg.get("rows"):
         stops, warns, seen = reconcile(reg, src)
@@ -627,6 +637,9 @@ def run(args):
           "meta": meta, "copyright": imp.get("publisher"), "license": "read-only",
           "defaultEntry": spine[0]["ref"] if spine else None, "spine": spine,
           "admittedFromRegister": reg.get("register_version")}
+    # Spec 22 §3: only when the register names one, so a book without a catalog number has no
+    # empty field claiming it has one.
+    if catalog: bm["catalogNumber"] = catalog
     (stage / "book.manifest.json").write_text(json.dumps(bm, indent=2, ensure_ascii=False), encoding="utf-8")
     (stage / "intake.lock.json").write_text(json.dumps({"registerVersion": reg.get("register_version"),
         "stagedAt": report["startedAt"], "source": report["source"], "files": lock_files}, indent=2), encoding="utf-8")

@@ -47,6 +47,8 @@
     "test:admin-delete": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-admin-delete.ts",
     "test:grading-copy": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-grading-copy.ts",
     "test:headings": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-headings.ts",
+    "test:book-id": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-book-id.ts",
+    "test:catalog": "python3 scripts/it_catalog.py",
     "test:dismiss": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-dismiss.ts",
     "test:retire": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-retire.ts",
     "test:a11y-guards": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-a11y-guards.ts",
