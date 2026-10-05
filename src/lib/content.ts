@@ -46,6 +46,10 @@ export type BookManifest = {
   license?: string;
   defaultEntry: string;
   spine: SpineItem[];
+  /** Spec 22 §3: the register's catalog number, when it names one. */
+  catalogNumber?: string | null;
+  /** The register version the book was admitted from. Written by the intake since Spec 15. */
+  admittedFromRegister?: string | null;
 };
 
 async function readJson<T>(key: string): Promise<T> {

@@ -75,6 +75,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
           <li key={s.book.id} className="library-row" style={{ padding: ".4rem 0", borderBottom: "1px solid var(--rule)" }}>
             <span><strong>{s.book.title}{s.book.subtitle ? `: ${s.book.subtitle}` : ""}</strong>{" "}
               <span style={{ color: "var(--muted)" }}>({displayBookId(s.book.id)})</span>
+              {s.book.admittedFromRegister && <span style={{ color: "var(--muted)", fontSize: ".85rem" }}> · register {s.book.admittedFromRegister}</span>}
               {s.classes > 0 && <span style={{ color: "var(--muted)", fontSize: ".85rem" }}> · {s.classes} class{s.classes === 1 ? "" : "es"}</span>}
             </span>
             {admin && (

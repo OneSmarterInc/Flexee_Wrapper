@@ -26,3 +26,14 @@ export function displayBookId(id: string | null | undefined): string {
   const s = String(id ?? "");
   return CATALOG_SHAPED.test(s) ? s.toUpperCase() : s;
 }
+
+/**
+ * Spec 22 §5: a file named `*.zip.zip`.
+ *
+ * It happens when the browser has already unzipped the download and the folder was zipped again,
+ * which usually means the archive holds one folder containing the lanes rather than the lanes
+ * themselves. Often it is still the right file, so this drives a warning and never a refusal.
+ */
+export function looksDoubleZipped(fileName: string | null | undefined) {
+  return /[.]zip[.]zip$/i.test(String(fileName ?? ""));
+}

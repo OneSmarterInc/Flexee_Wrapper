@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { setAdminByEmail } from "@/lib/admin";
-import { displayBookId, isCatalogShaped } from "@/lib/book-id";
+import { displayBookId, isCatalogShaped, looksDoubleZipped } from "@/lib/book-id";
 
 const { users, identities, sessions, libraryUploads } = schema;
 
@@ -64,6 +64,28 @@ const [old] = await db().insert(libraryUploads).values({
   fileName: "MIS3000_v1_CURRENT.zip", sizeBytes: 4096, status: "failed",
 }).returning();
 
+/** Render a page through the root layout, as a reader is served it. */
+async function render(tree: unknown) {
+  const { renderToReadableStream } = await import("react-dom/server");
+  const Root = (await import("@/app/layout")).default as any;
+  const stream = await renderToReadableStream(Root({ children: tree }));
+  await stream.allReady;
+  const reader = stream.getReader(); const dec = new TextDecoder();
+  let out = "";
+  for (;;) { const { done, value } = await reader.read(); if (done) break; out += dec.decode(value); }
+  // React's server renderer puts a <!-- --> marker between two adjacent expressions, so "{id} · "
+  // arrives as "FZ1003<!-- --> · ". That is a rendering artefact, not content, and reading the page
+  // as a person sees it means taking it out first.
+  return out.replace(/<!-- -->/g, "");
+}
+
+async function renderUpload(id: string, sp: Record<string, string>) {
+  const headers: any = await import("./test-support/next-headers.mjs");
+  headers.state.session = sess.id;
+  const Page = (await import("@/app/library/[id]/page")).default as any;
+  return render(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(sp) }));
+}
+
 async function renderLibrary() {
   const { renderToReadableStream } = await import("react-dom/server");
   const headers: any = await import("./test-support/next-headers.mjs");
@@ -110,3 +132,57 @@ await t("and the database still holds the lower-case id", async () => {
 });
 
 console.log(`\n${passed} checks passed`);
+
+// ------------------------------------------------- Spec 22 §5: the page a reader lands on
+
+await t("a finished upload says it is done and offers a way back", async () => {
+  const [pub] = await db().insert(libraryUploads).values({
+    bookId: "sad", uploadedBy: admin.id, blobPath: "uploads/sad/v2.zip",
+    fileName: "v2.zip", sizeBytes: 4096, status: "published", publishedAt: new Date("2026-10-04T12:00:00Z"),
+    registerVersion: "6.20",
+  }).returning();
+  const html = await renderUpload(pub.id, { ok: "Adding the book to the library. This takes a minute or two." });
+
+  assert.ok(html.includes("Done: in the library"), "no finished state");
+  assert.ok(html.includes("2026-10-04"), "the date is missing");
+  assert.ok(html.includes("Back to library"), "no way back");
+  // The leftover line the redirect carries must not still be on the page (Spec 22 §5).
+  assert.ok(!html.includes("Adding the book to the library"), "the stale progress line is still shown");
+  assert.ok(!html.includes("this page refreshes itself"), "it is still polling");
+  assert.ok(!html.includes('http-equiv="refresh"'), "the refresh meta is still there");
+  // the book's real title, not its id, with the id beside it
+  assert.ok(html.includes("Analysis and Design of Information Systems"), "no real title");
+});
+
+await t("an unfinished upload still says what it is doing, and still refreshes", async () => {
+  const [checking] = await db().insert(libraryUploads).values({
+    bookId: "fz1003", uploadedBy: admin.id, blobPath: "uploads/fz1003/v1.zip",
+    fileName: "v1.zip", sizeBytes: 4096, status: "checking",
+  }).returning();
+  const html = await renderUpload(checking.id, {});
+  assert.ok(html.includes("Checking…"), "no status");
+  assert.ok(html.includes("this page refreshes itself"));
+  assert.ok(html.includes('http-equiv="refresh"'));
+  assert.ok(!html.includes("Done: in the library"));
+  // no book in the library under that id yet, so the id stands in for the title
+  assert.ok(html.includes("FZ1003"), "the id should be shown in capitals");
+});
+
+await t("the book list shows the real title, the id and the register version", async () => {
+  const html = await renderLibrary();
+  assert.ok(html.includes("Analysis and Design of Information Systems"), "no title");
+  assert.ok(html.includes("(sad)"), "no id");
+  assert.ok(html.includes("register 4.2"), "no register version");
+});
+
+await t("a double-zipped file name is recognised, and an ordinary one is not", () => {
+  for (const name of ["MIS3250_v2_CURRENT.zip.zip", "book.ZIP.zip", "a.zip.ZIP"]) {
+    assert.equal(looksDoubleZipped(name), true, name);
+  }
+  for (const name of ["MIS3250_v2_CURRENT.zip", "zip.zip.tar", "book.zip.txt", "notazip", "", null]) {
+    assert.equal(looksDoubleZipped(name), false, String(name));
+  }
+});
+
+console.log(`
+${passed} checks passed`);

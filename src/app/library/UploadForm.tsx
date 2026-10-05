@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { registerUploadAction } from "@/app/library/actions";
-import { displayBookId } from "@/lib/book-id";
+import { displayBookId, looksDoubleZipped } from "@/lib/book-id";
 
 const field = { padding: ".55rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
@@ -45,6 +45,17 @@ export default function UploadForm({ books }: { books: { id: string; title: stri
       </label>
       {bookId === "__new" && (
         <input placeholder="New book id, e.g. mis4950" value={newId} onChange={(e) => setNewId(e.target.value)} style={field} />
+      )}
+      {/* Spec 22 §5: a soft warning, not a refusal. ".zip.zip" happens when a browser has already
+          unzipped the download and the folder was zipped again, which usually means the archive
+          holds one folder containing the lanes rather than the lanes themselves. Often it is still
+          the right file, so the form says so and lets it through. */}
+      {file && looksDoubleZipped(file.name) && (
+        <p className="ui" role="status" style={{ color: "var(--danger)", margin: 0, fontSize: ".88rem" }}>
+          That file is named <strong>{file.name}</strong> — ending <code>.zip.zip</code> usually
+          means it was zipped twice, and the intake will see one folder where it expects the lanes.
+          You can upload it anyway; if the check stops on a missing lane, this is why.
+        </p>
       )}
       <label>The book's folder as a zip — in Google Drive, right-click the book's CURRENT folder and choose Download
         <input type="file" accept=".zip,application/zip" onChange={(e) => setFile(e.target.files?.[0] ?? null)} style={{ display: "block", marginTop: ".3rem" }} />
