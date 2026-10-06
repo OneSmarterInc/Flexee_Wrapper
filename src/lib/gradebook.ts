@@ -210,8 +210,15 @@ export async function gradesForStudent(sectionId: string, enrolmentId: string) {
   };
 }
 
-export async function addManualItem(sectionId: string, title: string, maxPoints: number, weight: number) {
-  await db().insert(lineItems).values({ sectionId, kind: "manual", title, maxPoints, weight });
+export async function addManualItem(
+  sectionId: string, title: string, maxPoints: number, weight: number,
+  categoryId: string | null = null,
+) {
+  // Spec 23 decision 7: the category is optional because every existing caller has none, and
+  // needed because creating a column from a file sets one in the same step.
+  const [row] = await db().insert(lineItems)
+    .values({ sectionId, kind: "manual", title, maxPoints, weight, categoryId }).returning();
+  return row;
 }
 export async function setWeight(sectionId: string, lineItemId: string, weight: number) {
   if (!Number.isFinite(weight) || weight < 0) throw new Error("A column's weight cannot be negative.");
@@ -358,10 +365,59 @@ export async function setLetterBands(sectionId: string, bands: LetterBand[]) {
   await db().insert(letterScales).values({ sectionId, bandsJson, updatedAt: new Date() })
     .onConflictDoUpdate({ target: letterScales.sectionId, set: { bandsJson, updatedAt: new Date() } });
 }
-export async function setScore(lineItemId: string, enrolmentId: string, points: number) {
-  await db().insert(lineItemScores).values({ lineItemId, enrolmentId, points, updatedAt: new Date() })
-    .onConflictDoUpdate({ target: [lineItemScores.lineItemId, lineItemScores.enrolmentId], set: { points, updatedAt: new Date() } });
+/**
+ * Spec 23 decision 2: what a score may be.
+ *
+ * Rejected: anything not finite, and anything negative. Allowed: a value above the column's
+ * maximum, because faculty award bonus marks on purpose — the page flags such a cell rather than
+ * refusing it.
+ *
+ * Why this is a guard rather than a convention. Before it, `setScore` was a bare upsert and the
+ * page's score box was a plain text input, so typing "abc" into a cell stored NaN — and because a
+ * course total is a weighted mean over the cells, that one keystroke turned the student's **whole
+ * course total** into NaN, not merely that column. Nothing anywhere said so.
+ */
+export class ScoreRefused extends Error {}
+
+/** Two decimals, as `gradeSubmission` has always rounded. Returns null when the value is unusable. */
+export function cleanPoints(value: number): number | null {
+  if (!Number.isFinite(value) || value < 0) return null;
+  return Math.round(value * 100) / 100;
 }
+
+export async function setScore(lineItemId: string, enrolmentId: string, points: number) {
+  const pts = cleanPoints(points);
+  if (pts == null) {
+    throw new ScoreRefused("A score must be a number of zero or more.");
+  }
+  await db().insert(lineItemScores).values({ lineItemId, enrolmentId, points: pts, updatedAt: new Date() })
+    .onConflictDoUpdate({ target: [lineItemScores.lineItemId, lineItemScores.enrolmentId], set: { points: pts, updatedAt: new Date() } });
+}
+
+/**
+ * Spec 23 decision 1: whether faculty may type a score into this column at all.
+ *
+ * A manual column and a simulation on the "faculty marks" rule: yes. Everything else is owned by
+ * something — an exam's attempts, a submission's grade, a simulation's completion record — and a
+ * typed score would shadow it silently.
+ */
+export function handEntryRefusal(it: { kind: string; scoreRule: string | null }): string | null {
+  if (it.kind === "manual") return null;
+  if (it.kind === "sim") {
+    const rule = it.scoreRule ?? "report";
+    if (rule === "manual") return null;
+    if (rule === "completion") {
+      return "Calculated from completion. Change the rule to 'faculty marks' to enter scores.";
+    }
+    return "A participation record carries no score.";
+  }
+  if (it.kind === "exam") return "Calculated from the exam's attempts.";
+  if (it.kind === "assignment") return "Comes from the submission's grade.";
+  return "This column's score is calculated.";
+}
+
+export const acceptsHandEntry = (it: { kind: string; scoreRule: string | null }) =>
+  handEntryRefusal(it) === null;
 
 // --- CSV export ---
 const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;

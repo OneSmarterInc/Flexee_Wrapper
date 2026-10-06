@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { ownedSection } from "@/lib/roster";
+import { gradableSection } from "@/lib/roster";
 import { gradebook } from "@/lib/gradebook";
 import { sectionHasLtiLink } from "@/lib/lti";
 import { show, DEFAULT_LETTER_BANDS } from "@/lib/grading";
-import { isParticipation, d2lKey } from "@/lib/gradebook";
+import { isParticipation, d2lKey, acceptsHandEntry, handEntryRefusal } from "@/lib/gradebook";
 import { formatLocal } from "@/lib/time";
 import {
   setWeightsAction, addLineItemAction, setScoreAction, pushGradesAction,
@@ -25,11 +25,13 @@ const cell = { border: "1px solid var(--rule)", padding: ".4rem .55rem", textAli
 const num = { ...cell, textAlign: "right", fontVariantNumeric: "tabular-nums" } as const;
 const field = { padding: ".3rem .4rem", border: "1px solid var(--field-border)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit", width: "4rem" } as const;
 
-export default async function Gradebook({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ pushed?: string; skipped?: string; withdrawn?: string; push_error?: string; grading_ok?: string; grading_error?: string; show_withdrawn?: string }> }) {
+export default async function Gradebook({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ pushed?: string; skipped?: string; withdrawn?: string; push_error?: string; grading_ok?: string; grading_error?: string; show_withdrawn?: string; score_error?: string }> }) {
   const { section } = await params;
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}/gradebook`)}`);
-  const sec = await ownedSection(user!.id, section);
+  // Spec 23 decision 7: an administrator may grade a class too, which is what the import's own
+  // check says; the page and the action must agree or the button would 404 for an admin.
+  const sec = await gradableSection(user!.id, section);
   if (!sec) redirect("/teach");
   const showWithdrawn = (await searchParams).show_withdrawn === "1";
   const { items, students, categories, bands, categorised } = await gradebook(section, { includeWithdrawn: showWithdrawn });
@@ -43,6 +45,12 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
       <LogoutButton />
       <p className="ui"><Link href={`/teach/${section}`}>← {sec.name}</Link></p>
       <h1>Gradebook</h1>
+      {/* Spec 23: a refused score says so where the person is looking, and is announced. */}
+      {spx.score_error && (
+        <p className="ui" id="score-error" role="alert" style={{ color: "var(--danger)" }}>
+          That score was not saved. {spx.score_error}
+        </p>
+      )}
       <p className="ui" style={{ color: "var(--muted)" }}>
         {categorised
           ? "Each category is a weighted mean of its columns' percentages; the course grade is a weighted average of the categories that have graded work. Ungraded work is left out."
@@ -57,7 +65,20 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
               <thead>
                 <tr>
                   <th style={cell}>Student</th>
-                  {items.map((it) => <th key={it.id} style={num}>{it.title}<div style={{ fontWeight: 400, color: "var(--muted)" }}>{isParticipation(it) ? "participation" : `/ ${it.maxPoints} · ${it.kind}`}</div></th>)}
+                  {items.map((it) => (
+                    <th key={it.id} style={num} scope="col">{it.title}
+                      <div style={{ fontWeight: 400, color: "var(--muted)" }}>
+                        {isParticipation(it) ? "participation" : `/ ${it.maxPoints} · ${it.kind}`}
+                      </div>
+                      {/* Spec 23 decision 1: why this column cannot be typed into, said once in the
+                          header rather than in all thirty cells. */}
+                      {handEntryRefusal(it) && !isParticipation(it) && (
+                        <div style={{ fontWeight: 400, color: "var(--muted)", fontSize: ".7rem", maxWidth: "11rem", whiteSpace: "normal" }}>
+                          {handEntryRefusal(it)}
+                        </div>
+                      )}
+                    </th>
+                  ))}
                   {categorised && categories.map((c) => (
                     <th key={c.id} style={{ ...num, background: "var(--mark)" }}>{c.name}<div style={{ fontWeight: 400, color: "var(--muted)" }}>{show(c.weight)}%{c.dropLowest > 0 ? ` · drop ${c.dropLowest}` : ""}</div></th>
                   ))}
@@ -88,15 +109,33 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
                             : <span style={{ color: "var(--muted)" }}>—</span>}
                         </td>
                       );
-                      if (it.kind === "manual" || it.kind === "sim") return (
+                      const over = c.points != null && it.maxPoints > 0 && c.points > it.maxPoints;
+                      if (acceptsHandEntry(it)) return (
                         <td key={it.id} style={num}>
                           <form action={setScoreAction} style={{ display: "inline-flex", gap: ".2rem" }}>
                             <input type="hidden" name="sectionId" value={section} /><input type="hidden" name="lineItemId" value={it.id} /><input type="hidden" name="enrolmentId" value={s.enrolmentId} />
-                            <input name="points" defaultValue={c.points ?? ""} placeholder="—" style={{ ...field, width: "3.2rem" }} aria-label={`${it.title} for ${s.name}`} />
+                            {/* Spec 23: a numeric input, so a browser refuses "abc" before it can reach
+                                the server, where it used to be stored as NaN. The server still checks. */}
+                            <input name="points" type="number" step="0.01" min={0} inputMode="decimal"
+                              defaultValue={c.points ?? ""} placeholder="—"
+                              style={{ ...field, width: "4rem", ...(over ? { borderColor: "var(--danger)" } : {}) }}
+                              aria-label={`${it.title} for ${s.name}, out of ${it.maxPoints}`} />
                           </form>
+                          {/* Decision 2: over the maximum is allowed — bonus marks are deliberate —
+                              but never silent. */}
+                          {over && (
+                            <div style={{ color: "var(--danger)", fontSize: ".7rem", fontWeight: 600 }}>
+                              over {it.maxPoints}
+                            </div>
+                          )}
                         </td>
                       );
-                      return <td key={it.id} style={num}>{c.points == null ? <span style={{ color: "var(--muted)" }}>—</span> : c.points}</td>;
+                      return (
+                        <td key={it.id} style={num}>
+                          {c.points == null ? <span style={{ color: "var(--muted)" }}>—</span> : c.points}
+                          {over && <div style={{ color: "var(--danger)", fontSize: ".7rem", fontWeight: 600 }}>over {it.maxPoints}</div>}
+                        </td>
+                      );
                     })}
                     {categorised && s.categories.map((c) => (
                       <td key={c.id} style={{ ...num, background: "var(--mark)" }}>{c.pct == null ? <span style={{ color: "var(--muted)" }}>—</span> : `${show(c.pct)}%`}</td>

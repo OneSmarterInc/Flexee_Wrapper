@@ -49,6 +49,27 @@ export async function ownedSection(userId: string, sectionId: string) {
   return rows[0] ?? null;
 }
 
+/**
+ * Spec 23 decision 7: who may grade a class — its faculty, or any administrator.
+ *
+ * `ownedSection` is faculty-of-this-class only, and the places that also admit an admin were each
+ * doing that check inline. One function, so a new page cannot forget half of it.
+ */
+export async function gradableSection(userId: string, sectionId: string) {
+  const mine = await ownedSection(userId, sectionId);
+  if (mine) return mine;
+  const { isAdmin } = await import("@/lib/admin");
+  if (!(await isAdmin(userId))) return null;
+  const rows = await db()
+    .select({ id: sections.id, name: sections.name, bookId: sections.bookId, joinCode: sections.joinCode })
+    .from(sections).where(eq(sections.id, sectionId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function canGradeSection(userId: string, sectionId: string) {
+  return (await gradableSection(userId, sectionId)) !== null;
+}
+
 export async function sectionRoster(sectionId: string) {
   return db()
     .select({

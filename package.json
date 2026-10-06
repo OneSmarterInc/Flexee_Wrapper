@@ -53,6 +53,7 @@
     "test:reports": "python3 scripts/it_reports.py",
     "test:catalog": "python3 scripts/it_catalog.py",
     "test:dismiss": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-dismiss.ts",
+    "test:score-guard": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-score-guard.ts",
     "test:retire": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-retire.ts",
     "test:a11y-guards": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-a11y-guards.ts",
     "a11y:browser": "node --env-file-if-exists=.env --import ./scripts/run-support/register.mjs --experimental-strip-types scripts/a11y-browser.ts",

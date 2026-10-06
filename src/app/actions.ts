@@ -311,12 +311,33 @@ export async function setExamRulesAction(formData: FormData) {
 export async function setScoreAction(formData: FormData) {
   const user = await currentUser();
   const sectionId = clean(formData.get("sectionId"));
-  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
-  const { setScore } = await import("@/lib/gradebook");
+  const { canGradeSection } = await import("@/lib/roster");
+  if (!user || !(await canGradeSection(user.id, sectionId))) redirect("/teach");
+  const { setScore, listLineItems, handEntryRefusal, ScoreRefused } = await import("@/lib/gradebook");
   const lineItemId = clean(formData.get("lineItemId")); const enrolmentId = clean(formData.get("enrolmentId"));
   const raw = clean(formData.get("points"));
-  if (lineItemId && enrolmentId && raw !== "") await setScore(lineItemId, enrolmentId, Number(raw));
-  redirect(`/teach/${sectionId}/gradebook`);
+  const back = `/teach/${sectionId}/gradebook`;
+  const refuse = (why: string) => redirect(`${back}?score_error=${encodeURIComponent(why)}#grades`);
+
+  if (!lineItemId || !enrolmentId || raw === "") redirect(back);
+
+  // Spec 23: the column has to be one of this class's, and one that accepts a typed score. The
+  // page does not offer an input for the others, but a posted form is not the page.
+  const item = (await listLineItems(sectionId)).find((i) => i.id === lineItemId);
+  if (!item) redirect(back);
+  const no = handEntryRefusal(item);
+  if (no) refuse(no);
+
+  // "abc" used to reach the database as NaN and turn the student's whole course total into NaN.
+  const value = Number(raw);
+  if (!Number.isFinite(value)) refuse(`"${raw.slice(0, 20)}" is not a number.`);
+  try {
+    await setScore(lineItemId, enrolmentId, value);
+  } catch (e) {
+    if (e instanceof ScoreRefused) refuse(e.message);
+    throw e;
+  }
+  redirect(back);
 }
 
 async function baseUrl() {
