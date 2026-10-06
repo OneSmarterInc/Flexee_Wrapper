@@ -1,0 +1,10 @@
+﻿Name,UserName,OrgDefinedId,"Studio session Points Grade <Numeric MaxPoints:10>",Comment
+"Alvarez, Maria",alvarez.7,W001,8,"good, thorough"
+"O'Brien, Sean",obrien.3,W002,9.5,fine
+"Mensah, Kofi",mensah.5,W003,,not yet marked
+"Petrova, Lena",petrova.2,W004,7.129,"rounds to 7.13"
+"Nobody, Nemo",nemo.0,W005,5,"not in the class"
+"Alvarez, Maria",alvarez.7,W001,3,"the same student twice"
+"Adeyemi, Noah",adeyemi.4,W008,abc,"not a number"
+"Okafor, Ada",okafor.1,W009,-2,"below zero"
+"Haddad, Yara",haddad.6,W010,15,"above the maximum"

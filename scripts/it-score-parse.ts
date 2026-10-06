@@ -4,6 +4,7 @@
 // suite; what is checked here is that this reader uses it and then finds the right columns, reads
 // a cell the way a spreadsheet writes one, and converts a percentage correctly.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { readHeaders, parseScoreFile, readValue, SCORE_HEADERS } from "@/lib/score-import";
 
 let passed = 0;
@@ -169,6 +170,57 @@ t("a value that needs rounding says so, and one that does not says it does not",
   // a third of a 30-point column: 10 exactly, so nothing was rounded
   assert.deepEqual(read("33.3333333", 30, true), { kind: "value", points: 10, rounded: true });
   assert.deepEqual(read("50", 30, true), { kind: "value", points: 15, rounded: false });
+});
+
+// ------------------------------------------------------- the sample files shipped with the change
+//
+// Load-bearing rather than decoration: the change note points faculty at these, so they have to
+// parse the way it says they do. Every student in them is invented and every address is a reserved
+// .invalid one, so no real student data is in the repository.
+
+t("the three sample files parse the way the change note says", () => {
+  const read = (name: string) => readFileSync(`scripts/fixtures/${name}`, "utf8");
+
+  const simple = parseScoreFile(read("scores_simple.csv"));
+  assert.equal(simple.fatal, null);
+  assert.equal(simple.headers.identifier?.kind, "email");
+  assert.equal(simple.rows.length, 4);
+  assert.deepEqual(simple.rows.map((r) => r.raw), ["8", "9.5", "7", "10"]);
+
+  // The messy one: a byte-order mark, CRLF, a D2L score header, and one of every problem.
+  const messy = parseScoreFile(read("scores_d2l_messy.csv"));
+  assert.equal(messy.fatal, null, messy.fatal ?? "");
+  assert.equal(messy.headers.identifier?.kind, "username");
+  assert.deepEqual(messy.headers.ignored, ["OrgDefinedId"]);
+  const col = messy.headers.scoreColumns[0];
+  assert.equal(col.via, "d2l");
+  assert.equal(col.itemTitle, "Studio session");
+  assert.equal(col.fileMax, 10);
+  assert.equal(messy.rows.length, 9);
+  // one of each, read as written — judging them is the preview's work
+  const kinds = messy.rows.map((r) => readValue(r.raw, { maxPoints: 10 }).kind);
+  assert.equal(kinds.filter((k) => k === "blank").length, 1);
+  assert.equal(kinds.filter((k) => k === "bad").length, 2, "abc and -2");
+  assert.equal(kinds.filter((k) => k === "value").length, 6);
+
+  const pct = parseScoreFile(read("scores_percentages.csv"));
+  assert.equal(pct.rows.length, 3);
+  // as percentages of a 10-point column they are 8, 9.5 and 7; as points they are over the maximum
+  assert.deepEqual(pct.rows.map((r) => readValue(r.raw, { maxPoints: 10, percentages: true })),
+    [{ kind: "value", points: 8, rounded: false },
+     { kind: "value", points: 9.5, rounded: false },
+     { kind: "value", points: 7, rounded: false }]);
+});
+
+t("the sample files really are byte-exact, which is what they exist to test", () => {
+  const messy = readFileSync("scripts/fixtures/scores_d2l_messy.csv");
+  assert.equal(messy[0], 0xef, "the byte-order mark is gone — check .gitattributes");
+  assert.equal(messy[1], 0xbb);
+  assert.equal(messy[2], 0xbf);
+  assert.ok(messy.toString("utf8").includes("\r\n"), "the CRLF line endings were normalised away");
+  const simple = readFileSync("scripts/fixtures/scores_simple.csv").toString("utf8");
+  assert.ok(simple.includes("\r\n"), "scores_simple.csv lost its CRLF");
+  assert.ok(!simple.startsWith(BOM), "scores_simple.csv is meant to have no BOM");
 });
 
 console.log(`\n${passed} checks passed`);
