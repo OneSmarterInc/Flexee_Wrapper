@@ -53,7 +53,7 @@
     "test:reports": "python3 scripts/it_reports.py",
     "test:catalog": "python3 scripts/it_catalog.py",
     "test:dismiss": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-dismiss.ts",
-    "test:score-import": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-score-import.ts",
+    "test:score-import": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-score-import.ts",
     "test:score-parse": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-score-parse.ts",
     "test:score-guard": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-score-guard.ts",
     "test:retire": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-retire.ts",

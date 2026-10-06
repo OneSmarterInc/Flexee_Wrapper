@@ -13,6 +13,7 @@ import {
 } from "@/app/actions";
 import LogoutButton from "@/components/LogoutButton";
 import CopyGradingSetup from "@/components/CopyGradingSetup";
+import ScoreImport from "@/components/ScoreImport";
 import { copyableClasses } from "@/lib/grading-copy";
 import { classPageTitle } from "@/lib/page-title";
 
@@ -39,6 +40,9 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
   // Spec 17: a row D2L cannot match, flagged where the export is.
   const noD2lKey = students.filter((s) => !d2lKey(s)).length;
   const copyFrom = await copyableClasses(user!.id, section);
+  // Spec 23: the columns a file may fill — the same rule the library enforces, so the page cannot
+  // offer one the apply would refuse.
+  const importable = items.filter((it) => acceptsHandEntry(it));
 
   return (
     <main id="main" className="catalog" style={{ maxWidth: "min(100%, 70rem)" }}>
@@ -259,6 +263,34 @@ export default async function Gradebook({ params, searchParams }: { params: Prom
           </p>
         </>
       )}
+
+      {/* Spec 23 §1: a column that accepts a typed score accepts a file of them. A derived column
+          is not offered one, and the library refuses it even if a request arrives anyway. */}
+      <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Import scores from a CSV</h2>
+      {importable.length === 0 ? (
+        <p className="ui" style={{ color: "var(--muted)" }}>
+          No column takes typed scores yet. Add a manual column below, or create one from a file.
+        </p>
+      ) : (
+        <>
+          <p className="ui" style={{ color: "var(--muted)", fontSize: ".88rem" }}>
+            One score per student, matched by email or D2L username. Nothing is written until you
+            have seen the preview. The file is read here and never stored.
+          </p>
+          {importable.map((it) => (
+            <details key={it.id} className="ui" style={{ border: "1px solid var(--field-border)", borderRadius: "8px", padding: ".5rem .8rem", margin: ".4rem 0" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 600 }}>{it.title} <span style={{ fontWeight: 400, color: "var(--muted)" }}>/ {it.maxPoints}</span></summary>
+              <ScoreImport sectionId={section} column={{ id: it.id, title: it.title, maxPoints: it.maxPoints }} />
+            </details>
+          ))}
+        </>
+      )}
+
+      <details className="ui" style={{ border: "1px solid var(--field-border)", borderRadius: "8px", padding: ".5rem .8rem", margin: ".4rem 0" }}>
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>Create a new column from a file</summary>
+        <ScoreImport sectionId={section} mode="new"
+          categories={categories.map((cat) => ({ id: cat.id, name: cat.name }))} />
+      </details>
 
       <h2 style={{ color: "var(--navy)", marginTop: "1.6rem" }}>Add a manual column</h2>
       <form action={addLineItemAction} className="ui" style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", alignItems: "end" }}>

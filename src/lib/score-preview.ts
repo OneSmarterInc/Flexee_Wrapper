@@ -87,6 +87,34 @@ export async function previewScoreImport(
   if (!item || item.sectionId !== sectionId) {
     throw new Error("No such column in this class.");
   }
+  return previewAgainst(sectionId, {
+    id: item.id, title: item.title, maxPoints: item.maxPoints, kind: item.kind,
+    scoreRule: item.scoreRule,
+  }, text, opts);
+}
+
+/**
+ * Rule 9's preview: what a file would put in a column that does not exist yet.
+ *
+ * The column is described rather than looked up, because a score needs a maximum to be judged over
+ * and a percentage needs one to convert against, and the form supplies both before anything is
+ * created. Nothing can be replaced, because a new column has no scores — which is also why the
+ * tick is never owed on this path.
+ */
+export async function previewForNewColumn(
+  sectionId: string, column: { title: string; maxPoints: number }, text: string, opts: Options = {},
+): Promise<Preview> {
+  return previewAgainst(sectionId, {
+    id: "", title: column.title.trim() || "New column",
+    maxPoints: Math.floor(column.maxPoints), kind: "manual", scoreRule: null,
+  }, text, opts);
+}
+
+type Target = { id: string; title: string; maxPoints: number; kind: string; scoreRule: string | null };
+
+async function previewAgainst(
+  sectionId: string, item: Target, text: string, opts: Options,
+): Promise<Preview> {
   const column = { id: item.id, title: item.title, maxPoints: item.maxPoints, kind: item.kind };
   const base: Preview = {
     column, refusal: null,
@@ -305,4 +333,44 @@ export async function applyScoreImport(
     excluded: p.excluded.length,
   });
   return { ok: true, counts: p.counts };
+}
+
+// -------------------------------------------------------- Spec 23 §1: a column from the file
+
+export type NewColumn = { title: string; maxPoints: number; categoryId?: string | null };
+
+/**
+ * Rule 9: make a column and fill it from the same file, in one step.
+ *
+ * Two writes, not one transaction, because the column has to exist before the plan can be built
+ * against it — a score needs a maximum to be judged over, and a percentage needs one to convert
+ * against. So the column is created, the import attempted, and the column **removed again** if the
+ * import does not go through. A faculty member who mistyped the file should not be left with an
+ * empty column they did not ask for.
+ */
+export async function createColumnFromFile(
+  userId: string, sectionId: string, column: NewColumn, text: string,
+  opts: Options & { confirmReplace?: boolean } = {},
+): Promise<ApplyResult & { lineItemId?: string }> {
+  const { canGradeSection } = await import("@/lib/roster");
+  if (!(await canGradeSection(userId, sectionId))) {
+    return { ok: false, error: "Only this class's faculty, or an administrator, can import scores." };
+  }
+  const title = column.title.trim();
+  if (!title) return { ok: false, error: "Give the column a title." };
+  if (!Number.isFinite(column.maxPoints) || column.maxPoints < 1) {
+    return { ok: false, error: "The maximum points must be at least 1." };
+  }
+
+  const { addManualItem } = await import("@/lib/gradebook");
+  const row = await addManualItem(sectionId, title, Math.floor(column.maxPoints), 1,
+    column.categoryId ?? null);
+
+  // A new column has no scores, so nothing can be replaced and the tick cannot be owed.
+  const r = await applyScoreImport(userId, sectionId, row.id, text, { ...opts, confirmReplace: true });
+  if (!r.ok) {
+    await db().delete(lineItems).where(eq(lineItems.id, row.id));
+    return r;
+  }
+  return { ...r, lineItemId: row.id };
 }

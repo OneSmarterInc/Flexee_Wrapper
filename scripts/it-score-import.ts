@@ -494,4 +494,91 @@ await t("a whole flow, captured, contains no name, address or score", async () =
   console.log(`      capture verified; the flow produced ${chunks.length} line(s) of server output`);
 });
 
+
+// ------------------------------------------------- rule 11: the preview a person actually reads
+
+await t("the preview's own markup is accessible, with its tables named and its tick a checkbox", async () => {
+  // test:a11y-pages renders the gradebook page, but the preview only exists once a file has been
+  // read, so the dialog's contents are never in that pass. Rendered here with a real preview in
+  // it, and read by the same axe configuration.
+  const React = (await import("react")).default;
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { default: ScoreImport } = await import("@/components/ScoreImport");
+
+  const html = renderToStaticMarkup(React.createElement(ScoreImport, {
+    sectionId: sec.id,
+    column: { id: col.id, title: "Studio session", maxPoints: 10 },
+    categories: [{ id: "c1", name: "Studio" }],
+  }));
+
+  // Labelled, not placeholder-named: the file input and the score-column picker both.
+  assert.match(html, /<label[^>]*for="file-/, "the file input has no label");
+  assert.match(html, /type="file"/);
+  assert.ok(!/aria-label/.test(html) || /for="file-/.test(html), "a label, not an aria-label alone");
+
+  const { JSDOM } = await import("jsdom");
+  const axe = (await import("axe-core")).default ?? (await import("axe-core"));
+  const dom = new JSDOM(`<!doctype html><html lang="en"><head><title>t</title></head><body><main>${html}</main></body></html>`,
+    { pretendToBeVisual: true });
+  const g: any = globalThis as any;
+  const saved = { window: g.window, document: g.document, Node: g.Node, Element: g.Element };
+  g.window = dom.window; g.document = dom.window.document;
+  g.Node = dom.window.Node; g.Element = dom.window.Element;
+  let violations: { id: string; impact: string; nodes: unknown[] }[] = [];
+  const doc = dom.window.document;
+  const found: { dialogName: string | null; namedBy: boolean; boxes: number; unlabelled: number } =
+    { dialogName: null, namedBy: false, boxes: 0, unlabelled: 0 };
+  try {
+    const r = await (axe as any).run(doc.body, {
+      resultTypes: ["violations"],
+      rules: { "color-contrast": { enabled: false } },   // jsdom paints nothing to measure
+    });
+    violations = r.violations;
+
+    // Read the DOM while the window is still open; the assertions come after it is closed.
+    const dialog = doc.querySelector("dialog");
+    assert.ok(dialog, "the confirmation is not a real dialog");
+    found.dialogName = dialog!.getAttribute("aria-labelledby");
+    found.namedBy = !!found.dialogName && !!doc.getElementById(found.dialogName);
+    for (const box of doc.querySelectorAll('input[type="checkbox"]')) {
+      found.boxes++;
+      if (!box.closest("label")) found.unlabelled++;
+    }
+  } finally {
+    g.window = saved.window; g.document = saved.document; g.Node = saved.Node; g.Element = saved.Element;
+    dom.window.close();
+  }
+  const bad = violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+  assert.deepEqual(bad.map((v) => `${v.id} x${v.nodes.length}`), [], JSON.stringify(violations));
+  console.log(`      axe over the import panel: ${violations.length} finding(s) at any impact`);
+
+  // The dialog is the confirmation, and every checkbox is inside its own label.
+  assert.ok(found.dialogName, "the dialog has no name");
+  assert.ok(found.namedBy, "its name points at nothing");
+  assert.equal(found.unlabelled, 0, `${found.unlabelled} checkbox(es) with no label`);
+
+  // What this check does NOT reach, said plainly rather than left to look covered: the options
+  // fieldset, the counts table, the excluded-rows table and the replace tick all render only after
+  // a file has been read, which is client state a static render cannot produce. Their markup is
+  // written to the same rules — every checkbox inside its own label, every table with a caption and
+  // scope="col" headers — and the opt-in browser run is what exercises them filled in. The source
+  // is checked for the two mistakes that would matter, so a regression is not silent.
+  const src = (await import("node:fs")).readFileSync("src/components/ScoreImport.tsx", "utf8");
+  const tables = src.split("<table>").length - 1;
+  assert.ok(tables >= 3, `${tables} tables in the preview — expected the counts, the samples and the excluded rows`);
+  assert.equal(src.split("<caption>").length - 1, tables, "a preview table has no caption");
+  for (const th of src.match(/<th(?![a-zA-Z])[^>]*>/g) ?? []) {
+    assert.ok(/scope="(col|row)"/.test(th), `a header cell with no scope: ${th}`);
+  }
+  const boxes = src.match(/<input type="checkbox"/g) ?? [];
+  assert.ok(boxes.length >= 4, `${boxes.length} checkboxes in the source — the options are missing`);
+  // each one sits inside a className="checkbox-label" label, which is how the page styles and
+  // sizes a 44px target
+  assert.equal(src.split('className="checkbox-label"').length - 1, boxes.length,
+    "a checkbox is not inside a checkbox-label");
+  // and nothing in here invents a tab order or needs a mouse
+  assert.ok(!/tabindex="[1-9]/.test(html), "it invents a tab order");
+  assert.ok(!/onclick=/i.test(html), "it has an inline click handler");
+});
+
 console.log(`\n${passed} checks passed`);

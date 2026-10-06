@@ -163,7 +163,7 @@ export const ROUTES: { path: string; as: "none" | "student" | "faculty" }[] = [
   { path: "/sad/grades", as: "student" },
   { path: "/faculty", as: "faculty" },
   { path: "/teach/SECTION", as: "faculty" },
-  { path: "/teach/SECTION/gradebook", as: "faculty" },
+  { path: "/teach/SECTION/gradebook", as: "faculty" },   // Spec 23's import panel lives here
 ];
 
 // -------------------------------------------------------------------------------------- the run
