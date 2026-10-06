@@ -21,7 +21,8 @@ import { canManageClass } from "@/lib/publish";
 
 export type ActionName =
   | "resend" | "withdraw" | "restore" | "remove"
-  | "delete_account" | "delete_class" | "copy_grading" | "download_links";
+  | "delete_account" | "delete_class" | "copy_grading" | "download_links"
+  | "import_scores";
 
 /** Counts only. The table has nowhere to put a name, and this has nothing else to give it. */
 export async function logAction(
@@ -56,6 +57,14 @@ export function describeAction(a: { action: ActionName; count: number; detail: R
     case "remove": return `Removed ${n(a.count, "student")} (${records} record${records === 1 ? "" : "s"})`;
     case "delete_account": return `Deleted ${n(a.count, "account")}`;
     case "delete_class": return "Deleted the class";
+    case "import_scores": {
+      const bits = [`${n(d.added ?? 0, "new score")}`];
+      if (d.replaced) bits.push(`${d.replaced} changed`);
+      if (d.cleared) bits.push(`${d.cleared} cleared`);
+      if (d.unmatched) bits.push(`${d.unmatched} unmatched`);
+      if (d.skipped) bits.push(`${d.skipped} skipped`);
+      return `Imported scores into a column: ${bits.join(", ")}`;
+    }
     case "copy_grading":
       return `Copied a grading setup: ${n(d.categories ?? 0, "category", "categories")}` +
         `${d.unmatched ? `, ${d.unmatched} column${d.unmatched === 1 ? "" : "s"} unmatched` : ""}`;
