@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { db, schema } from "@/db";
 import { setAdminByEmail, parsePeople } from "@/lib/admin";
-import { createSection, commitRoster } from "@/lib/roster";
+import { createSection, commitRoster, setAccessRelease } from "@/lib/roster";
 import { registerSim, visibleSims, adminUpdateSim, grantPreview, addSimToClass, removeSimFromClass, simsForClass,
   prepareLaunch, recordCompletion, recordTranscript, classCompletions, transcriptsFor } from "@/lib/sims";
 import { POST as registerPOST } from "@/app/api/register/route";
@@ -50,6 +50,10 @@ const cls = await createSection(prof.id, "sad", "MIS 3250-01", "2027 Spring", { 
 const otherCls = await createSection(other.id, "sad", "MIS 3250-02", "2027 Spring", { teach: true });
 await commitRoster(cls.id, parsePeople("ann@wright.edu"), "student");
 await commitRoster(otherCls.id, parsePeople("bo@wright.edu"), "student");
+// Spec 27 B1: a new enrolment is not released and cannot launch. Ann is released so the launch
+// checks below are about the launch; the gate itself is pinned in test:access-release.
+await setAccessRelease(prof.id, cls.id, { released: true, all: true });
+await setAccessRelease(other.id, otherCls.id, { released: true, all: true });
 const SIM = META.id as string;
 const passIn = (url: string) => decodeURIComponent(new URL(url).hash.replace(/^#lt=/, ""));
 

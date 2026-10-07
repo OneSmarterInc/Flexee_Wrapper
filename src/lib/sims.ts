@@ -169,6 +169,18 @@ export async function prepareLaunch(userId: string, simId: string, sectionId: st
     // Spec 19: a withdrawn student has no access to the class, and that includes its simulations.
     if (enr.withdrawnAt) return fail("You are no longer enrolled in this class.", 403);
     if (!attached || !s.published) return fail("That simulation is not open in your class.", 403);
+    // Spec 27 B1 decision 1: access release, checked for students and nobody else — faculty and
+    // admins never reach this branch, exactly as the old platform had it. It comes after the two
+    // checks above so that "not open in your class" still wins: a student whose class has not
+    // added the sim should be told that, not told to wait on a release that would not help.
+    //
+    // Decision 3: the Demo Student is always released. It is the enrolment a faculty member signs
+    // into to see the student view, so gating it would mean nobody could check that a simulation
+    // works before releasing anyone. Checked here rather than set at import, so a demo created by
+    // any route is covered and no stored value can drift from the rule.
+    if (!enr.isDemo && !enr.releasedAt) {
+      return fail("Waiting on your instructor — Your enrolment is confirmed, but access to this simulation hasn't been released yet.", 403);
+    }
     const sec = (await db().select({ p: sections.bookPublishedAt }).from(sections).where(eq(sections.id, sectionId)).limit(1))[0];
     if (!sec) return fail("That class no longer exists.", 404);
     role = "student";

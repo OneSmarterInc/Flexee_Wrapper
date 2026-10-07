@@ -9,7 +9,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { setAdminByEmail } from "@/lib/admin";
 import { allClasses } from "@/lib/admin";
-import { createSection, sectionRoster, enrollByCode } from "@/lib/roster";
+import { createSection, sectionRoster, enrollByCode, setAccessRelease } from "@/lib/roster";
 import { publishClassBook } from "@/lib/publish";
 import { enrolmentForBook, enrolmentForBookAnyState, userClasses, firstStudentSection } from "@/lib/enrolment";
 import { gradebook, exportCsv, gradesForStudent, setScore } from "@/lib/gradebook";
@@ -83,6 +83,11 @@ async function student(name: string, email: string) {
 
 const gone = await student("Gone Away", "gone@wright.edu");
 const stays = await student("Still Here", "stays@wright.edu");
+// Spec 27 B1: a new enrolment is not released, and an unreleased student cannot launch a
+// simulation. Both are released here so this suite stays about withdrawal — and so that "it all
+// comes back" is a real check that restoring a student restores their release too, rather than
+// passing because nothing was ever gated.
+await setAccessRelease(prof.id, sec.id, { released: true, all: true });
 
 console.log("Before");
 

@@ -200,3 +200,73 @@ export async function claimInvites(userId: string, email: string) {
   await db().delete(rosterInvites).where(inArray(rosterInvites.id, invites.map((i) => i.id)));
   return invites.length;
 }
+
+// ---------------------------------------------------------------- access release (Spec 27 B1 §1)
+
+export type ReleaseResult = { ok: true; changed: number; skippedWithdrawn: number } | { ok: false; error: string };
+
+/**
+ * Release (or un-release) a class's students, which is what lets them launch its simulations.
+ *
+ * The old platform called this `paid`; nothing here takes payment, and the money is settled on a
+ * purchase order somewhere else. It is per student, per class — releasing someone releases every
+ * simulation in that class, which is how the old platform had it and what the sims' consoles
+ * expect from `accessReleased`.
+ *
+ * Only student enrolments are touched. Faculty and admins are never gated at launch, so releasing
+ * them would store a fact nothing reads, and an instructor appearing in a "waiting" count would be
+ * a bug a reader could not explain.
+ *
+ * "Release all" skips withdrawn students (Addendum B §1). Their own release record stays whatever
+ * it was: being withdrawn already removes access, and restoring a student should not silently also
+ * hand them a simulation nobody released. Named explicitly, they are still changed — a faculty
+ * member who ticks one row means that row.
+ */
+export async function setAccessRelease(
+  actorId: string,
+  sectionId: string,
+  opts: { released: boolean; enrolmentIds?: string[]; all?: boolean; note?: string },
+): Promise<ReleaseResult> {
+  const { canManageClass } = await import("@/lib/publish");
+  if (!(await canManageClass(actorId, sectionId))) {
+    return { ok: false, error: "Only this class's faculty or an administrator can release access." };
+  }
+  const picked = [...new Set((opts.enrolmentIds ?? []).filter(Boolean))];
+  if (!opts.all && picked.length === 0) return { ok: false, error: "Choose at least one student." };
+
+  const rows = await db().select({ id: enrolments.id, withdrawnAt: enrolments.withdrawnAt })
+    .from(enrolments)
+    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student")));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  if (!opts.all) {
+    // A row named that is not a student of this class is a mistake worth reporting rather than
+    // skipping: it means the form and the page disagree about who is on the roster.
+    const stray = picked.filter((id) => !byId.has(id));
+    if (stray.length) return { ok: false, error: "Some of those students are not in this class." };
+  }
+
+  const target = opts.all ? rows.filter((r) => r.withdrawnAt == null) : picked.map((id) => byId.get(id)!);
+  const skippedWithdrawn = opts.all ? rows.filter((r) => r.withdrawnAt != null).length : 0;
+  if (target.length === 0) return { ok: true, changed: 0, skippedWithdrawn };
+
+  const note = (opts.note ?? "").trim().slice(0, 300) || null;
+  await db().update(enrolments)
+    .set(opts.released
+      ? { releasedAt: new Date(), releasedBy: actorId, ...(note ? { releasedNote: note } : {}) }
+      // Un-release clears the act, not the paperwork: the note records a purchase order that is
+      // still a fact about this enrolment, and the old platform's set_paid left it alone too.
+      : { releasedAt: null, releasedBy: null })
+    .where(inArray(enrolments.id, target.map((r) => r.id)));
+  return { ok: true, changed: target.length, skippedWithdrawn };
+}
+
+/** How many of a class's active students are still waiting on a release. For the count on the page. */
+export async function waitingOnRelease(sectionId: string) {
+  const rows = await db().select({ id: enrolments.id }).from(enrolments)
+    .where(and(eq(enrolments.sectionId, sectionId), eq(enrolments.role, "student"),
+               sql`${enrolments.withdrawnAt} is null`, sql`${enrolments.releasedAt} is null`,
+               // The Demo Student is always released at launch, so counting it here would show a
+               // class as waiting on somebody who can already play.
+               sql`${enrolments.isDemo} = false`));
+  return rows.length;
+}
