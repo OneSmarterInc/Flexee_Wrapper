@@ -100,7 +100,7 @@ def _():
 
 # ---------------------------------------------------------------- the three real books
 
-BOOKS = [("SAD (fz1001)", r"G:\My Drive\Flexee\Flexee-SAD\MIS3250_v2_CURRENT"),
+BOOKS = [("SAD (fz1001)", r"G:\My Drive\Flexee\Flexee-SAD\FZ1001_v2_CURRENT"),
          ("MIS 3000 (fz1002)", r"G:\My Drive\Flexee\Flexee-3000\MIS3000_v1_CURRENT"),
          ("MIS 4950 (fz1003)", r"G:\My Drive\Flexee\FiveZero-4950\FZ1003_v1_CURRENT")]
 
@@ -142,22 +142,29 @@ else:
         detail = ", ".join("%s x%d (%s)" % (w, len(v), v[0]) for w, v in sorted(words.items())) or "none"
         print("   %-20s %2d chapters · %d spelling warning(s): %s · %d phrasing note(s)"
               % (label, chs, total, detail, neg))
-        results[label] = (total, words)
+        results[label] = (chs, total, words)
 
-    @t("the widened gate warns once across all three books, and it is a real one")
+    @t("the widened patterns flag nothing in any of the three books as they stand")
     def _():
-        sad = results["SAD (fz1001)"]
-        assert sad[0] == 1, "SAD: expected 1 warning, got %d (%s)" % (sad[0], sorted(sad[1]))
-        assert "practising" in sad[1], sorted(sad[1])
-        assert sad[1]["practising"] == ["ch8"], sad[1]["practising"]
-        for book in ("MIS 3000 (fz1002)", "MIS 4950 (fz1003)"):
-            assert results[book][0] == 0, "%s: %s" % (book, sorted(results[book][1]))
+        # On 6 October this asserted exactly one warning: "practising" in SAD chapter 8, the single
+        # thing the widening found. SAD's 7 October revision fixed it, so all three books are clean.
+        #
+        # The assertion is now "nothing", which is the property that actually matters here: these
+        # patterns must not start flagging correct American prose. What they *do* catch is pinned by
+        # the six checks above, every added form against the American spelling of the same word —
+        # that is where the rules live, and it does not depend on what the books happen to contain.
+        for book, (chs, warns, words) in results.items():
+            assert warns == 0, "%s now warns: %s (%d chapters scanned)" % (book, sorted(words), chs)
 
-    @t("the widening added no warning to a book that was clean")
+    @t("the books really were scanned, so 'nothing found' is not 'nothing read'")
     def _():
-        # The guard against a pattern that starts flagging correct American prose: MIS 3000 and
-        # MIS 4950 were clean before and must still be.
-        for book in ("MIS 3000 (fz1002)", "MIS 4950 (fz1003)"):
-            assert not results[book][1], "%s now warns: %s" % (book, sorted(results[book][1]))
+        # Three clean books make the check above pass trivially if the scan silently read no text.
+        # This is the guard: every book must have contributed chapters, and the patterns must still
+        # fire on a sentence planted in prose of the same shape.
+        for book, (chs, _warns, _words) in results.items():
+            assert chs >= 10, "%s: only %d chapters scanned" % (book, chs)
+        planted = "The team had to reorganise the backlog, and the change was unauthorised."
+        hits = sorted(m.group(0).lower() for m in fi.BRITISH_RE.finditer(planted))
+        assert hits == ["reorganise", "unauthorised"], hits
 
 print("\n%d checks passed" % passed)

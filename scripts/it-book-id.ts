@@ -176,10 +176,10 @@ await t("the book list shows the real title, the id and the register version", a
 });
 
 await t("a double-zipped file name is recognised, and an ordinary one is not", () => {
-  for (const name of ["MIS3250_v2_CURRENT.zip.zip", "book.ZIP.zip", "a.zip.ZIP"]) {
+  for (const name of ["FZ1001_v2_CURRENT.zip.zip", "book.ZIP.zip", "a.zip.ZIP"]) {
     assert.equal(looksDoubleZipped(name), true, name);
   }
-  for (const name of ["MIS3250_v2_CURRENT.zip", "zip.zip.tar", "book.zip.txt", "notazip", "", null]) {
+  for (const name of ["FZ1001_v2_CURRENT.zip", "zip.zip.tar", "book.zip.txt", "notazip", "", null]) {
     assert.equal(looksDoubleZipped(name), false, String(name));
   }
 });

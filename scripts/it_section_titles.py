@@ -117,7 +117,7 @@ def real_book(label, root_env, default, want_sample):
         print(f"     {label}: {len(titles)} section headings, every title clean of its number")
     case(f"{label}'s real packages produce the right titles", run)
 
-real_book("SAD", "SAD_PACKAGES", r"G:/My Drive/Flexee/Flexee-SAD/MIS3250_v2_CURRENT",
+real_book("SAD", "SAD_PACKAGES", r"G:/My Drive/Flexee/Flexee-SAD/FZ1001_v2_CURRENT",
           [("1. From Requirements to Models", "From Requirements to Models")])
 real_book("MIS 4950", "MIS4950_PACKAGES_ROOT", r"G:/My Drive/Flexee/FiveZero-4950/MIS4950_v1_CURRENT",
           [("4.1 Why Scope Comes First", "Why Scope Comes First")])

@@ -1,18 +1,18 @@
-"""Build a test shelf mirroring MIS3250_v2_CURRENT in Drive: real chapter packages, every lane's file
+"""Build a test shelf mirroring FZ1001_v2_CURRENT in Drive: real chapter packages, every lane's file
 names as they stand in Drive, a question bank, and a register whose section-0 table matches it."""
 import json, shutil, sys, re
 from pathlib import Path
 import os
 
 # Where the real SAD source lives. Set SAD_PACKAGES to either:
-#   * a shelf root, holding 04_Chapters/ and 00_Front_Matter/ (a Drive copy of MIS3250_v2_CURRENT), or
+#   * a shelf root, holding 04_Chapters/ and 00_Front_Matter/ (a Drive copy of FZ1001_v2_CURRENT), or
 #   * one flat folder holding the Chapter_NN_Package_*.zip files and the front matter together.
 # Both layouts are read directly; nothing is written back to the source.
 SAD_PACKAGES_HELP = (
     "Set SAD_PACKAGES to the SAD source folder before running this test. That is either a copy of\n"
-    "MIS3250_v2_CURRENT (holding 04_Chapters and 00_Front_Matter), or one flat folder holding the\n"
+    "FZ1001_v2_CURRENT (holding 04_Chapters and 00_Front_Matter), or one flat folder holding the\n"
     "Chapter_NN_Package_*.zip files and Book_Front_Matter_v*.md together. For example:\n"
-    '  SAD_PACKAGES="G:/My Drive/Flexee/Flexee-SAD/MIS3250_v2_CURRENT" npm run test:intake'
+    '  SAD_PACKAGES="G:/My Drive/Flexee/Flexee-SAD/FZ1001_v2_CURRENT" npm run test:intake'
 )
 SRC = Path(os.environ.get("SAD_PACKAGES", "/home/claude/sad_in"))
 

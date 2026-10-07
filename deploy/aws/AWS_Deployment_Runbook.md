@@ -110,7 +110,7 @@ The intake reads each book directly from Google Drive with a read-only service a
    ```
 4. **Send Vikram the service account's email address** (it looks like
    `flexee-intake@<project>.iam.gserviceaccount.com`). He shares two Drive folders with it as
-   **Viewer**: `MIS3250_v2_CURRENT` and `Flexee_Standards`. Wait for his confirmation before Part F.
+   **Viewer**: `FZ1001_v2_CURRENT` and `Flexee_Standards`. Wait for his confirmation before Part F.
 
 ## Part F — Load the current SAD book
 
@@ -120,7 +120,7 @@ folder's Drive URL).
 ```bash
 cd /opt/flexee/flexee-reader
 /opt/flexee/venv/bin/python tools/flexee_intake.py --book-id sad \
-  --drive-folder <MIS3250_v2_CURRENT id> \
+  --drive-folder <FZ1001_v2_CURRENT id> \
   --standards-folder <Flexee_Standards id> \
   --credentials /opt/flexee/secrets/sa.json --out content
 ```

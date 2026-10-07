@@ -150,7 +150,7 @@ const ZIP_DIR = [
 
 function shelfZip(name: string, mutate?: (root: string) => void) {
   const dir = mkdtempSync(path.join(tmpdir(), "shelf-"));
-  const root = path.join(dir, "MIS3250_v2_CURRENT"); // Drive zips a folder with the folder itself inside
+  const root = path.join(dir, "FZ1001_v2_CURRENT"); // Drive zips a folder with the folder itself inside
   execFileSync("python3", ["-c", BUILD_SHELF], {
     env: { ...process.env, FIXTURES_DIR: path.join(REPO, "scripts", "fixtures"), SHELF_ROOT: root },
   });
@@ -234,10 +234,10 @@ await t("a file that is not a zip, or a zip with no register, fails with a plain
 });
 await t("the register is found wherever Drive's zip puts the folder", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "find-"));
-  execFileSync("mkdir", ["-p", path.join(dir, "a", "MIS3250_v2_CURRENT", "Archive")]);
-  writeFileSync(path.join(dir, "a", "MIS3250_v2_CURRENT", "STATE_OF_RECORD.md"), "x");
-  writeFileSync(path.join(dir, "a", "MIS3250_v2_CURRENT", "Archive", "STATE_OF_RECORD.md"), "old");
-  assert.equal(findShelf(dir), path.join(dir, "a", "MIS3250_v2_CURRENT"), "archived registers are ignored");
+  execFileSync("mkdir", ["-p", path.join(dir, "a", "FZ1001_v2_CURRENT", "Archive")]);
+  writeFileSync(path.join(dir, "a", "FZ1001_v2_CURRENT", "STATE_OF_RECORD.md"), "x");
+  writeFileSync(path.join(dir, "a", "FZ1001_v2_CURRENT", "Archive", "STATE_OF_RECORD.md"), "old");
+  assert.equal(findShelf(dir), path.join(dir, "a", "FZ1001_v2_CURRENT"), "archived registers are ignored");
 });
 
 // ---- Spec 16: the integrity check, which never fired in this job ---------------------------------

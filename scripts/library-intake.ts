@@ -62,7 +62,7 @@ function walk(dir: string, base = ""): string[] {
 /** The folder in the unzipped upload that holds STATE_OF_RECORD.md (the book's CURRENT folder). */
 export function findShelf(root: string): string {
   const hits = walk(root).filter((f) => path.basename(f) === "STATE_OF_RECORD.md" && !f.split("/").some((p) => p.startsWith("Archive")));
-  if (hits.length === 0) throw new Error("The zip has no STATE_OF_RECORD.md. Upload the book's CURRENT folder (e.g. MIS3250_v2_CURRENT), zipped whole.");
+  if (hits.length === 0) throw new Error("The zip has no STATE_OF_RECORD.md. Upload the book's CURRENT folder (e.g. FZ1001_v2_CURRENT), zipped whole.");
   if (hits.length > 1) throw new Error(`The zip holds more than one book register (${hits.join(", ")}). Upload one book's CURRENT folder.`);
   return path.join(root, path.dirname(hits[0]));
 }

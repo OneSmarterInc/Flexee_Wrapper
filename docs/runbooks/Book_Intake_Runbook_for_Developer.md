@@ -11,7 +11,7 @@ This runbook loads the two finished books into the live Wrapper:
 
 | Book | Book id | Drive folder |
 |---|---|---|
-| Analysis and Design of Information Systems (MIS 3250, "SAD") | `sad` | `Flexee/Flexee-SAD/MIS3250_v2_CURRENT` |
+| Analysis and Design of Information Systems (MIS 3250, "SAD") | `sad` | `Flexee/Flexee-SAD/FZ1001_v2_CURRENT` |
 | Technology and the Organization (MIS 3000) | `mis3000` | `Flexee/Flexee-3000/MIS3000_v1_CURRENT` |
 
 The copies of both books currently in the repository (`content/sad`, `content/mis3000`) are old
@@ -39,7 +39,7 @@ No Google service account or key file is needed. The intake reads the book folde
 ## Step 0 — One-time setup
 
 **0.1 Drive access.** Vikram shares three folders with your Google account as **Viewer**:
-`MIS3250_v2_CURRENT`, `MIS3000_v1_CURRENT` and `Flexee_Standards`.
+`FZ1001_v2_CURRENT`, `MIS3000_v1_CURRENT` and `Flexee_Standards`.
 
 Shared folders appear under **Shared with me**, which Google Drive for Desktop does not show
 as a local folder. For each of the three folders: open drive.google.com → **Shared with me** →
@@ -61,11 +61,11 @@ appear on your computer under `G:\My Drive\` (the drive letter may differ on you
 
 **0.2a Running the intake tests.** `npm run test:intake` and `npm run test:library` build a test shelf
 from the real SAD chapter packages, so they need `SAD_PACKAGES` pointing at the source. That is either
-a copy of `MIS3250_v2_CURRENT` (holding `04_Chapters` and `00_Front_Matter`) or one flat folder holding
+a copy of `FZ1001_v2_CURRENT` (holding `04_Chapters` and `00_Front_Matter`) or one flat folder holding
 the `Chapter_NN_Package_*.zip` files and `Book_Front_Matter_v*.md` together. With Drive for Desktop:
 
 ```
-SAD_PACKAGES="G:/My Drive/Flexee/Flexee-SAD/MIS3250_v2_CURRENT" npm run test:intake
+SAD_PACKAGES="G:/My Drive/Flexee/Flexee-SAD/FZ1001_v2_CURRENT" npm run test:intake
 ```
 
 Both read the source only and never write back to Drive. The validator defaults to this repository's
@@ -90,7 +90,7 @@ below. Use your actual paths in the commands that follow if they differ.
 
 | Path | Must contain |
 |---|---|
-| `G:\My Drive\MIS3250_v2_CURRENT` | `STATE_OF_RECORD.md` and folders `00_Front_Matter` to `07_Question_Banks` |
+| `G:\My Drive\FZ1001_v2_CURRENT` | `STATE_OF_RECORD.md` and folders `00_Front_Matter` to `07_Question_Banks` |
 | `G:\My Drive\MIS3000_v1_CURRENT` | `STATE_OF_RECORD.md` and folders `00_Front_Matter` to `07_Question_Banks` |
 | `G:\My Drive\Flexee_Standards\Tools` | `build_questions.py` |
 
@@ -105,7 +105,7 @@ your paths):
 
 ```
 python tools/flexee_intake.py --book-id sad ^
-  --local "G:\My Drive\MIS3250_v2_CURRENT" ^
+  --local "G:\My Drive\FZ1001_v2_CURRENT" ^
   --validator "G:\My Drive\Flexee_Standards\Tools\build_questions.py" ^
   --out content
 ```

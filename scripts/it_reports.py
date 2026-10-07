@@ -69,10 +69,14 @@ def _():
 
 # ---------------------------------------------------------------- the nested folder, for real
 
-SHELF = os.environ.get("SAD_PACKAGES") or r"G:\My Drive\Flexee\Flexee-SAD\MIS3250_v2_CURRENT"
+# SAD was re-keyed to its catalog number on 7 October: register v6.21 carries
+# | Catalog number | **FZ1001** |, so Spec 22's gate stops an upload under any other id — including
+# the "sad" this fixture used until that day. The intake is run as fz1001 here for that reason, and
+# test:catalog is what pins the gate itself.
+SHELF = os.environ.get("SAD_PACKAGES") or r"G:\My Drive\Flexee\Flexee-SAD\FZ1001_v2_CURRENT"
 if not os.path.isdir(os.path.join(SHELF, "00_Front_Matter")):
     print("\nSKIP the nested-folder checks — set SAD_PACKAGES to a shelf with the real lanes, e.g.")
-    print('       SAD_PACKAGES="G:/My Drive/Flexee/Flexee-SAD/MIS3250_v2_CURRENT" npm run test:reports')
+    print('       SAD_PACKAGES="G:/My Drive/Flexee/Flexee-SAD/FZ1001_v2_CURRENT" npm run test:reports')
     print("\n%d checks passed" % passed)
     raise SystemExit(0)
 
@@ -90,7 +94,7 @@ for lane, how_many in (("00_Front_Matter", 1), ("04_Chapters", None)):
 
 out = os.path.join(tmp, "out")
 report = subprocess.run(
-    [sys.executable, "tools/flexee_intake.py", "--book-id", "sad", "--local", fixture,
+    [sys.executable, "tools/flexee_intake.py", "--book-id", "fz1001", "--local", fixture,
      "--out", out, "--validator", "tools/build_questions.py"],
     capture_output=True, text=True, encoding="utf-8", errors="replace",
     env={**os.environ, "PYTHONIOENCODING": "utf-8"}).stdout
@@ -126,16 +130,31 @@ def _():
 def _():
     clean_out = os.path.join(tmp, "clean")
     r = subprocess.run(
-        [sys.executable, "tools/flexee_intake.py", "--book-id", "sad", "--local", SHELF,
+        [sys.executable, "tools/flexee_intake.py", "--book-id", "fz1001", "--local", SHELF,
          "--out", clean_out, "--validator", "tools/build_questions.py"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         env={**os.environ, "PYTHONIOENCODING": "utf-8"}).stdout
     assert "**Status: READY TO APPROVE**" in r, r[:400]
     assert "**Ready to add: click Add to library.**" in r, r[-400:]
     assert "sits inside the lane" not in r, "a clean shelf reported a nested folder"
-    # SAD warns about its seven table header cells, so the closing line names that gate
-    assert "none of which blocks the book" in r, r[-400:]
-    assert "Table header cells" in r, r[-400:]
+
+    # The closing line's warnings clause has to match whatever warnings the report actually holds,
+    # rather than a list fixed when this was written. Until 7 October SAD warned about seven empty
+    # table header cells and this asserted the clause named that gate; the revision fixed them, and
+    # a test that demanded the book stay broken would have had to be weakened rather than corrected.
+    warned = [l.split("|")[1].strip() for l in r.split("\n")
+              if l.startswith("|") and "| warning |" in l]
+    tail = r.rsplit("**Ready to add", 1)[-1]
+    if warned:
+        assert "none of which blocks the book" in r, r[-400:]
+        for gate_name in warned:
+            assert gate_name in tail, (gate_name, r[-400:])
+    else:
+        assert "none of which blocks the book" not in r, \
+            "the closing line claimed warnings on a report that has none"
+        assert r.rstrip().endswith("**Ready to add: click Add to library.**"), r[-200:]
+    print("      the clean shelf reported %d warning gate(s): %s"
+          % (len(warned), ", ".join(warned) or "none"))
 
 
 shutil.rmtree(tmp, ignore_errors=True)

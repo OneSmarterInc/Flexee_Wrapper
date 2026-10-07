@@ -22,7 +22,7 @@ def t(name):
 
 REGISTERS = {
     "fz1003": r"G:\My Drive\Flexee\FiveZero-4950\FZ1003_v1_CURRENT\STATE_OF_RECORD.md",
-    "sad": r"G:\My Drive\Flexee\Flexee-SAD\MIS3250_v2_CURRENT\STATE_OF_RECORD.md",
+    "sad": r"G:\My Drive\Flexee\Flexee-SAD\FZ1001_v2_CURRENT\STATE_OF_RECORD.md",
     "mis3000": r"G:\My Drive\Flexee\Flexee-3000\MIS3000_v1_CURRENT\STATE_OF_RECORD.md",
 }
 HAVE = {k: io.open(v, encoding="utf-8").read() for k, v in REGISTERS.items() if os.path.exists(v)}
@@ -120,17 +120,40 @@ def _():
         assert number == "FZ1003"
 
 
-@t("the two registers with no catalog row behave exactly as before")
+@t("a register with no catalog row behaves exactly as before")
 def _():
-    for book in ("sad", "mis3000"):
-        if book not in HAVE:
-            print("      (skipped %s)" % book); continue
-        level, detail, number = cn.check(HAVE[book], book)
-        assert level == "pass", (book, level, detail)
-        assert number is None
-        assert detail == "the register names no catalog number", detail
-        # and an id that is not the book's own is equally fine, because nothing requires one
-        assert cn.check(HAVE[book], "whatever")[0] == "pass"
+    # MIS 3000 is the only one left without the row. SAD gained it on 7 October — register v6.21
+    # re-keyed the book to its catalog number — which is why it has moved to the check below.
+    book = "mis3000"
+    if book not in HAVE:
+        print("      (skipped %s)" % book); return
+    level, detail, number = cn.check(HAVE[book], book)
+    assert level == "pass", (book, level, detail)
+    assert number is None
+    assert detail == "the register names no catalog number", detail
+    # and an id that is not the book's own is equally fine, because nothing requires one
+    assert cn.check(HAVE[book], "whatever")[0] == "pass"
+
+
+@t("SAD's re-keyed register demands fz1001, which is the gate doing its job")
+def _():
+    # Added 7 October, when SAD's register gained | Catalog number | **FZ1001** | and its question
+    # bank was re-keyed from sad to fz1001. A second real register with the row, so the gate is
+    # pinned against two books rather than one — and the stop is the thing that would have caught
+    # an upload under the old id.
+    if "sad" not in HAVE:
+        print("      (skipped — SAD's register not present)"); return
+    number, problem = cn.read(HAVE["sad"])
+    assert (number, problem) == ("FZ1001", None), (number, problem)
+
+    level, detail, got = cn.check(HAVE["sad"], "fz1001")
+    assert level == "pass", (level, detail)
+    assert got == "FZ1001"
+
+    level, detail, got = cn.check(HAVE["sad"], "sad")
+    assert level == "stop", (level, detail)
+    assert "`fz1001`" in detail and "`sad`" in detail, detail
+    print("      SAD now reads %r; an upload as `sad` stops" % number)
 
 
 @t("a catalogue-spelled row is read too, since the gate's own word list calls it British")

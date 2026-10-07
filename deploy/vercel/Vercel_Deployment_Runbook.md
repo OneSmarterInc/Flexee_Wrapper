@@ -68,7 +68,7 @@ Function region: **Washington, D.C. (iad1)** or **Cleveland (cle1)**, close to t
 
 1. Vikram signs up on the site. From a machine with `DATABASE_URL_UNPOOLED` in `.env` (as
    `DATABASE_URL`): `npm run admin:set -- <his email>`.
-2. Vikram → **Library** → upload `MIS3250_v2_CURRENT` (zipped from Drive) as book `sad`; read the
+2. Vikram → **Library** → upload `FZ1001_v2_CURRENT` (zipped from Drive) as book `sad`; read the
    report; **Add to library**. Then `MIS3000_v1_CURRENT` as `mis3000`.
 3. Set the three `CONTENT_*` variables in Part D and redeploy. The site now reads books from Blob.
 4. Check: both books open; MIS 3000's title is *Technology and the Organization*; SAD Figure 1.4 reads
