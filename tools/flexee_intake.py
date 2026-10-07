@@ -445,6 +445,11 @@ def run(args):
     cap_warn, cap_tables, cap_ok = [], 0, 0
     # Spec 21 rules 2 and 3: reported for every book, whatever standard it was built to.
     alt_warn, th_warn, titled, described = [], [], 0, 0
+    # Spec 26. Counted from the same read of the markdown that the comparison uses, so the
+    # "checked N figures" line can never disagree with the warnings beside it. `titled`, below, is
+    # counted while staging and skips a figure whose image is missing, which is a different number.
+    alt_with_caption = 0
+    alt_repeats = 0
     bank_drift = []   # Spec 16: bank files changed under an unchanged register version
     total_figs = 0; saved = 0; spine = []; lock_files = {}
     for n in sorted(found):
@@ -475,7 +480,10 @@ def run(args):
                 cap_warn.append(f"{where}: {pr['message']}")
         for mt in NEG_PARALLEL.finditer(prose_only(md)): negpar.append(f"ch{n}: " + re.sub(r"\s+", " ", mt.group(0)).strip()[:140])
         for mt in SIM_LEAK.finditer(md): leaks.append(f"ch{n}: '{mt.group(0)}'")
-        alt_warn += figure_alt.alt_problems(md, n)
+        chapter_alt = figure_alt.alt_problems(md, n)
+        alt_warn += chapter_alt
+        alt_repeats += sum(1 for c, _ in chapter_alt if c == "repeats the caption")
+        alt_with_caption += sum(1 for g in figure_alt.figures_in(md) if g["title"])
         th_warn += figure_alt.empty_table_headers(md, n)
         # stage entry
         d = stage / eid; (d / "figures").mkdir(parents=True)
@@ -532,9 +540,11 @@ def run(args):
     # the book for its author to fix, and holding the whole book back would leave the chapter
     # nobody can read at all unreadable by everyone. Decision 2: summarised per category with
     # counts and the first few, not one line per figure.
+    caption_line = figure_alt.caption_check_line(alt_with_caption, alt_repeats)
     gate("Figure alt text", not alt_warn,
-         figure_alt.summarise(alt_warn)
-         or f"{total_figs} figures, every one with alt text that says more than its number",
+         (figure_alt.summarise(alt_warn) + [caption_line]) if alt_warn
+         else [f"{total_figs} figures, every one with alt text that says more than its number",
+               caption_line],
          "warn")
     gate("Table header cells", not th_warn,
          (th_warn[:8] + ([f"and {len(th_warn) - 8} more"] if len(th_warn) > 8 else []))

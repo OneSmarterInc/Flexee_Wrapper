@@ -96,6 +96,163 @@ def _():
     assert not any("fig1_5_e" in w or "fig1_6_f" in w for _c, w in got), got
 
 
+# ------------------------------------------- Spec 26: alt text that repeats the caption
+
+@t("normalising reduces both sides to the words they carry")
+def _():
+    n = figure_alt.normalise_for_compare
+    want = "context diagram for the course registration system"
+    for raw in ("Figure 4.1: Context diagram for the course registration system",
+                "context diagram for the course registration system",
+                "CONTEXT DIAGRAM FOR THE COURSE REGISTRATION SYSTEM.",
+                "  Fig. 4.1 \u2014 Context  diagram for the   course registration system  ",
+                "Figure 4.1. Context diagram for the course registration system!",
+                "Table 4.1: context diagram for the course registration system;"):
+        assert n(raw) == want, (raw, n(raw))
+    assert n("") == ""
+    assert n(None) == ""
+    # A number-only alt reduces to nothing, which is how it is told from a real sentence.
+    assert n("Figure 4.1") == ""
+    assert n("Figure 4.1:") == ""
+
+
+@t("rule 1 — identical alt text and caption warn")
+def _():
+    same = "Context diagram for the course registration system"
+    md = '![%s](figures/fig4_1_ctx.png "%s")\n' % (same, same)
+    got = figure_alt.alt_problems(md, 4)
+    assert got == [("repeats the caption", "ch4 Figure 4.1")], got
+
+
+@t("rule 2 — case, trailing punctuation, spacing or a leading label still warn")
+def _():
+    cases = [
+        ("Context Diagram for the System", "context diagram for the system", "case"),
+        ("Context diagram for the system", "Context diagram for the system.", "a full stop"),
+        ("Context  diagram  for the system", "Context diagram for the system", "spacing"),
+        ("Context diagram for the system", "Figure 4.2: Context diagram for the system",
+         "a label on the caption"),
+        ("Figure 4.2: Context diagram for the system", "Context diagram for the system",
+         "a label on the alt"),
+        ("Figure 4.2 \u2014 Context diagram for the system!", "context diagram for the system",
+         "all of them at once"),
+    ]
+    for alt, caption, why in cases:
+        md = '![%s](figures/fig4_2_x.png "%s")\n' % (alt, caption)
+        got = figure_alt.alt_problems(md, 4)
+        assert got == [("repeats the caption", "ch4 Figure 4.2")], (why, got)
+
+
+@t("rule 3 — alt text that genuinely differs does not warn")
+def _():
+    caption = "Figure 4.1: Context diagram for the course registration system"
+    for alt in ("A rounded box exchanging data with four outside parties",
+                "Context diagram for the course registration system, with four parties",
+                "The registration system as one process",
+                "Context diagram for the billing system"):
+        md = '![%s](figures/fig4_1_x.png "%s")\n' % (alt, caption)
+        got = figure_alt.alt_problems(md, 4)
+        assert got == [], (alt, got)
+
+
+@t("rule 4 — an old-style figure, with no separate caption, is not flagged")
+def _():
+    # Here the caption *comes from* the alt text, so the two are always equal and nothing is being
+    # repeated. MIS 3000's figures are all of this shape.
+    md = '![Figure 4.1: Context diagram for the course registration system](figures/fig4_1_x.png)\n'
+    assert figure_alt.alt_problems(md, 4) == []
+    assert figure_alt.alt_repeats_caption("anything at all", None) is False
+    assert figure_alt.alt_repeats_caption("anything at all", "") is False
+    # A real sentence with no caption is equally not this warning's business.
+    md2 = '![A rounded box exchanging data with four parties](figures/fig4_1_x.png)\n'
+    assert figure_alt.alt_problems(md2, 4) == []
+
+
+@t("a number-only alt with a caption is one warning, not two")
+def _():
+    # Both sides normalise to nothing once the label is stripped, so a naive comparison would call
+    # them equal and report the same figure twice.
+    md = '![Figure 4.1](figures/fig4_1_x.png "Figure 4.1")\n'
+    got = figure_alt.alt_problems(md, 4)
+    assert len(got) == 1, got
+    assert got[0][0] == "number only", got
+    # A blank alt with a caption stays the "missing" warning alone.
+    md2 = '![](figures/fig4_2_x.png "Figure 4.2: A real caption")\n'
+    got2 = figure_alt.alt_problems(md2, 4)
+    assert [c for c, _ in got2] == ["missing"], got2
+
+
+@t("the warning names the figure by number, falling back to the file name")
+def _():
+    same = "Context diagram for the system"
+    numbered = '![%s](figures/fig7_3_x.png "%s")\n' % (same, same)
+    assert figure_alt.alt_problems(numbered, 7) == [("repeats the caption", "ch7 Figure 7.3")]
+    # MIS 3000's naming gives no number, so the file name is the only handle there is.
+    unnumbered = '![%s](figures/fig-03.png "%s")\n' % (same, same)
+    assert figure_alt.alt_problems(unnumbered, 7) == [("repeats the caption", "ch7 fig-03.png")]
+
+
+@t("rule 5 — the comparison's own line is printed whether or not it found anything")
+def _():
+    line = figure_alt.caption_check_line
+    assert line(48, 0) == "alt text vs caption: checked 48 figures with captions, none repeated"
+    assert line(1, 0) == "alt text vs caption: checked 1 figure with captions, none repeated"
+    assert line(48, 3) == "alt text vs caption: checked 48 figures with captions, 3 repeated"
+    # No figure has a caption yet: say so rather than claiming a clean result.
+    assert "nothing to compare" in line(0, 0)
+    for n, r in ((0, 0), (1, 0), (48, 0), (48, 3)):
+        assert line(n, r), (n, r)
+
+
+@t("the new category summarises like the others, with a count and the first few")
+def _():
+    pairs = [("repeats the caption", "ch%d Figure %d.1" % (i, i)) for i in range(1, 6)]
+    lines = figure_alt.summarise(pairs)
+    assert len(lines) == 1, lines
+    assert lines[0].startswith("repeats the caption alt text: 5 figures \u2014 "), lines[0]
+    assert lines[0].endswith("and 2 more"), lines[0]
+
+
+@t("the three real books are reported, and SAD's revision is visible in the counts")
+def _():
+    # Measured rather than asserted from memory. On 6 October none of the books used a separate
+    # caption at all; SAD and MIS 4950 were revised to the convention on the 7th, which is what
+    # gives this check anything to compare in the first place.
+    import zipfile
+    shelves = [("SAD (fz1001)", os.environ.get("SAD_PACKAGES")
+                or r"G:\My Drive\Flexee\Flexee-SAD\FZ1001_v2_CURRENT"),
+               ("MIS 3000", r"G:\My Drive\Flexee\Flexee-3000\MIS3000_v1_CURRENT"),
+               ("MIS 4950", r"G:\My Drive\Flexee\FiveZero-4950\FZ1003_v1_CURRENT")]
+    missing = [n for n, r in shelves if not os.path.isdir(os.path.join(r, "04_Chapters"))]
+    if missing:
+        print("      (skipped %s — packages not present)" % ", ".join(missing)); return
+
+    for label, root in shelves:
+        lane = os.path.join(root, "04_Chapters")
+        figs = with_caption = repeats = 0
+        for name in sorted(os.listdir(lane)):
+            if not name.endswith(".zip"):
+                continue
+            with zipfile.ZipFile(os.path.join(lane, name)) as z:
+                for f in z.namelist():
+                    if not f.endswith(".md"):
+                        continue
+                    md = z.read(f).decode("utf-8", "replace")
+                    for g in figure_alt.figures_in(md):
+                        figs += 1
+                        if g["title"]:
+                            with_caption += 1
+                    repeats += sum(1 for c, _ in figure_alt.alt_problems(md, 1)
+                                   if c == "repeats the caption")
+        print("      %-14s %3d figures, %3d with a caption, %d repeating it"
+              % (label, figs, with_caption, repeats))
+        # The check that matters: nowhere in any book does an alt text repeat its caption.
+        assert repeats == 0, "%s has %d figure(s) whose alt text repeats its caption" % (label, repeats)
+        # And the comparison is not vacuous for the two revised books.
+        if label != "MIS 3000":
+            assert with_caption > 0, "%s has no separate captions, so nothing was compared" % label
+
+
 @t("an empty table header is found, and the pipes themselves are not mistaken for one")
 def _():
     good = "| Stage | Who |\n|---|---|\n| Analysis | Analyst |\n"

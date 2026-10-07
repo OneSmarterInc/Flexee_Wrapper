@@ -21,6 +21,11 @@ NUMBER_FROM_FILE = re.compile(r"^fig[-_]?(\d+)[-_](\d+)", re.I)
 NUMBER_ONLY_ALT = re.compile(r"^\s*(?:figure|fig\.?)\s*\d+\.\d+\s*[:.]?\s*$", re.I)
 LONG_DESCRIPTION = re.compile(r"^>\s*Long description:\s*(.*)$", re.I)
 
+# Spec 26: a leading "Figure 4.1" / "Fig. 4.1" label and whatever punctuation follows it. Not
+# anchored at the end, unlike NUMBER_ONLY_ALT, because here it is a prefix to be removed from a
+# longer sentence rather than the whole of one.
+LEADING_LABEL = re.compile(r"^\s*(?:figure|fig\.?|table)\s*\d+(?:\.\d+)?\s*[:.—-]*\s*", re.I)
+
 
 def number_from_file_name(name):
     """``fig4_2_level0.png`` -> ``'4.2'``; a name with one number gives None.
@@ -85,6 +90,8 @@ def alt_problems(markdown, chapter):
     ``missing`` — no alt text at all, so a screen reader reads the file name or says "image".
     ``number only`` — alt text that is only "Figure N.M", which repeats the caption beside it and
     describes nothing.
+    ``repeats the caption`` — alt text that says no more than the caption already says, so a screen
+    reader reads the same sentence twice and the picture goes undescribed (Spec 26).
     """
     out = []
     for f in figures_in(markdown):
@@ -93,6 +100,11 @@ def alt_problems(markdown, chapter):
             out.append(("missing", where))
         elif NUMBER_ONLY_ALT.match(f["alt"]):
             out.append(("number only", "%s (alt is %r)" % (where, f["alt"])))
+        elif alt_repeats_caption(f["alt"], f["title"]):
+            # Spec 26. Named by figure number where the file name gives one, because that is what
+            # the Books coordinator looks for in the chapter.
+            which = "Figure %s" % f["number"] if f["number"] else f["file"]
+            out.append(("repeats the caption", "ch%s %s" % (chapter, which)))
     return out
 
 
@@ -141,3 +153,58 @@ def summarise(pairs, first=3):
         lines.append("%s alt text: %d figure%s — %s%s"
                      % (category, len(wheres), "" if len(wheres) == 1 else "s", shown, more))
     return lines
+
+
+# --------------------------------------------------- Spec 26: alt text that repeats the caption
+
+def normalise_for_compare(text):
+    """Both sides of the comparison, reduced to the words they actually carry.
+
+    Lower-cased, with a leading "Figure N.M" label and its punctuation removed, trailing punctuation
+    removed, and runs of whitespace collapsed. So these are all the same sentence:
+
+        "Figure 4.1: Context diagram for the course registration system"
+        "context diagram for the course   registration system."
+        "Context Diagram for the Course Registration System"
+
+    The point is that a reader hearing the alt text and then the caption should learn something the
+    second time. Differing only in case or a full stop is not learning anything.
+    """
+    t = (text or "").strip().lower()
+    t = LEADING_LABEL.sub("", t)
+    t = re.sub(r"[\s ]+", " ", t).strip()
+    return t.rstrip(" .,;:!?—-").strip()
+
+
+def alt_repeats_caption(alt, caption):
+    """True when the alt text says no more than the caption already says.
+
+    False when there is no separate caption: in the old style the caption *comes from* the alt text,
+    so the two are always equal and nothing is being repeated (rule 4). False, too, when both sides
+    normalise to nothing — that is a number-only alt, which has its own warning, and reporting it
+    twice would make one figure look like two problems.
+    """
+    if not caption:
+        return False
+    a = normalise_for_compare(alt)
+    c = normalise_for_compare(caption)
+    if not a or not c:
+        return False
+    return a == c
+
+
+def caption_check_line(with_caption, repeats):
+    """One line saying the comparison ran, whether or not it found anything.
+
+    A report that prints only the categories it found leaves a reader unable to tell a check that
+    passed from a check that is not there. This costs one line and removes the doubt.
+    """
+    if not with_caption:
+        return ("alt text vs caption: no figure has a separate caption yet, so there is nothing to "
+                "compare — see the figure authoring guide")
+    n = with_caption
+    if not repeats:
+        return ("alt text vs caption: checked %d figure%s with captions, none repeated"
+                % (n, "" if n == 1 else "s"))
+    return ("alt text vs caption: checked %d figure%s with captions, %d repeated"
+            % (n, "" if n == 1 else "s", repeats))
