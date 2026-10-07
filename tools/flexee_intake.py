@@ -426,7 +426,7 @@ def run(args):
 
     # 3 — integrity against the last admitted lock
     lock_path = out / book / "intake.lock.json"
-    lock = json.loads(lock_path.read_text()) if lock_path.exists() else {"files": {}}
+    lock = json.loads(lock_path.read_text(encoding="utf-8")) if lock_path.exists() else {"files": {}}
     drift = []
     for n, lst in found.items():
         v, name, data = lst[0]; prev = lock["files"].get(f"ch{n:02d}")
@@ -663,8 +663,8 @@ def run(args):
                 gate("Version integrity (question bank)", not bank_drift,
                      bank_drift or "no bank file changed under an unchanged register version", "warn")
             if res.returncode == 0:
-                objs = json.loads((stage / "objectives.json").read_text()) if (stage / "objectives.json").exists() else []
-                qs = json.loads((stage / "questions.json").read_text())
+                objs = json.loads((stage / "objectives.json").read_text(encoding="utf-8")) if (stage / "objectives.json").exists() else []
+                qs = json.loads((stage / "questions.json").read_text(encoding="utf-8"))
                 approved = sum(1 for q in qs if (q.get("review") or {}).get("status") == "approved")
                 drafts = len(qs) - approved
                 want = reg.get("objective_count")
