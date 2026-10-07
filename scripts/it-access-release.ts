@@ -314,4 +314,62 @@ await t("releasing nobody is refused rather than silently doing nothing", async 
   assert.match(r.ok === false ? r.error : "", /at least one student/);
 });
 
+// ----------------------------------------------------------------- the log (commit 5)
+
+console.log("The class actions log");
+
+await t("a release is logged as counts, with no student named and no note kept", async () => {
+  const sec = await createSection(prof.id, "sad", "MIS 3250-12", "2027 Spring", { teach: true });
+  const u = await account("Logged", "logged@wright.edu");
+  await enrolAs(sec.id, u.id, "student");
+  const [e] = await db().select().from(enrolments)
+    .where(and(eq(enrolments.sectionId, sec.id), eq(enrolments.userId, u.id)));
+
+  await setAccessRelease(prof.id, sec.id, { released: true, enrolmentIds: [e.id], note: "dept PO 4471" });
+  const { actionsFor, describeAction } = await import("@/lib/class-actions");
+  let log = await actionsFor(sec.id);
+  assert.equal(log[0].action, "release_access");
+  assert.equal(log[0].count, 1);
+  assert.equal(describeAction(log[0]), "Released simulation access for 1 student");
+
+  // The two things that must never be in the log: who, and the paperwork.
+  const asText = JSON.stringify(log);
+  assert.ok(!asText.includes("dept PO 4471"), "the faculty note must not reach the log");
+  assert.ok(!asText.includes(u.id) && !asText.includes("Logged"), "no student is named");
+
+  await setAccessRelease(prof.id, sec.id, { released: false, enrolmentIds: [e.id] });
+  log = await actionsFor(sec.id);
+  assert.equal(log[0].action, "unrelease_access");
+  assert.equal(describeAction(log[0]), "Withdrew simulation access from 1 student");
+});
+
+await t("Release all records how many withdrawn students it skipped", async () => {
+  const sec = await createSection(prof.id, "sad", "MIS 3250-13", "2027 Spring", { teach: true });
+  const ids: string[] = [];
+  for (const n of ["P", "Q"]) {
+    const u = await account(`Log ${n}`, `log${n}@wright.edu`);
+    await enrolAs(sec.id, u.id, "student");
+    const [e] = await db().select().from(enrolments)
+      .where(and(eq(enrolments.sectionId, sec.id), eq(enrolments.userId, u.id)));
+    ids.push(e.id);
+  }
+  await withdrawStudents(prof.id, sec.id, [ids[1]]);
+  await setAccessRelease(prof.id, sec.id, { released: true, all: true });
+  const { actionsFor, describeAction } = await import("@/lib/class-actions");
+  const log = await actionsFor(sec.id);
+  const release = log.find((a) => a.action === "release_access")!;
+  assert.equal(release.count, 1);
+  assert.equal(describeAction(release), "Released simulation access for 1 student, skipped 1 withdrawn");
+});
+
+await t("a refused release writes nothing to the log", async () => {
+  const sec = await createSection(prof.id, "sad", "MIS 3250-14", "2027 Spring", { teach: true });
+  const stranger = await account("Nobody", "nobody@flexee.org");
+  const { actionsFor } = await import("@/lib/class-actions");
+  const before = (await actionsFor(sec.id)).length;
+  assert.equal((await setAccessRelease(stranger.id, sec.id, { released: true, all: true })).ok, false);
+  assert.equal((await setAccessRelease(prof.id, sec.id, { released: true, enrolmentIds: [] })).ok, false);
+  assert.equal((await actionsFor(sec.id)).length, before, "a refusal is not an action");
+});
+
 console.log("\n%d checks passed", passed);

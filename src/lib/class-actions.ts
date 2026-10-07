@@ -22,7 +22,7 @@ import { canManageClass } from "@/lib/publish";
 export type ActionName =
   | "resend" | "withdraw" | "restore" | "remove"
   | "delete_account" | "delete_class" | "copy_grading" | "download_links"
-  | "import_scores";
+  | "import_scores" | "release_access" | "unrelease_access";
 
 /** Counts only. The table has nowhere to put a name, and this has nothing else to give it. */
 export async function logAction(
@@ -69,6 +69,12 @@ export function describeAction(a: { action: ActionName; count: number; detail: R
       return `Copied a grading setup: ${n(d.categories ?? 0, "category", "categories")}` +
         `${d.unmatched ? `, ${d.unmatched} column${d.unmatched === 1 ? "" : "s"} unmatched` : ""}`;
     case "download_links": return `Downloaded ${n(a.count, "invitation link")}`;
+    // Counts only, like every other line: the note a faculty member typed is theirs and is not
+    // recorded here. "Skipped" is the withdrawn students Release all leaves alone.
+    case "release_access":
+      return `Released simulation access for ${n(a.count, "student")}` +
+        `${d.skipped ? `, skipped ${d.skipped} withdrawn` : ""}`;
+    case "unrelease_access": return `Withdrew simulation access from ${n(a.count, "student")}`;
     default: return `${a.action} (${a.count})`;
   }
 }

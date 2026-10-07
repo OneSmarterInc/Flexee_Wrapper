@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { ownedSection } from "@/lib/roster";
 import { simsForClass, visibleSims, classCompletions } from "@/lib/sims";
+import { sectionRoster, waitingOnRelease } from "@/lib/roster";
 import { formatLocal } from "@/lib/time";
 import { simColumnsFor, categoriesFor, SIM_RULES, SIM_RULE_LABELS, isParticipation, type SimRule } from "@/lib/gradebook";
-import { addClassSimAction, removeClassSimAction, setSimRuleAction, setSimPointsAction } from "@/app/sim-actions";
+import { addClassSimAction, removeClassSimAction, setSimRuleAction, setSimPointsAction, setReleaseAction } from "@/app/sim-actions";
 import LogoutButton from "@/components/LogoutButton";
 import { classPageTitle } from "@/lib/page-title";
 
@@ -24,10 +25,17 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}/sims`)}`);
   const sec = await ownedSection(user!.id, section);
   if (!sec) redirect("/teach");
-  const [inClass, available, played, columns, cats] = await Promise.all([
+  const [inClass, available, played, columns, cats, roster, waiting] = await Promise.all([
     simsForClass(section, false), visibleSims(user!.id), classCompletions(user!.id, section),
     simColumnsFor(section), categoriesFor(section),
+    sectionRoster(section), waitingOnRelease(section),
   ]);
+  // Spec 27 B1: students only, and withdrawn ones last — they can still be released by name, but
+  // they are not what a faculty member is looking at when they open this.
+  const students = roster
+    .filter((r) => r.role === "student")
+    .sort((a, b) => Number(a.withdrawnAt != null) - Number(b.withdrawnAt != null) ||
+                    (a.name ?? "").localeCompare(b.name ?? ""));
   const hasSimsCategory = cats.some((c) => c.name.trim().toLowerCase() === "simulations");
   const addable = available.filter((s) => !inClass.some((c) => c.id === s.id));
   const title = new Map(available.concat(inClass).map((s) => [s.id, s.title]));
@@ -104,8 +112,98 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
             {addable.map((s) => <option key={s.id} value={s.id}>{s.title}{s.published ? "" : " (preview)"}</option>)}
           </select>
           <button className="nav-button primary" type="submit">Add to this class</button>
+          {/* Adding a simulation is the moment a faculty member is thinking about who may play it,
+              so the offer belongs here rather than being found later under Who can play. Shown
+              only when somebody is actually waiting, so it is never a tick that does nothing. */}
+          {waiting > 0 && (
+            <label className="ui" style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
+              <input type="checkbox" name="releaseEveryone" value="yes" />
+              Release everyone now ({waiting} waiting)
+            </label>
+          )}
         </form>
       )}
+      <h2 id="access" style={{ color: "var(--navy)", marginTop: "2rem" }}>Who can play</h2>
+      <p className="ui" style={{ color: "var(--muted)", maxWidth: "44rem" }}>
+        A student needs access released before they can start any simulation in this class. Releasing
+        it once covers every simulation here, and it does not affect the book, exams or assignments.
+      </p>
+      {students.length === 0 ? (
+        <p className="ui" style={{ color: "var(--muted)" }}>No students in this class yet.</p>
+      ) : (
+        <>
+          <form action={setReleaseAction}>
+            <input type="hidden" name="sectionId" value={section} />
+            <p className="ui" aria-live="polite" style={{ fontWeight: 600 }}>
+              {waiting === 0
+                ? "Every active student has access."
+                : `${waiting} student${waiting === 1 ? " is" : "s are"} waiting on you.`}
+            </p>
+            <table className="ui" style={{ borderCollapse: "collapse", width: "100%" }}>
+              <caption className="sr-only">Students in this class, and whether their simulation access is released</caption>
+              <thead>
+                <tr>
+                  <th style={cell} scope="col"><span className="sr-only">Choose students</span></th>
+                  <th style={cell} scope="col">Student</th>
+                  <th style={cell} scope="col">Simulation access</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((r) => (
+                  <tr key={r.enrolmentId}>
+                    <td style={cell}>
+                      <input type="checkbox" name="enrolment" value={r.enrolmentId}
+                             aria-label={`Choose ${r.name ?? "this student"}`} />
+                    </td>
+                    <td style={cell}>
+                      {r.name}
+                      {r.isDemo && <span style={demoTag}>Demo</span>}
+                      {r.withdrawnAt && <span style={demoTag}>Withdrawn</span>}
+                    </td>
+                    <td style={cell}>
+                      {/* The demo is never gated at launch, so calling it "waiting" would be false
+                          even though its own row carries no release. */}
+                      {r.isDemo
+                        ? "Always open (demo)"
+                        : r.releasedAt
+                          ? `Released ${formatLocal(r.releasedAt)}`
+                          : "Waiting on you"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="ui" style={{ display: "grid", gap: ".4rem", marginTop: ".7rem", maxWidth: "34rem" }}>
+              <label className="f" htmlFor="release-note">Note, for your own records (optional)</label>
+              <input id="release-note" name="note" maxLength={300} style={field}
+                     placeholder="e.g. dept PO 4471" autoComplete="off" />
+              <p style={{ color: "var(--muted)", fontSize: ".8rem", margin: 0 }}>
+                Only you and other staff on this class see this. It is never sent to a simulation.
+              </p>
+              <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", marginTop: ".2rem" }}>
+                <button className="nav-button primary" type="submit" name="released" value="yes">
+                  Release the chosen students
+                </button>
+                <button className="nav-button ghost" type="submit" name="released" value="no">
+                  Withdraw access from the chosen students
+                </button>
+              </div>
+            </div>
+          </form>
+          {waiting > 0 && (
+            <form action={setReleaseAction} className="ui" style={{ marginTop: ".7rem" }}>
+              <input type="hidden" name="sectionId" value={section} />
+              <input type="hidden" name="all" value="yes" />
+              <input type="hidden" name="released" value="yes" />
+              <button className="nav-button secondary" type="submit">Release everyone ({waiting})</button>
+              <span style={{ color: "var(--muted)", fontSize: ".8rem", marginLeft: ".5rem" }}>
+                Withdrawn students are skipped.
+              </span>
+            </form>
+          )}
+        </>
+      )}
+
       <h2 style={{ color: "var(--navy)", marginTop: "2rem" }}>Who has played</h2>
       {(played ?? []).length === 0 ? <p className="ui" style={{ color: "var(--muted)" }}>No completions yet.</p> : (
         <table className="ui" style={{ borderCollapse: "collapse", width: "100%" }}>

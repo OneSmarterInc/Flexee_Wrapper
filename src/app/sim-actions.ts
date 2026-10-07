@@ -29,7 +29,18 @@ export async function grantPreviewAction(f: FormData) {
 }
 export async function addClassSimAction(f: FormData) {
   const section = s(f, "sectionId"); const u = await me(`/teach/${section}/sims`);
-  back(`/teach/${section}/sims`, await addSimToClass(u.id, section, s(f, "simId")), "Added to the class.");
+  const added = await addSimToClass(u.id, section, s(f, "simId"));
+  if (!added.ok) back(`/teach/${section}/sims`, added, "");
+  // Spec 27 B1 1: the optional tick beside Add. Only offered when somebody is waiting, and only
+  // acted on after the sim is in the class, so a failed add never releases anyone.
+  if (f.get("releaseEveryone") === "yes") {
+    const { setAccessRelease } = await import("@/lib/roster");
+    const r = await setAccessRelease(u.id, section, { released: true, all: true });
+    const n = r.ok ? r.changed : 0;
+    back(`/teach/${section}/sims`, { ok: true },
+      `Added to the class, and released access for ${n} student${n === 1 ? "" : "s"}.`);
+  }
+  back(`/teach/${section}/sims`, added, "Added to the class.");
 }
 export async function removeClassSimAction(f: FormData) {
   const section = s(f, "sectionId"); const u = await me(`/teach/${section}/sims`);
@@ -61,4 +72,35 @@ export async function setSimPointsAction(f: FormData) {
   try { await setSimPoints(section, s(f, "lineItemId"), Number(f.get("points"))); }
   catch (e: any) { back(`/teach/${section}/sims`, { ok: false, error: e?.message ?? "Could not save the points." }, ""); }
   back(`/teach/${section}/sims`, { ok: true }, "Points saved.");
+}
+
+// --- Spec 27 B1 §1: releasing a class's simulation access ---
+
+/**
+ * Release or un-release students, from the class's Simulations page.
+ *
+ * That page rather than the roster, because it is where the sims' facilitator consoles send an
+ * instructor: C2-2 §3 has them build `<PLATFORM_URL>/faculty.html?course=<id>` as the "manage
+ * access" link, and the Wrapper answers it by redirecting here.
+ *
+ * The note travels with a release and is never echoed back into the page's query string, because
+ * it may hold a purchase order number and a redirect URL is the one place on this page that ends
+ * up in a browser history and a server log.
+ */
+export async function setReleaseAction(f: FormData) {
+  const section = s(f, "sectionId"); const u = await me(`/teach/${section}/sims`);
+  const { setAccessRelease } = await import("@/lib/roster");
+  const released = f.get("released") === "yes";
+  const all = f.get("all") === "yes";
+  const ids = f.getAll("enrolment").filter((v): v is string => typeof v === "string" && v.length > 0);
+  const r = await setAccessRelease(u.id, section, { released, all, enrolmentIds: ids, note: s(f, "note") });
+  if (!r.ok) back(`/teach/${section}/sims`, r, "");
+  const n = r.ok ? r.changed : 0;
+  const skipped = r.ok && r.skippedWithdrawn ? `, and skipped ${r.skippedWithdrawn} withdrawn` : "";
+  back(`/teach/${section}/sims`, { ok: true },
+    n === 0
+      ? "Nobody needed changing."
+      : released
+        ? `Released access for ${n} student${n === 1 ? "" : "s"}${skipped}.`
+        : `Withdrew access from ${n} student${n === 1 ? "" : "s"}${skipped}.`);
 }

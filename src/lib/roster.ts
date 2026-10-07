@@ -80,6 +80,10 @@ export async function sectionRoster(sectionId: string) {
       // roster reports the state rather than filtering it.
       withdrawnAt: enrolments.withdrawnAt,
       isDemo: enrolments.isDemo,
+      // Spec 27 B1: so the class's Simulations page can show who is waiting. releasedNote is
+      // deliberately absent: it is faculty-only, and this roster feeds pages a student can be
+      // listed on. The release screen reads the note separately.
+      releasedAt: enrolments.releasedAt,
     })
     .from(enrolments)
     .innerJoin(users, eq(users.id, enrolments.userId))
@@ -257,6 +261,12 @@ export async function setAccessRelease(
       // still a fact about this enrolment, and the old platform's set_paid left it alone too.
       : { releasedAt: null, releasedBy: null })
     .where(inArray(enrolments.id, target.map((r) => r.id)));
+
+  // Counts only (Addendum B 1). No student is named, and the faculty member's note is theirs: the
+  // log has nowhere to put either, and a purchase order number is not the log's business.
+  const { logAction } = await import("@/lib/class-actions");
+  await logAction(sectionId, actorId, opts.released ? "release_access" : "unrelease_access",
+                  target.length, skippedWithdrawn ? { skipped: skippedWithdrawn } : {});
   return { ok: true, changed: target.length, skippedWithdrawn };
 }
 
