@@ -324,3 +324,32 @@ export function allChecks(env: Env = process.env): Check[] {
     emailCheck(env), assistantCheck(env), cronCheck(env),
   ];
 }
+
+// --------------------------------------------------------------- the banner (§2, decision 6)
+
+/**
+ * The runner warning an administrator sees on the Library page and the Administration dashboard.
+ *
+ * It asks the same question the status page asks, through the same cache, so the banner and the
+ * page can never disagree — and so visiting a page does not cost a second set of calls. Null when
+ * there is nothing to say, which includes every state a reader cannot act on: an expiry GitHub
+ * reported wrongly raises nothing.
+ */
+export async function runnerWarning(
+  isAdmin: boolean,
+): Promise<{ kind: "down" | "expiring"; detail: string } | null> {
+  // Decision 6: faculty see only the upload failure message, if an upload actually fails.
+  if (!isAdmin) return null;
+  const { statusCache } = await import("@/lib/status/framework");
+  let r;
+  try {
+    const snap = await statusCache.get([runnerCheck()]);
+    r = snap.results.runner;
+  } catch {
+    return null;                 // a banner must never be the reason a page fails to render
+  }
+  if (!r) return null;
+  if (r.state === "down") return { kind: "down", detail: r.detail };
+  if (r.state === "attention") return { kind: "expiring", detail: r.detail };
+  return null;
+}

@@ -71,7 +71,9 @@ t("a colour is never written as a bare hex outside the token blocks", () => {
   for (const { p, s } of files) {
     if (p.endsWith("globals.css")) continue;      // the token blocks are where hexes belong
     s.split("\n").forEach((line, i) => {
-      for (const m of line.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
+      // A colour is never written straight after a word character. "go-github#3708" is an issue
+      // reference, not a four-digit hex, and flagging it taught nobody anything.
+      for (const m of line.matchAll(/(?<![\w])#[0-9a-fA-F]{3,8}\b/g)) {
         if (!allowed.test(m[0])) found.push(`${p}:${i + 1}  ${m[0]}  ${line.trim().slice(0, 90)}`);
       }
     });

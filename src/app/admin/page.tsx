@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { listBooks } from "@/lib/content";
 import { listBooksForPicker } from "@/lib/retire";
+import { runnerWarning } from "@/lib/status/checks";
+import RunnerBanner from "@/components/RunnerBanner";
 import { allClasses } from "@/lib/admin";
 import { createClassAction } from "@/app/admin/actions";
 import WorkspaceShell from "@/components/WorkspaceShell";
@@ -19,14 +21,19 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   if (user.systemRole !== "admin") redirect("/?error=" + encodeURIComponent("That page is for administrators."));
   // Two lists on purpose (Spec 22 §1): `books` names the book every class already uses, retired
   // or not, and `pickable` is what the form below may offer.
-  const [classes, books, pickable, sp] = await Promise.all([allClasses(), listBooks(), listBooksForPicker(), searchParams]);
+  const [classes, books, pickable, runner, sp] = await Promise.all([
+    allClasses(), listBooks(), listBooksForPicker(),
+    // Spec 24 §2: this page is already admin-only, so the banner is simply shown.
+    runnerWarning(true), searchParams,
+  ]);
   const titles = new Map(books.map((b) => [b.id, b.title]));
   const published = classes.filter((c) => c.bookPublished).length;
   const students = classes.reduce((total, c) => total + c.students, 0);
 
   return (
     <WorkspaceShell active="admin" isAdmin canTeach displayName={user.displayName}
-      links={[{ href: "#classes", label: "All classes" }, { href: "#new-class", label: "Create a class" }, { href: "/library", label: "Book library" }, { href: "/admin/sims", label: "Simulations" }]}>
+      links={[{ href: "#classes", label: "All classes" }, { href: "#new-class", label: "Create a class" }, { href: "/library", label: "Book library" }, { href: "/admin/sims", label: "Simulations" }, { href: "/admin/status", label: "Status" }]}>
+      <RunnerBanner warning={runner} />
       <header className="workspace-heading">
         <div>
           <div className="page-kicker ui">Administrator dashboard</div>

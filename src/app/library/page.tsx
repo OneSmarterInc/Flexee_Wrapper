@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { canUpload, listUploads, dismissableFor } from "@/lib/library";
 import { libraryShelf, retireCost } from "@/lib/retire";
+import { runnerWarning } from "@/lib/status/checks";
+import RunnerBanner from "@/components/RunnerBanner";
 import { retireBookAction, restoreBookAction, dismissUploadAction, dismissAllAction } from "@/app/library/actions";
 import UploadForm from "@/app/library/UploadForm";
 import { STATUS } from "@/lib/library-status";
@@ -21,8 +23,10 @@ export default async function Library({ searchParams }: { searchParams: Promise<
   if (!user) redirect("/login?next=/library");
   if (!(await canUpload(user!.id))) redirect("/?error=" + encodeURIComponent("The library is for faculty and administrators."));
   const admin = user!.systemRole === "admin";
-  const [shelf, uploads, dismissable, sp] = await Promise.all([
-    libraryShelf(), listUploads(), dismissableFor(user!.id), searchParams,
+  const [shelf, uploads, dismissable, runner, sp] = await Promise.all([
+    libraryShelf(), listUploads(), dismissableFor(user!.id),
+    // Spec 24 §2, decision 6: admins only. Faculty get the upload failure message if one fails.
+    runnerWarning(admin), searchParams,
   ]);
   const dismissableIds = new Set(dismissable);
   const live = shelf.filter((s) => !s.retired);
@@ -44,6 +48,7 @@ export default async function Library({ searchParams }: { searchParams: Promise<
       <header className="workspace-heading"><div><div className="page-kicker ui">Book library</div><h1>Books and uploads</h1><p className="ui">
         Books in the library. Adding a book here does not show it to any student: each class's faculty publish a book to their own class.
       </p></div><Link className="nav-button primary" href="#upload">Upload a book</Link></header>
+      <RunnerBanner warning={runner} />
       {sp.ok && <p className="workspace-alert ui" role="status">{sp.ok}</p>}
       {sp.error && <p className="workspace-alert error ui" role="alert">{sp.error}</p>}
 

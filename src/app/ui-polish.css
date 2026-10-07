@@ -638,3 +638,13 @@
   gap: .8rem; flex-wrap: wrap;
 }
 .library-row form { margin: 0; }
+
+/* --- Spec 24: the admin status page ------------------------------------------------------------ */
+.status-table th, .status-table td { border-bottom: 1px solid var(--rule); padding: .6rem .7rem; text-align: left; vertical-align: top; }
+.status-table caption { text-align: left; color: var(--muted); font-size: .82rem; padding-bottom: .4rem; }
+.status-facts { display: flex; flex-wrap: wrap; gap: .2rem .9rem; margin: .35rem 0 0; font-size: .82rem; color: var(--muted); }
+.status-facts > div { display: inline-flex; gap: .3rem; }
+.status-facts dt { font-weight: 600; }
+.status-facts dt::after { content: ":"; }
+.status-facts dd { margin: 0; }
+.status-caveat { margin: .35rem 0 0; font-size: .82rem; color: var(--muted); max-width: 44rem; }

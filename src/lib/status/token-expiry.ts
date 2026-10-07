@@ -11,12 +11,12 @@
  *     `2023-01-31 23:00:00 UTC` and `2023-04-26 23:23:18 +0200` — a space where ISO wants `T`, and
  *     either a zone *name* or a numeric offset. `Date.parse` on anything outside ISO 8601 is
  *     implementation-defined by the ECMAScript specification, so `new Date(header)` is not safe
- *     here; it broke google/go-github (#2649) on exactly these two strings. The header is taken
+ *     here; it broke google/go-github issue 2649 on exactly these two strings. The header is taken
  *     apart explicitly below and never handed to the Date constructor as a whole.
  *  2. **A token may legitimately have no expiry.** GitHub: "Infinite lifetimes are allowed but may
  *     be blocked by a maximum lifetime policy set by your organization or enterprise owner." So a
  *     missing header is not evidence of a classic token, and the only honest answer is "unknown".
- *  3. **The header has been observed to be wrong.** google/go-github#3708 reports GitHub returning
+ *  3. **The header has been observed to be wrong.** google/go-github issue 3708 reports GitHub returning
  *     the *server's current time* instead of the real expiry for fine-grained tokens. A naive
  *     14-day rule would then warn every single day and teach the reader to ignore it.
  *  4. **No current documentation page mentions it** — only the changelog. It is not a versioned API

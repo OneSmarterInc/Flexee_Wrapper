@@ -165,6 +165,7 @@ const PAGES: Page[] = [
   { route: "/faculty", mod: "@/app/faculty/page", as: "faculty", titled: "plain" },
   { route: "/admin", mod: "@/app/admin/page", as: "admin", titled: "plain" },
   { route: "/admin/sims", mod: "@/app/admin/sims/page", as: "admin", titled: "plain" },
+  { route: "/admin/status", mod: "@/app/admin/status/page", as: "admin", titled: "plain" },
   { route: "/library", mod: "@/app/library/page", as: "admin", titled: "plain" },
 
   // The student's pages inside a class.
