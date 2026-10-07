@@ -105,12 +105,22 @@ export const enrolments = pgTable(
     // goes is access to the class and presence in every count, export and bulk action.
     withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
     withdrawnBy: text("withdrawn_by").references((): any => users.id, { onDelete: "set null" }),
+    // Spec 27 B1: access release — the old RapidSims platform's `paid` flag under the name it
+    // should always have had, since nothing here takes payment. Null means not released, and it
+    // gates launching a simulation and nothing else: reading the book, exams and assignments come
+    // with the enrolment. New enrolments start unreleased; migration 0025 released every row that
+    // existed before the column did. The note is faculty-only — it never goes in the session
+    // roster the sims read, and never leaves the Wrapper.
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+    releasedBy: text("released_by").references((): any => users.id, { onDelete: "set null" }),
+    releasedNote: text("released_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex("enrolments_section_user_uq").on(t.sectionId, t.userId),
     index("enrolments_section_demo_idx").on(t.sectionId, t.isDemo),
     index("enrolments_section_withdrawn_idx").on(t.sectionId, t.withdrawnAt),
+    index("enrolments_section_released_idx").on(t.sectionId, t.releasedAt),
   ],
 );
 
