@@ -76,7 +76,8 @@
     "test:demo-account": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-demo-account.ts",
     "test:instr-reset": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-instr-reset.ts",
     "test:sims": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-sims.ts",
-    "test:launch-pass": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-launch-pass.ts"
+    "test:launch-pass": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-launch-pass.ts",
+    "test:app-url": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-app-url.ts"
   },
   "keywords": [],
   "author": "",

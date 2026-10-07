@@ -6,6 +6,7 @@ import { aiEnabled, aiConfigured, aiAvailable } from "@/lib/ai";
 import { mailConfigured, replyTo } from "@/lib/mail";
 import type { Check, Result } from "@/lib/status/framework";
 import { readExpiry, expiryWords, expiryWarns, HEADER, type Expiry } from "@/lib/status/token-expiry";
+import { configuredAppUrl } from "@/lib/app-url";
 
 /**
  * Spec 24 §1: the six checks.
@@ -316,12 +317,54 @@ export function cronCheck(env: Env = process.env): Check {
   };
 }
 
-// ---------------------------------------------------------------------------------------- all six
+// ------------------------------------------------------- the site's own address (Spec 27 commit 2)
+
+/**
+ * What address this site builds its links from.
+ *
+ * It reads a setting and nothing else, which is why it is honest about what it cannot see: the
+ * check runs from the ten-minute cache with no request in hand, so it cannot know which host a
+ * visitor actually arrived on. The status page prints that comparison itself, outside the cache,
+ * because caching a request-specific answer would make two hosts share one result.
+ *
+ * Unset is "not configured" rather than "down": the Host-header fallback works, and it is what
+ * every deployment did before this existed. What it costs is in the detail line.
+ */
+function addressCheck(env: Env = process.env): Check {
+  return {
+    id: "address",
+    name: "Site address",
+    async run(): Promise<Result> {
+      const set = configuredAppUrl(env);
+      const raw = (env.APP_URL ?? "").trim();
+      if (set) {
+        return {
+          state: "ok",
+          detail: `Links in email are built from ${set}.`,
+          // The address is not a secret: it is in every link the site sends.
+          facts: [{ label: "APP_URL", text: set },
+                  ...(set === raw ? [] : [{ label: "As written", text: raw }])],
+          caveat: "This does not prove the address resolves to this deployment, or that a visitor arrived on it.",
+        };
+      }
+      return {
+        state: raw ? "attention" : "not-configured",
+        detail: raw
+          ? "APP_URL is set but unusable, so links fall back to whichever address the visitor is on."
+          : "APP_URL is not set, so links are built from each request's own address. On a preview deployment they point at the preview.",
+        facts: [{ label: "APP_URL", text: raw ? "set, but not a usable address" : "not set" }],
+        caveat: "This does not prove the address resolves to this deployment, or that a visitor arrived on it.",
+      };
+    },
+  };
+}
+
+// --------------------------------------------------------------------------------------- all seven
 
 export function allChecks(env: Env = process.env): Check[] {
   return [
     databaseCheck(env), storageCheck(env), runnerCheck(env),
-    emailCheck(env), assistantCheck(env), cronCheck(env),
+    emailCheck(env), assistantCheck(env), cronCheck(env), addressCheck(env),
   ];
 }
 

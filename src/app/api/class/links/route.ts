@@ -1,5 +1,6 @@
 import { currentUser } from "@/lib/auth";
 import { invitationLinks, linksCsv } from "@/lib/class-actions";
+import { appUrl } from "@/lib/app-url";
 
 /**
  * Spec 19 §4: a CSV of fresh invitation links, generated on the fly and never stored.
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
   const sectionId = url.searchParams.get("section") || "";
   if (!sectionId) return new Response("Bad request", { status: 400 });
   const ids = url.searchParams.getAll("enrolment").filter(Boolean);
-  const baseUrl = `${req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "")}://${req.headers.get("host") ?? url.host}`;
+  const baseUrl = await appUrl(req);
   const r = await invitationLinks(user.id, sectionId, baseUrl, { enrolmentIds: ids });
   if (!r.ok) return new Response(r.error, { status: 403 });
   return new Response(linksCsv(r.rows), {

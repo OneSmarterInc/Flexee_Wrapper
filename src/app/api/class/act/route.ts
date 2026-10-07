@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth";
 import { removeStudents, resendTo } from "@/lib/class-actions";
 import { withdrawStudents, restoreStudents } from "@/lib/withdraw";
+import { appUrl } from "@/lib/app-url";
 
 /**
  * One endpoint for the class list's bulk actions (Spec 19 §1).
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     return new Response("Bad request", { status: 400 });
   }
   const url = new URL(req.url);
-  const baseUrl = `${req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "")}://${req.headers.get("host") ?? url.host}`;
+  const baseUrl = await appUrl(req);
 
   if (action === "resend") {
     const r = await resendTo(user.id, sectionId, ids, baseUrl);

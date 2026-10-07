@@ -1,4 +1,5 @@
-// Integration test: Spec 24 §1, rules 2, 4 and 5 — the check framework and the six checks.
+// Integration test: Spec 24 §1, rules 2, 4 and 5 — the check framework and the seven checks.
+// The seventh, the site's own address, arrived with Spec 27 commit 2.
 //
 // Every check is driven by fakes, so success, a 401, a 403, a 404, a 5xx, a timeout and
 // "not configured" are all exercised without a network. The two checks that carry the most weight
@@ -35,6 +36,8 @@ const BASE = {
   MAIL_FROM: "no-reply@flexee.invalid",
   AI_ENABLED: "true",
   CONTENT_STORE: "fs",
+  // Not a secret: it is in every link the site sends, which is why the line prints it in full.
+  APP_URL: "https://learn.flexee.invalid",
 } as Record<string, string | undefined>;
 
 /** A fake GitHub or Resend: answers with the status given, and records the calls. */
@@ -469,7 +472,7 @@ await t("the scheduled job check says whether the secret is set, never what it i
 // ------------------------------------------------------------------------ rule 4: no secret, ever
 
 await t("no secret appears anywhere in a whole snapshot, nor in any server output", async () => {
-  // Rule 4, over all six at once, with every secret a unique string. Every console channel is
+  // Rule 4, over all seven at once, with every secret a unique string. Every console channel is
   // captured too — and the capture is proved to work first, because an empty transcript looks
   // exactly like a broken recorder.
   const chunks: string[] = [];
@@ -509,16 +512,19 @@ await t("no secret appears anywhere in a whole snapshot, nor in any server outpu
     assert.ok(!page.includes(frag), `${frag} is in the page`);
     assert.ok(!transcript.includes(frag), `${frag} was logged`);
   }
-  assert.equal(Object.keys(snap.results).length, 6);
-  console.log(`      6 lines, ${chunks.length} line(s) of server output, no secret in either`);
+  assert.equal(Object.keys(snap.results).length, 7);
+  // The address line prints APP_URL's value on purpose, so prove that is the only kind of
+  // setting shown in full: a secret-shaped value must never be.
+  assert.ok(page.includes("learn.flexee.invalid"), "the address line should show the address");
+  console.log(`      7 lines, ${chunks.length} line(s) of server output, no secret in either`);
 });
 
-await t("all six lines appear, each with a state, a sentence and a time", async () => {
+await t("all seven lines appear, each with a state, a sentence and a time", async () => {
   answering([{ status: 200, body: {} }, { status: 200, body: {} }, { status: 401, body: { name: "restricted_api_key" } }]);
   const snap = await runAll(allChecks(BASE));
   setStatusFetch(null);
   assert.deepEqual(Object.keys(snap.results).sort(),
-    ["assistant", "cron", "database", "email", "runner", "storage"]);
+    ["address", "assistant", "cron", "database", "email", "runner", "storage"]);
   for (const [id, r] of Object.entries(snap.results)) {
     assert.ok(r.state in STATE_WORDS, `${id}: ${r.state}`);
     assert.ok(r.detail.length > 15, `${id}: ${r.detail}`);

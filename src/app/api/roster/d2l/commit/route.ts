@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth";
 import { parseClassList } from "@/lib/d2l";
 import { canImport, commitImport, emailDomain } from "@/lib/d2l-import";
+import { appUrl } from "@/lib/app-url";
 
 export async function POST(req: Request) {
   const user = await currentUser();
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
   const list = parseClassList(csv, { domain: emailDomain() });
   if (list.missing.length) return new Response("Bad request", { status: 400 });
   const url = new URL(req.url);
-  const baseUrl = `${req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "")}://${req.headers.get("host") ?? url.host}`;
+  const baseUrl = await appUrl(req);
   const result = await commitImport(sectionId, list, { sendNow, baseUrl });
   return Response.json({ ok: true, result });
 }

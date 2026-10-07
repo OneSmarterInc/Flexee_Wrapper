@@ -53,8 +53,7 @@ export async function signup(formData: FormData) {
   await claimInvites(user.id, email); // roster invites -> enrolments
   try {
     const { sendVerification } = await import("@/lib/recovery");
-    const { headers } = await import("next/headers"); const h = await headers();
-    await sendVerification(user.id, email, `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`);
+    await sendVerification(user.id, email, await baseUrl());
   } catch {}
   redirect(await signInDestination(user.id, user.systemRole, next));
 }
@@ -340,9 +339,11 @@ export async function setScoreAction(formData: FormData) {
   redirect(back);
 }
 
+// Spec 27: was `x-forwarded-proto` + `host` inline here and in the links route. One helper now,
+// so APP_URL is read in one place and an emailed link cannot point at a preview deployment.
 async function baseUrl() {
-  const { headers } = await import("next/headers"); const h = await headers();
-  return `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
+  const { appUrl } = await import("@/lib/app-url");
+  return appUrl();
 }
 
 export async function forgotAction(formData: FormData) {

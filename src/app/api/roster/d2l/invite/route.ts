@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth";
 import { canImport, notSetUp, emailDomain } from "@/lib/d2l-import";
 import { rateLimit, sendSetPasswordInvite, RESEND_MAX_PER_HOUR } from "@/lib/recovery";
+import { appUrl } from "@/lib/app-url";
 
 /**
  * Spec 18 §2: emailing the invitations is its own step. The import creates the accounts; this is
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
   if (g.res) return g.res;
   const sectionId = g.sectionId!;
   const url = new URL(req.url);
-  const baseUrl = `${req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "")}://${req.headers.get("host") ?? url.host}`;
+  const baseUrl = await appUrl(req);
   let sent = 0, failed = 0, limited = 0;
   let firstReason: string | null = null;
   // One failure never stops the rest: each student is invited on their own account.
