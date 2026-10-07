@@ -79,7 +79,8 @@
     "test:launch-pass": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-launch-pass.ts",
     "test:app-url": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-app-url.ts",
     "test:access-release": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-access-release.ts",
-    "test:join-code": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-join-code.ts"
+    "test:join-code": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-join-code.ts",
+    "test:session-roster": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-session-roster.ts"
   },
   "keywords": [],
   "author": "",
