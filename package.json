@@ -55,6 +55,7 @@
     "test:dismiss": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-dismiss.ts",
     "test:score-import": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-score-import.ts",
     "test:score-parse": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-score-parse.ts",
+    "test:mail-reply-to": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-mail-reply-to.ts",
     "test:score-guard": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-score-guard.ts",
     "test:retire": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-retire.ts",
     "test:a11y-guards": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-a11y-guards.ts",

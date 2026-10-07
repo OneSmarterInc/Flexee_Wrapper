@@ -37,6 +37,25 @@ export function mailConfigured() {
   return transport != null || !!(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
 }
 
+/**
+ * Spec 24 §3: where a reply should go.
+ *
+ * Invitations go out from the Flexee sending domain, which nobody reads. `MAIL_REPLY_TO` points
+ * replies somewhere a person does. Optional on purpose: unset, nothing is added and a message is
+ * byte for byte what it was before, so this can ship before the address exists.
+ *
+ * Resend's field is `reply_to` and takes a string or an array, so a comma-separated setting becomes
+ * an array and one variable covers both. An entry with no `@`, or with a space in it, is dropped
+ * rather than sent: a malformed Reply-To can make a provider refuse the whole message, and losing
+ * an invitation would be a worse outcome than losing the reply address.
+ */
+export function replyTo(env: Record<string, string | undefined> = process.env): string[] {
+  return (env.MAIL_REPLY_TO ?? "")
+    .split(",")
+    .map((a) => a.trim())
+    .filter((a) => a.includes("@") && !/\s/.test(a));
+}
+
 export async function sendMail(msg: Mail): Promise<MailResult> {
   if (transport) {
     try { return await transport(msg); }
@@ -45,6 +64,7 @@ export async function sendMail(msg: Mail): Promise<MailResult> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.MAIL_FROM;
   if (!key || !from) return { ok: false, error: NOT_CONFIGURED };
+  const reply = replyTo();
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -52,6 +72,7 @@ export async function sendMail(msg: Mail): Promise<MailResult> {
       body: JSON.stringify({
         from, to: [msg.to], subject: msg.subject, text: msg.text,
         ...(msg.html ? { html: msg.html } : {}),
+        ...(reply.length ? { reply_to: reply } : {}),
       }),
     });
     if (!res.ok) {
