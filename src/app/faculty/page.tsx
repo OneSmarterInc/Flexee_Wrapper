@@ -11,9 +11,23 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "My teaching" };
 
 
-export default async function FacultyHome({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function FacultyHome({ searchParams }: { searchParams: Promise<{ error?: string; course?: string }> }) {
   const user = await currentUser();
-  if (!user) redirect("/login?next=/faculty");
+  // C2-2 §3: each roster sim's console builds <PLATFORM_URL>/faculty.html?course=<class id> as the
+  // instructor's "manage access" link, and /faculty.html rewrites here. With a class named it has
+  // to be a redirect to that class's Simulations page, where the release controls are — the sims
+  // send an instructor here mid-session, and a dashboard would be one more thing between them and
+  // the release they came to make. Without one, the dashboard below is the right answer anyway.
+  //
+  // Read before the sign-in check so the class survives the round trip through /login.
+  const course = ((await searchParams).course ?? "").trim();
+  if (!user) redirect(`/login?next=${encodeURIComponent(course ? `/faculty?course=${course}` : "/faculty")}`);
+  if (course) {
+    // A class they do not teach falls through to the dashboard rather than being confirmed or
+    // denied, which keeps this from answering "does this class exist" to anyone signed in.
+    const { ownedSection } = await import("@/lib/roster");
+    if (await ownedSection(user.id, course)) redirect(`/teach/${encodeURIComponent(course)}/sims`);
+  }
   const [groups, books, sp] = await Promise.all([teachingByTerm(user.id), listBooks(), searchParams]);
   const isAdmin = user.systemRole === "admin";
   if (!isAdmin && groups.length === 0) {
