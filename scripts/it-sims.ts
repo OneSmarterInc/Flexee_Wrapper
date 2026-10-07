@@ -102,19 +102,35 @@ await t("faculty can open an unpublished sim, as a preview", async () => {
 
 console.log("Launching (RapidSim 01's own verifyLaunch reads the Wrapper's pass)");
 await adminUpdateSim(admin.id, SIM, { published: true });
-let annLaunch: any;
+let annLaunch: any; let annToken = "";
 await t("a student launches: the sim accepts the pass and learns who, in what class, and nothing else", async () => {
   const r = await prepareLaunch(ann.id, SIM, cls.id);
   assert.ok(r.ok);
   const url = new URL((r as any).url);
   assert.equal(url.origin + url.pathname, "https://new-address.example.app/");
   assert.ok(url.hash.startsWith("#lt="), "the pass travels in the fragment, never to a server");
-  annLaunch = sim.verifyLaunch(passIn((r as any).url));
+  annToken = passIn((r as any).url);
+  annLaunch = sim.verifyLaunch(annToken);
   assert.ok(annLaunch, "RapidSim 01 accepts the Wrapper's pass");
   assert.equal(annLaunch.sub, ann.id); assert.equal(annLaunch.role, "student"); assert.equal(annLaunch.sim, SIM);
   assert.equal(annLaunch.course, cls.id); assert.equal(annLaunch.mode, "play"); assert.equal(annLaunch.email, "ann@wright.edu");
   assert.deepEqual(Object.keys(annLaunch).sort(), ["course", "email", "exp", "iat", "mode", "name", "role", "sim", "sub"]);
-  const life = (annLaunch.exp - annLaunch.iat) / 60000; assert.ok(life >= 59 && life <= 61, "a pass lasts 60 minutes");
+  const life = (annLaunch.exp - annLaunch.iat) / 60000;
+  assert.ok(life >= 119 && life <= 121, "a pass lasts 120 minutes (contract change C2-1)");
+});
+await t("C2-1: RapidSim 01's own verifier accepts the pass 119 minutes in, and not 121", () => {
+  // The sim's code, not a copy of it. Every sim except 04 puts its final submit through the same
+  // verifyLaunch, which is the whole reason C2-1 exists: at sixty minutes a pass minted at the
+  // start of RapidSim+ 01 (70 minutes) or +02 (65) had expired by the time the sim reported.
+  // Asserted here as well as in test:launch-pass because only here is the other side real.
+  const real = Date.now, base = real();
+  const seenAt = (m: number) => {
+    Date.now = () => base + m * 60000;
+    try { return sim.verifyLaunch(annToken); } finally { Date.now = real; }
+  };
+  assert.ok(seenAt(70), "RapidSim+ 01's declared 70 minutes, the length the old default broke");
+  assert.ok(seenAt(119), "RapidSim 01 rejected the Wrapper's pass 119 minutes in");
+  assert.equal(seenAt(121), null, "and it must still expire");
 });
 await t("a student of another class, or a stranger, cannot launch it here", async () => {
   assert.equal((await prepareLaunch(bo.id, SIM, cls.id)).ok, false);
