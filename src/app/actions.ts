@@ -80,6 +80,17 @@ export async function logout() {
   redirect("/login");
 }
 
+/**
+ * Sign out and come back to where you were. C2-2 §4 step 4: a student following an invite link on
+ * a shared machine signed in as staff has to swap accounts and land back on the same invite, and
+ * being dropped on /login having lost the link is how that student gives up.
+ */
+export async function logoutTo(formData: FormData) {
+  const next = safeNext(formData.get("next"));
+  await destroySession();
+  redirect(`/login?next=${encodeURIComponent(next)}`);
+}
+
 // Self-enrolment into a book is retired: students join a class with its code, or an admin adds them.
 export async function enroll(_formData: FormData) {
   redirect(`/?error=${encodeURIComponent("Join your class with the code your instructor gave you.")}`);
@@ -92,11 +103,15 @@ export async function enrollByCodeAction(formData: FormData) {
   const sec = await enrollByCode(user!.id, c);
   // Three outcomes, three sentences. A student holding their instructor's correct code must not be
   // told to go looking for a typo, which is what one shared message would have done.
+  // Where to land afterwards. The dashboard by default; the session page passes its own link, so a
+  // student who joins from an invite continues into the session instead of being sent to a list.
+  const next = safeNext(formData.get("next"));
+  const to = (q: string) => redirect(next === "/" ? `/student${q}` : next + (next.includes("?") ? "&" : "?") + q.slice(1));
   if (sec && "refused" in sec) {
-    redirect(`/student?error=${encodeURIComponent(
+    to(`?error=${encodeURIComponent(
       "This class isn't accepting students who join with a code. Ask your instructor to add you.")}`);
   }
-  redirect(sec ? "/student?joined=1" : `/student?error=${encodeURIComponent("No class found for that code.")}`);
+  to(sec ? "?joined=1" : `?error=${encodeURIComponent("No class found for that code.")}`);
 }
 
 /**

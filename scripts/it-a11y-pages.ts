@@ -57,6 +57,11 @@ await db().update(schema.sections).set({ bookPublishedAt: new Date() }).where(eq
 
 await db().insert(sims).values({ id: "mvcfn", title: "MVCFN", launchUrl: "https://x.invalid", published: true });
 await db().insert(classSims).values({ sectionId: sec.id, simId: "mvcfn", addedBy: prof.id });
+// Spec 27: a real session sim in this class, so /session can render its waiting state with a class
+// attached. The student's enrolment is left unreleased, which is what makes that state the one
+// rendered — it is also the only page here that mounts a client component.
+await db().insert(sims).values({ id: "rapid-05-approve", number: 5, title: "Would You Approve This?", launchUrl: "https://sim05.invalid", published: true });
+await db().insert(classSims).values({ sectionId: sec.id, simId: "rapid-05-approve", addedBy: prof.id });
 
 // A question, so an exam can be served and a result page can render a real item.
 await db().insert(questions).values({
@@ -192,10 +197,23 @@ const PAGES: Page[] = [
   { route: "/teach/[section]/schedule", mod: "@/app/teach/[section]/schedule/page", as: "faculty", titled: "class" },
   { route: "/teach/[section]/sims", mod: "@/app/teach/[section]/sims/page", as: "faculty", titled: "class" },
   { route: "/teach/[section]/syllabus", mod: "@/app/teach/[section]/syllabus/page", as: "faculty", titled: "class" },
+  // Spec 27: /session.html, rendered in three of its eight states. Signed out and the two that a
+  // student is most likely to meet — the bad link, and waiting on a release — because each renders
+  // a different set of controls and the waiting one mounts a client component.
+  { route: "/session (invalid)", mod: "@/app/session/page", as: "none",
+    search: { sim: "rapid-05-approve", session: "nope" }, titled: "plain" },
+  { route: "/session (signed out)", mod: "@/app/session/page", as: "none",
+    search: { sim: "rapid-05-approve", session: "M7K2P" }, titled: "plain" },
+  { route: "/session (not in the class)", mod: "@/app/session/page", as: "student",
+    search: { sim: "rapid-05-approve", session: "M7K2P" }, titled: "plain" },
 ];
 
 // The pages that need an id from the seeded world, so they are added after it exists.
 PAGES.push(
+  // Spec 27: the waiting state, which needs the class id in the query. The student is enrolled and
+  // unreleased, so this renders the live region and the WaitingForRelease client component.
+  { route: "/session (waiting on a release)", mod: "@/app/session/page", as: "student",
+    search: { sim: "rapid-05-approve", session: "M7K2P", course: sec.id }, titled: "plain" },
   { route: "/[book]/assignments/[id]", mod: "@/app/[book]/assignments/[id]/page", as: "student",
     params: { book: "sad", id: asg.id }, titled: "class" },
   { route: "/[book]/exams/result/[attempt]", mod: "@/app/[book]/exams/result/[attempt]/page", as: "student",
