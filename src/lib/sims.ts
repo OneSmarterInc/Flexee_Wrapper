@@ -141,11 +141,24 @@ export async function classCompletions(userId: string, sectionId: string) {
 }
 
 // ---- launch (Wrapper -> sim) ---------------------------------------------------------------------
+/**
+ * A session code, as the sims' facilitator consoles mint them: five characters, A–Z and 2–9.
+ *
+ * C2-2 §4 fixes the shape, and the excluded characters are the ones that are misread aloud or
+ * mistyped from a slide — 0/O and 1/I. A code is validated here rather than forwarded blindly,
+ * because it is caller input that ends up in the address the student is sent to.
+ */
+export const SESSION_CODE = /^[A-Z2-9]{5}$/;
+
 /** Check the person may launch this sim in this class, record the launch, and return the sim's address with the pass. */
 export async function prepareLaunch(userId: string, simId: string, sectionId: string, opts: { mode?: "play" | "session"; play?: string; session?: string } = {}): Promise<R<{ url: string }>> {
   const s = (await db().select().from(sims).where(eq(sims.id, simId)).limit(1))[0];
   if (!s) return fail("No such simulation.", 404);
   if (!s.launchUrl) return fail("This simulation has no address yet. Ask an administrator.", 409);
+  // Checked before the launch is recorded, so a mistyped code does not leave a launch in the log
+  // for a run that never happened.
+  const code = opts.session == null || opts.session === "" ? null : String(opts.session).trim().toUpperCase();
+  if (code !== null && !SESSION_CODE.test(code)) return fail("That session code is not valid.", 400);
   const enr = (await db().select().from(enrolments).where(and(eq(enrolments.userId, userId), eq(enrolments.sectionId, sectionId))).limit(1))[0];
   const attached = (await db().select().from(classSims).where(and(eq(classSims.sectionId, sectionId), eq(classSims.simId, simId))).limit(1))[0];
   let role: "student" | "faculty" | "faculty_preview";
@@ -168,8 +181,18 @@ export async function prepareLaunch(userId: string, simId: string, sectionId: st
   await db().insert(simLaunches).values({ userId, simId, sectionId, asRole: role });
   const pass = launchPass({ userId, name: who?.name ?? "Student", email: who?.email ?? null, role, simId, sectionId, mode });
   const target = new URL(s.launchUrl.replace(/\/+$/, ""));
+  // `play` stays session-only: team-or-individual is the facilitator's choice for the room, and a
+  // student must not be able to set it by adding a query parameter to their own launch.
   if (mode === "session" && (opts.play === "team" || opts.play === "individual")) target.searchParams.set("play", opts.play);
-  if (mode === "session" && opts.session) target.searchParams.set("session", opts.session);
+  // The session code travels in *any* mode. C2-2 §4 step 6 launches a joining student with
+  // `mode=play` **and** the code, which is how the sim knows which room to put them in; gating
+  // this on mode === "session" silently dropped it for every student, because a student's mode is
+  // always "play" — so an invited student arrived at the sim outside the session. The old platform
+  // sets it unconditionally: platform/api/launch.js, `if (session) target.searchParams.set(…)`.
+  //
+  // Refusing a code for a sim that has no sessions at all belongs with the nine-sim session list,
+  // which arrives with the roster endpoint; this is the format check alone.
+  if (code !== null) target.searchParams.set("session", code);
   target.hash = "lt=" + encodeURIComponent(pass); // in the fragment: never sent to a server, never in a log
   return { ok: true, url: target.href };
 }

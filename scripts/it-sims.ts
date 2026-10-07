@@ -137,12 +137,52 @@ await t("a student of another class, or a stranger, cannot launch it here", asyn
   assert.equal((await prepareLaunch(bo.id, SIM, otherCls.id)).ok, false, "not added to Bo's class");
 });
 await t("faculty run a live class session: mode session, with the team or individual setting", async () => {
-  const r = await prepareLaunch(prof.id, SIM, cls.id, { mode: "session", play: "team", session: "ABC123" });
+  // The code is five characters from A-Z and 2-9. This fixture said "ABC123" until C2-2 pinned the
+  // shape, which is six characters and uses an excluded one; the format check now refuses it.
+  const r = await prepareLaunch(prof.id, SIM, cls.id, { mode: "session", play: "team", session: "ABC23" });
   const u = new URL((r as any).url);
-  assert.equal(u.searchParams.get("play"), "team"); assert.equal(u.searchParams.get("session"), "ABC123");
+  assert.equal(u.searchParams.get("play"), "team"); assert.equal(u.searchParams.get("session"), "ABC23");
   const p = sim.verifyLaunch(passIn(u.href)); assert.equal(p.role, "faculty"); assert.equal(p.mode, "session");
   const s = await prepareLaunch(ann.id, SIM, cls.id, { mode: "session" });
   assert.equal(sim.verifyLaunch(passIn((s as any).url)).mode, "play", "students cannot open a session console");
+});
+await t("C2-2 §4 step 6: a student joining a session launches in play mode and keeps the code", async () => {
+  // The defect this fixes. A student's mode is always "play", and the code used to be forwarded
+  // only in "session" mode, so an invited student reached the sim with no room to join. RapidSim 01
+  // is not a session sim, but prepareLaunch is the only place the code is attached, so the
+  // behaviour is the same for the five that are.
+  const r = await prepareLaunch(ann.id, SIM, cls.id, { session: "m7k2p" });
+  assert.ok(r.ok, (r as any).error);
+  const u = new URL((r as any).url);
+  assert.equal(u.searchParams.get("session"), "M7K2P", "lower case is normalised, as a student will type it");
+  const p = sim.verifyLaunch(passIn(u.href));
+  assert.equal(p.mode, "play", "a joining student is playing, not facilitating");
+  assert.equal(p.role, "student"); assert.equal(p.course, cls.id);
+});
+await t("a student cannot promote their own launch with play or mode", async () => {
+  // The other half of the gate: `play` must stay session-only, or a student could put themselves
+  // in the facilitator's team view by editing the address.
+  const r = await prepareLaunch(ann.id, SIM, cls.id, { mode: "session", play: "team", session: "M7K2P" });
+  const u = new URL((r as any).url);
+  assert.equal(u.searchParams.get("play"), null, "play is the facilitator's choice");
+  assert.equal(u.searchParams.get("session"), "M7K2P", "but the room still travels");
+  assert.equal(sim.verifyLaunch(passIn(u.href)).mode, "play");
+});
+await t("a malformed session code is refused, and records no launch", async () => {
+  const before = (await db().select().from(schema.simLaunches)).length;
+  for (const bad of ["ABC1", "ABC123", "AB C2", "abc", "A-C23", "ABC10", "ABCDEF", " "]) {
+    const r = await prepareLaunch(ann.id, SIM, cls.id, { session: bad });
+    assert.equal(r.ok, false, `"${bad}" should be refused`);
+    assert.equal((r as any).status, 400, bad);
+  }
+  // 0 and 1 are excluded because they are misread for O and I from a slide.
+  assert.equal((await prepareLaunch(ann.id, SIM, cls.id, { session: "ABC01" })).ok, false);
+  const after = (await db().select().from(schema.simLaunches)).length;
+  assert.equal(after, before, "a refused code must not leave a launch in the log");
+  // and an absent code still launches, with no session parameter at all
+  const ok = await prepareLaunch(ann.id, SIM, cls.id, {});
+  assert.ok(ok.ok);
+  assert.equal(new URL((ok as any).url).searchParams.get("session"), null);
 });
 
 console.log("Completion and transcript (RapidSim 01's own reportCompletion)");
