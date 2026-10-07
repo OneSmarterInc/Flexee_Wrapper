@@ -206,6 +206,12 @@ const PAGES: Page[] = [
     search: { sim: "rapid-05-approve", session: "M7K2P" }, titled: "plain" },
   { route: "/session (not in the class)", mod: "@/app/session/page", as: "student",
     search: { sim: "rapid-05-approve", session: "M7K2P" }, titled: "plain" },
+  // Spec 27: /open.html in two states. Signed out, and the staff one, which is what a faculty
+  // member following a sim's direct link actually sees.
+  { route: "/open (signed out)", mod: "@/app/open/page", as: "none",
+    search: { sim: "rapid-05-approve" }, titled: "plain" },
+  { route: "/open (staff)", mod: "@/app/open/page", as: "faculty",
+    search: { sim: "rapid-05-approve" }, titled: "plain" },
 ];
 
 // The pages that need an id from the seeded world, so they are added after it exists.
@@ -214,6 +220,10 @@ PAGES.push(
   // unreleased, so this renders the live region and the WaitingForRelease client component.
   { route: "/session (waiting on a release)", mod: "@/app/session/page", as: "student",
     search: { sim: "rapid-05-approve", session: "M7K2P", course: sec.id }, titled: "plain" },
+  // The student is in one class that has this sim and is unreleased, so /open renders its waiting
+  // state — the branch with a client component and a named class.
+  { route: "/open (waiting on a release)", mod: "@/app/open/page", as: "student",
+    search: { sim: "rapid-05-approve" }, titled: "plain" },
   { route: "/[book]/assignments/[id]", mod: "@/app/[book]/assignments/[id]/page", as: "student",
     params: { book: "sad", id: asg.id }, titled: "class" },
   { route: "/[book]/exams/result/[attempt]", mod: "@/app/[book]/exams/result/[attempt]/page", as: "student",

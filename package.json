@@ -81,7 +81,8 @@
     "test:access-release": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-access-release.ts",
     "test:join-code": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-join-code.ts",
     "test:session-roster": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-session-roster.ts",
-    "test:session-entry": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-session-entry.ts"
+    "test:session-entry": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-session-entry.ts",
+    "test:open-entry": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-open-entry.ts"
   },
   "keywords": [],
   "author": "",
