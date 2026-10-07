@@ -10,7 +10,7 @@ import RemoveStudent from "@/components/RemoveStudent";
 import { REMOVE_PHRASE, actionsFor, describeAction } from "@/lib/class-actions";
 import { inviteStatesFor, type InviteState } from "@/lib/recovery";
 import { getBook } from "@/lib/content";
-import { regenerateCodeAction } from "@/app/actions";
+import { regenerateCodeAction, setJoinCodeEnabledAction } from "@/app/actions";
 import ClassBookPanel from "@/components/ClassBookPanel";
 import { classBookState } from "@/lib/publish";
 import { listBooksForPicker } from "@/lib/retire";
@@ -127,13 +127,33 @@ export default async function SectionDashboard({ params, searchParams }: { param
           <Link className="nav-button ghost" href={`/teach/${section}/import`}>Import students (CSV)</Link>
         </div>
       </div>
-      <p>Share this join code with students so they can join from their dashboard.</p>
+      <p>
+        {sec.joinCodeEnabled
+          ? "Share this join code with students so they can join from their dashboard."
+          : "Students are added from the class list. Turn the code on below if you also want them to be able to join themselves."}
+      </p>
       <div className="workspace-action" style={{ marginBottom: "1rem" }}>
         <strong>Join code: <code>{sec.joinCode}</code></strong>
-        <form action={regenerateCodeAction} style={{ marginTop: ".7rem" }}>
-          <input type="hidden" name="sectionId" value={section} />
-          <button type="submit" className="nav-button ghost">Generate a new code</button>
-        </form>
+        {/* Spec 27 B1 decision 2: off for every class. The code itself is left alone either way, so
+            turning this off and on again does not strand a code already printed on a slide. */}
+        <p className="ui" style={{ margin: ".5rem 0 0" }}>
+          {sec.joinCodeEnabled
+            ? "Anyone with this code can add themselves to this class."
+            : "This code is switched off. A student who types it is told to ask you to add them."}
+        </p>
+        <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", marginTop: ".7rem" }}>
+          <form action={setJoinCodeEnabledAction}>
+            <input type="hidden" name="sectionId" value={section} />
+            <input type="hidden" name="enabled" value={sec.joinCodeEnabled ? "no" : "yes"} />
+            <button type="submit" className="nav-button secondary">
+              {sec.joinCodeEnabled ? "Stop accepting the code" : "Let students join with the code"}
+            </button>
+          </form>
+          <form action={regenerateCodeAction}>
+            <input type="hidden" name="sectionId" value={section} />
+            <button type="submit" className="nav-button ghost">Generate a new code</button>
+          </form>
+        </div>
       </div>
       {sp.synced && <p className="ui" style={{ color: "var(--ok)" }}>Synced roster from the LMS — added {sp.synced} of {sp.seen} member(s).</p>}
       {sp.sync_error && <p className="ui" style={{ color: "var(--danger)" }}>{sp.sync_error}</p>}

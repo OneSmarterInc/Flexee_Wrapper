@@ -90,7 +90,28 @@ export async function enrollByCodeAction(formData: FormData) {
   if (!user) redirect("/login");
   const c = clean(formData.get("code"));
   const sec = await enrollByCode(user!.id, c);
+  // Three outcomes, three sentences. A student holding their instructor's correct code must not be
+  // told to go looking for a typo, which is what one shared message would have done.
+  if (sec && "refused" in sec) {
+    redirect(`/student?error=${encodeURIComponent(
+      "This class isn't accepting students who join with a code. Ask your instructor to add you.")}`);
+  }
   redirect(sec ? "/student?joined=1" : `/student?error=${encodeURIComponent("No class found for that code.")}`);
+}
+
+/**
+ * Spec 27 B1 decision 2: turn self-joining on or off for one class.
+ *
+ * The code itself is untouched either way. Turning it off and on again must not hand out a
+ * different code, because the old one may be printed on a slide from last term.
+ */
+export async function setJoinCodeEnabledAction(formData: FormData) {
+  const user = await currentUser();
+  const sectionId = clean(formData.get("sectionId"));
+  if (!user || !(await ownedSection(user.id, sectionId))) redirect("/teach");
+  const { setJoinCodeEnabled } = await import("@/lib/roster");
+  await setJoinCodeEnabled(sectionId, formData.get("enabled") === "yes");
+  redirect(`/teach/${sectionId}`);
 }
 
 export async function regenerateCodeAction(formData: FormData) {

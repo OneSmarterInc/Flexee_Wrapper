@@ -41,7 +41,8 @@ export async function teachingSections(userId: string) {
 // Return the section only if this user is one of its instructors (access guard).
 export async function ownedSection(userId: string, sectionId: string) {
   const rows = await db()
-    .select({ id: sections.id, name: sections.name, bookId: sections.bookId, joinCode: sections.joinCode })
+    .select({ id: sections.id, name: sections.name, bookId: sections.bookId, joinCode: sections.joinCode,
+              joinCodeEnabled: sections.joinCodeEnabled })
     .from(enrolments)
     .innerJoin(sections, eq(sections.id, enrolments.sectionId))
     .where(and(eq(enrolments.userId, userId), eq(enrolments.sectionId, sectionId), eq(enrolments.role, "instructor")))
@@ -127,13 +128,30 @@ export async function regenerateJoinCode(sectionId: string) {
  * hang off the user rather than the enrolment, and writes the actions log. This remains as the
  * primitive that does the deleting, and as what the LTI and clean-up paths use.
  */
+/** Spec 27 B1 decision 2. The code is deliberately not regenerated: see setJoinCodeEnabledAction. */
+export async function setJoinCodeEnabled(sectionId: string, enabled: boolean) {
+  await db().update(sections).set({ joinCodeEnabled: enabled }).where(eq(sections.id, sectionId));
+}
+
 export async function removeEnrolment(sectionId: string, enrolmentId: string) {
   await db().delete(enrolments).where(and(eq(enrolments.id, enrolmentId), eq(enrolments.sectionId, sectionId)));
 }
 
+/**
+ * Redeem a class code from the student dashboard.
+ *
+ * Spec 27 B1 decision 2: the class has to be accepting it. `null` means no such code, and
+ * `{ refused: true }` means the code is real but the class is not open to self-joining — told
+ * apart deliberately, because the two need different sentences. Saying "no class found" to a
+ * student holding their instructor's correct code sends them to look for a typo that is not there.
+ *
+ * Off is the default for every class, so this refuses by default. That is a tightening of what the
+ * form did before, and the only honest way to do it is to say what to do instead.
+ */
 export async function enrollByCode(userId: string, joinCode: string) {
   const sec = (await db().select().from(sections).where(eq(sections.joinCode, joinCode.toUpperCase().trim())).limit(1))[0];
   if (!sec) return null;
+  if (!sec.joinCodeEnabled) return { refused: true as const };
   // `onConflictDoNothing` already leaves a withdrawal standing (decision 3): joining again with
   // the code does not undo being withdrawn, and the caller reports it.
   await db().insert(enrolments).values({ sectionId: sec.id, userId }).onConflictDoNothing();

@@ -77,7 +77,14 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
 
       <section className="workspace-panel ui" id="join-class" aria-labelledby="join-heading">
         <h2 id="join-heading">Join a class</h2>
-        <p>Enter the code your instructor gave you. You can also be added by an administrator using your sign-in email.</p>
+        {/* Spec 27 B1 decision 2: the code is off for every class by default, and most instructors
+            add students from the class list, so that is what this says first. The refusal wording
+            itself lives in enrollByCodeAction; this is here so a student is not surprised by it. */}
+        <p>
+          Most instructors add students themselves, using your sign-in email, so a class you are
+          expecting may appear here without you doing anything. If your instructor gave you a code,
+          enter it below.
+        </p>
         <form action={enrollByCodeAction} className="ui join-form" style={{ maxWidth: "36rem", marginBottom: 0 }}>
           <input name="code" placeholder="Class code" aria-label="Class join code" required />
           <button type="submit" className="nav-button primary">Join class</button>

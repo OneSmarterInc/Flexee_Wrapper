@@ -193,9 +193,13 @@ await t("the class list keeps the row, so faculty can see and restore it", async
 console.log("A withdrawal survives being re-added (decision 3)");
 
 await t("joining again with the class code does not undo it", async () => {
+  // Spec 27 B1 decision 2: self-joining is off for every class by default, so the switch is turned
+  // on here. This check is about a withdrawal surviving a re-join, and it would otherwise pass for
+  // the wrong reason — the code being refused rather than the withdrawal standing.
+  await db().update(schema.sections).set({ joinCodeEnabled: true }).where(eq(schema.sections.id, sec.id));
   const joined = await enrollByCode(gone.user.id, sec.joinCode!);
-  assert.ok(joined, "the code still matches the class");
-  assert.equal(joined!.withdrawn, true, "and it reports the withdrawal");
+  assert.ok(joined && !("refused" in joined), "the code still matches the class and is accepted");
+  assert.equal((joined as { withdrawn: boolean }).withdrawn, true, "and it reports the withdrawal");
   const row = (await db().select().from(enrolments).where(eq(enrolments.id, gone.enr.id)))[0];
   assert.ok(row.withdrawnAt, "still withdrawn");
   assert.equal(await enrolmentForBook(gone.user.id, "sad"), null, "and still shut out");
