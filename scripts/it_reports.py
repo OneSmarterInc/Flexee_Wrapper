@@ -126,14 +126,71 @@ def _():
     assert "**Stopped: fix the lines marked STOP above and upload again.**" in report
 
 
-@t("a clean shelf is unaffected and gets the ready line")
-def _():
-    clean_out = os.path.join(tmp, "clean")
-    r = subprocess.run(
-        [sys.executable, "tools/flexee_intake.py", "--book-id", "fz1001", "--local", SHELF,
-         "--out", clean_out, "--validator", "tools/build_questions.py"],
+def intake(shelf, out_name):
+    """One read-only intake run against a shelf, returning the report."""
+    return subprocess.run(
+        [sys.executable, "tools/flexee_intake.py", "--book-id", "fz1001", "--local", shelf,
+         "--out", os.path.join(tmp, out_name), "--validator", "tools/build_questions.py"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         env={**os.environ, "PYTHONIOENCODING": "utf-8"}).stdout
+
+
+def stops_in(report):
+    return [l.split("|")[1].strip() for l in report.split("\n") if "**STOP**" in l]
+
+
+# The clean-shelf check needs a shelf with no STOP in it, and the real one is a working folder. On
+# the morning of 7 October it was clean; by the evening 05_Compiled held v1.9 files while register
+# v6.22 still listed v1.8, so the register-to-Drive gate stopped it — correctly. A suite whose
+# result depends on whether somebody is mid-edit on Drive is a bad suite, so the clean shelf is
+# *derived* from the real one, and the derivation is checked rather than assumed.
+def derive_clean(src):
+    """A copy of the shelf, reconciled with its own register until the gate has nothing to stop on.
+
+    Two kinds of complaint are answered, both quoting the gate's own message back at it: a file the
+    register lists that is not there, and one whose size does not match what the register records.
+    A placeholder of exactly the recorded size satisfies both, because that gate compares a name
+    and a byte count and nothing else — the first pass of this helper created empty files and was
+    caught by the size check, which is the reason that is written down here.
+
+    This is only safe in a lane the intake does not read for content, and 05_Compiled is one: it
+    holds the compiled reader and book, which the register tracks but the intake never opens.
+    Nothing on Drive is written.
+    """
+    out = os.path.join(tmp, "derived")
+    shutil.copytree(src, out)
+    report = intake(out, "derive-probe-0")
+    for attempt in range(1, 5):            # a few passes: the size check only speaks once a file exists
+        if "**STOP**" not in report:
+            return out, report
+        wanted = {}                        # (lane, name) -> bytes the register records
+        for lane, name in re.findall(r"(\w+): register lists `([^`]+)`, not in Drive", report):
+            wanted[(lane, name)] = 0
+        for lane, name, size in re.findall(
+                r"(\w+): `([^`]+)` is [\d,]+ bytes in Drive; the register says ([\d,]+)", report):
+            wanted[(lane, name)] = int(size.replace(",", ""))
+        made = 0
+        for (lane, name), size in wanted.items():
+            d = os.path.join(out, lane)
+            if not os.path.isdir(d):
+                continue                   # a missing lane is a different fault; leave it to stop
+            with io.open(os.path.join(d, name), "wb") as fh:
+                if size:
+                    fh.truncate(size)      # sparse where the filesystem allows it; never read
+            made += 1
+        if not made:
+            return out, report             # a STOP this cannot reconcile; the caller reports it
+        report = intake(out, "derive-probe-%d" % attempt)
+    return out, report
+
+
+@t("a clean shelf is unaffected and gets the ready line")
+def _():
+    _fixture, r = derive_clean(SHELF)
+    # If the derivation could not produce a clean shelf, name the gate rather than asserting READY
+    # and printing four hundred characters of report at whoever reads the failure.
+    if "**STOP**" in r:
+        raise AssertionError("the derived shelf still stops on: %s" % ", ".join(stops_in(r)))
     assert "**Status: READY TO APPROVE**" in r, r[:400]
     assert "**Ready to add: click Add to library.**" in r, r[-400:]
     assert "sits inside the lane" not in r, "a clean shelf reported a nested folder"
@@ -155,6 +212,26 @@ def _():
         assert r.rstrip().endswith("**Ready to add: click Add to library.**"), r[-200:]
     print("      the clean shelf reported %d warning gate(s): %s"
           % (len(warned), ", ".join(warned) or "none"))
+
+
+@t("and the real shelf's own report agrees with itself, whatever state it is in")
+def _():
+    # What the derived copy cannot check: that the status line, the gate rows and the closing line
+    # agree with each other on the shelf as it actually stands. This is the half that keeps working
+    # while the Books coordinator is mid-edit, and it is where a real STOP is reported to a reader
+    # instead of failing the suite.
+    r = intake(SHELF, "asis")
+    stops = stops_in(r)
+    if stops:
+        assert "**Status: STOPPED" in r, r[:300]
+        assert "**Stopped: fix the lines marked STOP above and upload again.**" in r, r[-300:]
+        assert "Ready to add" not in r, "a stopped report still offered the Add button"
+        print("      the real shelf STOPS on: %s" % ", ".join(stops))
+        print("      ^ for the Books coordinator. Not a test failure: the gate is working.")
+    else:
+        assert "**Status: READY TO APPROVE**" in r, r[:300]
+        assert "**Ready to add: click Add to library.**" in r, r[-300:]
+        print("      the real shelf is clean today")
 
 
 shutil.rmtree(tmp, ignore_errors=True)
