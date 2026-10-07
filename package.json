@@ -55,6 +55,8 @@
     "test:dismiss": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-dismiss.ts",
     "test:score-import": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-score-import.ts",
     "test:score-parse": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-score-parse.ts",
+    "test:status-checks": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-status-checks.ts",
+    "test:token-expiry": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-token-expiry.ts",
     "test:mail-reply-to": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-mail-reply-to.ts",
     "test:score-guard": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-score-guard.ts",
     "test:retire": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-retire.ts",
