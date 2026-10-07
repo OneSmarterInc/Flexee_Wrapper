@@ -1,0 +1,21 @@
+-- Spec 27 B1, decision 2 (Addendum B §2): "Allow joining with the class code" is a per-class
+-- setting, off by default.
+--
+-- This one turns an existing capability off, which is unusual enough to write down. sections.join_code
+-- is not an unused column: enrollByCode() redeems it, enrollByCodeAction wires it up, and there is a
+-- live form on the student dashboard where any student can type any class's code and enrol
+-- themselves. My own Part B report said the code was consumed nowhere; that was wrong.
+--
+-- So the default here is a deliberate tightening, confirmed knowing that: accounts come from the
+-- D2L class list, and nobody adds themselves unless the faculty member opts in. NOT NULL DEFAULT
+-- false sets every class that exists today to off, so the form starts refusing for all of them, and
+-- the refusal says what to do instead rather than reading as a fault.
+--
+-- Separate from whether a code exists. A class may have a code printed on a slide from last term and
+-- still refuse self-joining, and turning the switch off must not destroy the code — turning it back
+-- on would otherwise hand out a different one and strand the slide.
+--
+-- A correction to this file must be a new migration, never an edit, for the reason written out at
+-- length in 0025: drizzle compares the journal's timestamp, never the recorded hash, so an edit to
+-- an applied migration silently never runs.
+ALTER TABLE "sections" ADD COLUMN "join_code_enabled" boolean DEFAULT false NOT NULL;

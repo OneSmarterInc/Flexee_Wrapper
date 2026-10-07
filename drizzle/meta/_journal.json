@@ -183,6 +183,13 @@
       "when": 1791738816249,
       "tag": "0025_enrolment_access_release",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791825216249,
+      "tag": "0026_class_join_code",
+      "breakpoints": true
     }
   ]
 }

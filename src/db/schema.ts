@@ -80,6 +80,11 @@ export const sections = pgTable(
     bookId: text("book_id").notNull(),          // matches content/<book-id>
     name: text("name").notNull(),
     joinCode: text("join_code"),
+    // Spec 27 B1 decision 2: whether a student may enrol themselves by typing this code on their
+    // dashboard. Off for every class, existing ones included — accounts come from the D2L class
+    // list, and nobody adds themselves unless the faculty member opts in. Separate from whether a
+    // code exists, so turning it off never destroys a code already printed on a slide.
+    joinCodeEnabled: boolean("join_code_enabled").notNull().default(false),
     term: text("term"),                             // e.g. "2027 Spring" — for the course dashboard
     bookPublishedAt: timestamp("book_published_at", { withTimezone: true }), // null = students cannot see the book yet
     externalContextId: text("external_context_id"), // nullable — LTI seam
