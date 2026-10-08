@@ -164,7 +164,36 @@ export async function prepareLaunch(userId: string, simId: string, sectionId: st
   let role: "student" | "faculty" | "faculty_preview";
   if (enr?.role === "instructor") {
     if (!(await visibleSims(userId)).some((x) => x.id === simId)) return fail("That simulation is not available to you.", 403);
-    role = s.published && attached ? "faculty" : "faculty_preview";
+    // Spec 27 B2 decision 3: the collapse of the third, loose preview path.
+    //
+    // Until now any faculty member could open any published simulation as faculty_preview,
+    // indefinitely and with no record beyond a launch row, simply because it was in visibleSims.
+    // That is not a preview, it is access. Two paths remain: an administrator's permanent grant,
+    // and one seven-day trial per person per sim, ever.
+    //
+    // The order matters, and adoption comes first on purpose. A faculty member who has since added
+    // the simulation to this class must not be locked out by a trial that expired in the meantime —
+    // the class is the entitlement at that point, and the clock is irrelevant. Mitigation 3, and
+    // there is a test that expires a preview, confirms the refusal, attaches the sim and sees
+    // access come back.
+    //
+    // visibleSims is deliberately untouched. It also governs which simulations may be *added* to a
+    // class, so narrowing it would stop adoption of published sims entirely.
+    if (attached) {
+      // Published and adopted is the ordinary case; adopted but not yet published is how a new sim
+      // gets reviewed before release, and stays unlimited by decision.
+      role = s.published ? "faculty" : "faculty_preview";
+    } else {
+      const { previewState } = await import("@/lib/previews");
+      const preview = await previewState(userId, simId);
+      if (preview.kind === "none") {
+        return fail("Start a preview of this simulation from the catalogue, or add it to one of your classes.", 403);
+      }
+      if (preview.kind === "ended") {
+        return fail("Your preview has ended. The seven days are up — add this simulation to a class to keep using it.", 403);
+      }
+      role = "faculty_preview";   // a live trial, or an administrator's grant
+    }
   } else if (enr?.role === "student") {
     // Spec 19: a withdrawn student has no access to the class, and that includes its simulations.
     if (enr.withdrawnAt) return fail("You are no longer enrolled in this class.", 403);

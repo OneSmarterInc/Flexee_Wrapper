@@ -62,6 +62,10 @@ await db().insert(classSims).values({ sectionId: sec.id, simId: "mvcfn", addedBy
 // rendered — it is also the only page here that mounts a client component.
 await db().insert(sims).values({ id: "rapid-05-approve", number: 5, title: "Would You Approve This?", launchUrl: "https://sim05.invalid", published: true });
 await db().insert(classSims).values({ sectionId: sec.id, simId: "rapid-05-approve", addedBy: prof.id });
+// Spec 27 B2: a published sim this class has NOT adopted, so it appears under "Try one before you
+// adopt it" and its confirmation step can be rendered. An attached sim is not addable, so pointing
+// the confirmation at one would render the page without the panel it claims to cover.
+await db().insert(sims).values({ id: "rapid-07-bought", number: 7, title: "Would You Have Bought It?", launchUrl: "https://sim07.invalid", published: true });
 
 // A question, so an exam can be served and a result page can render a real item.
 await db().insert(questions).values({
@@ -224,6 +228,12 @@ PAGES.push(
   // state — the branch with a client component and a named class.
   { route: "/open (waiting on a release)", mod: "@/app/open/page", as: "student",
     search: { sim: "rapid-05-approve" }, titled: "plain" },
+  // Spec 27 B2: the class's Simulations page in its preview-confirmation state. The confirmation
+  // is the one screen a faculty member must read before spending their only preview, so it is
+  // rendered rather than taken on trust — mvcfn is in the class, so a second sim is the addable
+  // one whose confirm step this opens.
+  { route: "/teach/[section]/sims (confirming a preview)", mod: "@/app/teach/[section]/sims/page",
+    as: "faculty", search: { preview: "rapid-07-bought" }, titled: "class" },
   { route: "/[book]/assignments/[id]", mod: "@/app/[book]/assignments/[id]/page", as: "student",
     params: { book: "sad", id: asg.id }, titled: "class" },
   { route: "/[book]/exams/result/[attempt]", mod: "@/app/[book]/exams/result/[attempt]/page", as: "student",

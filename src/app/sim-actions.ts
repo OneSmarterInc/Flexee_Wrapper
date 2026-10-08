@@ -104,3 +104,31 @@ export async function setReleaseAction(f: FormData) {
         ? `Released access for ${n} student${n === 1 ? "" : "s"}${skipped}.`
         : `Withdrew access from ${n} student${n === 1 ? "" : "s"}${skipped}.`);
 }
+
+// --- Spec 27 B2 decision 3: faculty previews ---
+
+/**
+ * Start this faculty member's one preview of a simulation.
+ *
+ * Reached only from the confirmation step on the class's Simulations page, which is mitigation 2:
+ * the first click shows what it costs and this action is the second. A preview spent by accident
+ * is the failure mode that matters, because there is no second one.
+ */
+export async function startPreviewAction(f: FormData) {
+  const section = s(f, "sectionId"); const u = await me(`/teach/${section}/sims`);
+  const { ownedSection } = await import("@/lib/roster");
+  if (!(await ownedSection(u.id, section))) redirect("/teach");
+  const { startPreview, PREVIEW_DAYS } = await import("@/lib/previews");
+  const r = await startPreview(u.id, s(f, "simId"));
+  if (!r.ok) back(`/teach/${section}/sims`, r, "");
+  back(`/teach/${section}/sims`, { ok: true },
+    `Preview started. You have ${PREVIEW_DAYS} days, and this was your one preview of it.`);
+}
+
+/** An administrator gives someone a fresh seven days. Mitigation 4; the page confirms first. */
+export async function resetPreviewAction(f: FormData) {
+  const u = await me("/admin/sims");
+  const { resetPreview, PREVIEW_DAYS } = await import("@/lib/previews");
+  const r = await resetPreview(u.id, s(f, "simId"), s(f, "userId"));
+  back("/admin/sims", r, `Preview reset. They have another ${PREVIEW_DAYS} days.`);
+}

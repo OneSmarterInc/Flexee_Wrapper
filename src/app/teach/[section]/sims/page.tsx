@@ -6,7 +6,8 @@ import { simsForClass, visibleSims, classCompletions } from "@/lib/sims";
 import { sectionRoster, waitingOnRelease } from "@/lib/roster";
 import { formatLocal } from "@/lib/time";
 import { simColumnsFor, categoriesFor, SIM_RULES, SIM_RULE_LABELS, isParticipation, type SimRule } from "@/lib/gradebook";
-import { addClassSimAction, removeClassSimAction, setSimRuleAction, setSimPointsAction, setReleaseAction } from "@/app/sim-actions";
+import { addClassSimAction, removeClassSimAction, setSimRuleAction, setSimPointsAction, setReleaseAction, startPreviewAction } from "@/app/sim-actions";
+import { previewStates, PREVIEW_DAYS } from "@/lib/previews";
 import LogoutButton from "@/components/LogoutButton";
 import { classPageTitle } from "@/lib/page-title";
 
@@ -19,7 +20,7 @@ const cell = { borderBottom: "1px solid var(--rule)", padding: ".4rem .6rem", te
 const mins = (s: number | null) => (s == null ? "" : `${Math.round(s / 60)} min`);
 const field = { padding: ".35rem .45rem", border: "1px solid var(--field-border)", borderRadius: "5px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
-export default async function ClassSims({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
+export default async function ClassSims({ params, searchParams }: { params: Promise<{ section: string }>; searchParams: Promise<{ ok?: string; error?: string; preview?: string }> }) {
   const [{ section }, sp] = await Promise.all([params, searchParams]);
   const user = await currentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/teach/${section}/sims`)}`);
@@ -30,6 +31,9 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
     simColumnsFor(section), categoriesFor(section),
     sectionRoster(section), waitingOnRelease(section),
   ]);
+  // Spec 27 B2 mitigation 1: the clock, shown wherever a faculty member chooses a simulation.
+  // "One per sim, ever" is unkind if nobody can see the counter.
+  const previews = await previewStates(user!.id);
   // Spec 27 B1: students only, and withdrawn ones last — they can still be released by name, but
   // they are not what a faculty member is looking at when they open this.
   const students = roster
@@ -108,7 +112,13 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
       {addable.length > 0 && (
         <form action={addClassSimAction} className="ui" style={{ display: "flex", gap: ".5rem", margin: "1rem 0", flexWrap: "wrap" }}>
           <input type="hidden" name="sectionId" value={section} />
-          <select name="simId" style={{ padding: ".45rem .6rem", border: "1px solid var(--rule)", borderRadius: "6px" }}>
+          {/* Two faults on this one control, both shipped since Spec 12 and both missed by Spec 21
+              because the accessibility fixture had every sim attached, so this form never rendered
+              and axe never saw it. It had no accessible name — critical, select-name — and it drew
+              its border from --rule, the decorative divider, rather than --field-border, the token
+              Spec 21 added at 3:1 precisely for controls. */}
+          <label className="sr-only" htmlFor="add-sim">Simulation to add to this class</label>
+          <select id="add-sim" name="simId" style={{ padding: ".45rem .6rem", border: "1px solid var(--field-border)", borderRadius: "6px" }}>
             {addable.map((s) => <option key={s.id} value={s.id}>{s.title}{s.published ? "" : " (preview)"}</option>)}
           </select>
           <button className="nav-button primary" type="submit">Add to this class</button>
@@ -123,6 +133,77 @@ export default async function ClassSims({ params, searchParams }: { params: Prom
           )}
         </form>
       )}
+
+      {addable.length > 0 && (
+        <>
+          <h2 style={{ color: "var(--navy)", marginTop: "2rem" }}>Try one before you adopt it</h2>
+          <p className="ui" style={{ color: "var(--muted)", maxWidth: "44rem" }}>
+            You can open a simulation for {PREVIEW_DAYS} days without adding it to a class.{" "}
+            <strong>One preview each, and only one</strong> — adding it to a class gives you it for
+            good, so you do not need a preview for anything you have already adopted.
+          </p>
+          <ul className="ui" style={{ listStyle: "none", padding: 0, display: "grid", gap: ".5rem" }}>
+            {addable.map((a) => {
+              const st = previews.get(a.id) ?? { kind: "none" as const };
+              const confirming = sp.preview === a.id;
+              return (
+                <li key={a.id} className="book-card section-card" style={{ display: "block" }}>
+                  <div className="t">{a.title}{a.published ? "" : " · not published yet"}</div>
+                  {/* Mitigation 1: the clock, in words, in every state. */}
+                  <div className="s">
+                    {st.kind === "live" ? `Preview running · ${st.daysLeft} day${st.daysLeft === 1 ? "" : "s"} left`
+                      : st.kind === "ended" ? "Your preview of this one is used up"
+                      : st.kind === "granted" ? "An administrator gave you this one — it does not expire"
+                      : a.published ? "No preview started" : "Needs an administrator's grant"}
+                  </div>
+                  {st.kind === "none" && a.published && (
+                    confirming ? (
+                      // Mitigation 2: a real second step, not a sentence next to a button. Without
+                      // it the one preview a faculty member gets could be spent by a stray click.
+                      <div style={{ marginTop: ".6rem" }}>
+                        <p className="ui" role="alert" style={{ margin: "0 0 .5rem" }}>
+                          <strong>This starts your only preview of {a.title}.</strong> It lasts{" "}
+                          {PREVIEW_DAYS} days, and you cannot start another — after that you would
+                          need to add it to a class, or ask an administrator.
+                        </p>
+                        <span style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
+                          <form action={startPreviewAction}>
+                            <input type="hidden" name="sectionId" value={section} />
+                            <input type="hidden" name="simId" value={a.id} />
+                            <button className="nav-button primary" type="submit">
+                              Yes, start my {PREVIEW_DAYS} days
+                            </button>
+                          </form>
+                          <Link className="nav-button ghost" href={`/teach/${section}/sims`}>Cancel</Link>
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="ui" style={{ margin: ".6rem 0 0" }}>
+                        <Link className="nav-button secondary"
+                              href={`/teach/${section}/sims?preview=${encodeURIComponent(a.id)}`}>
+                          Start my {PREVIEW_DAYS}-day preview
+                        </Link>
+                      </p>
+                    )
+                  )}
+                  {(st.kind === "live" || st.kind === "granted") && (
+                    <p className="ui" style={{ margin: ".6rem 0 0" }}>
+                      <a className="nav-button secondary" href={launch(a.id)}>Open it</a>
+                    </p>
+                  )}
+                  {st.kind === "ended" && (
+                    <p className="ui" style={{ margin: ".6rem 0 0", color: "var(--muted)" }}>
+                      Add it to this class above to keep using it, or ask an administrator to reset
+                      the preview.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
       <h2 id="access" style={{ color: "var(--navy)", marginTop: "2rem" }}>Who can play</h2>
       <p className="ui" style={{ color: "var(--muted)", maxWidth: "44rem" }}>
         A student needs access released before they can start any simulation in this class. Releasing
