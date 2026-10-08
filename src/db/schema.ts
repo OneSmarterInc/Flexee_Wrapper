@@ -249,10 +249,20 @@ export const sims = pgTable("sims", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+// One row is one person's sight of one simulation, and `expiresAt` says which kind it is:
+// null is an administrator's permanent grant for reviewing an unpublished sim, a timestamp is the
+// seven-day self-serve trial (Spec 27 B2, decision 3). The unique index is what makes "one per
+// person per sim, ever" true — the row outlives its own expiry on purpose, so a second start has
+// something to collide with rather than looking like a first.
 export const simPreviews = pgTable("sim_previews", {
   simId: text("sim_id").notNull().references(() => sims.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   grantedBy: text("granted_by").references((): any => users.id, { onDelete: "set null" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  // An administrator's reset is recorded rather than done by deleting the row, so that handing out
+  // a second trial leaves a trace and "once ever" stays answerable.
+  resetAt: timestamp("reset_at", { withTimezone: true }),
+  resetBy: text("reset_by").references((): any => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [uniqueIndex("sim_previews_pk").on(t.simId, t.userId)]);
 export const classSims = pgTable("class_sims", {
