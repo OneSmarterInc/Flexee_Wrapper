@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { contentStore, CachedStore, isBookDir } from "@/lib/storage";
 import { aiEnabled, aiConfigured, aiAvailable } from "@/lib/ai";
 import { mailConfigured, replyTo } from "@/lib/mail";
-import type { Check, Result } from "@/lib/status/framework";
+import type { Check, Fact, Result } from "@/lib/status/framework";
 import { readExpiry, expiryWords, expiryWarns, HEADER, type Expiry } from "@/lib/status/token-expiry";
 import { configuredAppUrl } from "@/lib/app-url";
 
@@ -119,7 +119,89 @@ export type RunnerDetail = { expiry: Expiry | null; warns: boolean };
 export const runnerBannerNeeded = (r: Result) =>
   r.state === "down" || r.state === "attention";
 
+/** Which thing actually runs an intake, which decides what this line can be asked (commit 11). */
+export const intakeMode = (env: Env = process.env) =>
+  (env.INTAKE_MODE || "github").toLowerCase() === "worker" ? "worker" : "github";
+
+const ago = (ms: number) => {
+  const s = Math.round(ms / 1000);
+  if (s < 90) return `${s} second${s === 1 ? "" : "s"} ago`;
+  const m = Math.round(s / 60);
+  if (m < 90) return `${m} minute${m === 1 ? "" : "s"} ago`;
+  const h = Math.round(m / 60);
+  return `${h} hour${h === 1 ? "" : "s"} ago`;
+};
+
+/**
+ * The worker on the box, as seen from a process that cannot see it (Spec 28 commit 11).
+ *
+ * Until this commit the line asked GitHub whether a token worked and a workflow existed. On the
+ * box neither has anything to do with adding a book: the intake is `flexee-intake.service` and the
+ * queue is the `library_uploads` table. The old check would have reported "not set up" for ever,
+ * on a system where the book flow worked perfectly — and a line that is wrong in the reassuring
+ * direction is worse than no line, because it is the line an administrator reads when something
+ * else has gone wrong.
+ *
+ * Two facts, which together are decisive in a way neither is alone:
+ *
+ *  - **the heartbeat**, which says when something last looked at the queue, and whether it was
+ *    busy with a book when it last wrote;
+ *  - **the queue**, which says whether anything is waiting.
+ *
+ * A stale heartbeat with nothing waiting is worth attention, not alarm: nothing is being missed
+ * yet. A stale heartbeat with a book waiting is Down, because somebody is watching a page that
+ * will never change. And a heartbeat that is stale only because a publish is in progress is
+ * neither — the worker cannot write a file while python is building a book, which is exactly why
+ * the heartbeat records what it was doing.
+ */
+async function workerResult(env: Env): Promise<Result> {
+  const { readHeartbeat, staleAfterMs, BUSY_TOO_LONG_MS } = await import("@/lib/intake-heartbeat");
+  const { waitingIntakes } = await import("@/lib/library");
+
+  const hb = readHeartbeat(env as NodeJS.ProcessEnv);
+  const queue = await waitingIntakes();
+  const oldest = queue[0];
+  const settings: Fact[] = [
+    { label: "Runs as", text: "flexee-intake.service, on this server" },
+    { label: "Last report", text: hb ? ago(hb.ageMs) : "never" },
+    { label: "Waiting", text: queue.length ? `${queue.length} book${queue.length === 1 ? "" : "s"}` : "nothing" },
+  ];
+  if (oldest) {
+    settings.push({ label: "Oldest", text: `${oldest.bookId}, ${oldest.status}, since ${oldest.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC` });
+  }
+  const caveat =
+    "This is what the worker last wrote down, not an answer from systemd — the Wrapper cannot see a "
+    + "service. It does not prove the next book will be added: that needs free disk, python and the "
+    + "book itself to be sound, and only a real upload tests all three.";
+
+  const stale = !hb || hb.ageMs > staleAfterMs(env);
+
+  if (hb && hb.busy && hb.ageMs <= BUSY_TOO_LONG_MS) {
+    return { state: "ok", facts: settings, caveat,
+             detail: `Adding ${hb.bookId ?? "a book"} now — the ${hb.action ?? "intake"} started ${ago(hb.ageMs)}.` };
+  }
+  if (hb && hb.busy) {
+    return { state: "attention", facts: settings, caveat,
+             detail: `The intake has been working on ${hb.bookId ?? "a book"} since ${ago(hb.ageMs)}, which is longer than a book takes. It may have been interrupted.` };
+  }
+  if (!stale) {
+    return { state: "ok", facts: settings, caveat,
+             detail: queue.length
+               ? `Watching the queue, last ${ago(hb!.ageMs)}; ${queue.length} book${queue.length === 1 ? "" : "s"} about to be picked up.`
+               : `Watching the queue, last ${ago(hb!.ageMs)}. Nothing is waiting.` };
+  }
+  if (queue.length) {
+    return { state: "down", facts: settings, caveat,
+             detail: `Nothing is picking books up: ${queue.length} waiting and the intake last reported ${hb ? ago(hb.ageMs) : "never"}. Start flexee-intake.service.` };
+  }
+  return { state: "attention", facts: settings, caveat,
+           detail: `The intake has not reported since ${hb ? ago(hb.ageMs) : "it was last started"}. No book is waiting, so nothing is stuck yet, but an upload now would not be checked.` };
+}
+
 export function runnerCheck(env: Env = process.env): Check {
+  if (intakeMode(env) === "worker") {
+    return { id: "runner", name: "Book intake", run: () => workerResult(env) };
+  }
   return {
     id: "runner",
     name: "Intake runner",
@@ -382,7 +464,8 @@ export function allChecks(env: Env = process.env): Check[] {
  */
 export async function runnerWarning(
   isAdmin: boolean,
-): Promise<{ kind: "down" | "expiring"; detail: string } | null> {
+  env: Env = process.env,
+): Promise<{ kind: "down" | "expiring"; headline: string; detail: string } | null> {
   // Decision 6: faculty see only the upload failure message, if an upload actually fails.
   if (!isAdmin) return null;
   const { statusCache } = await import("@/lib/status/framework");
@@ -394,7 +477,17 @@ export async function runnerWarning(
     return null;                 // a banner must never be the reason a page fails to render
   }
   if (!r) return null;
-  if (r.state === "down") return { kind: "down", detail: r.detail };
-  if (r.state === "attention") return { kind: "expiring", detail: r.detail };
+  // Spec 28 commit 11: the headline is decided here, where the mode is known, rather than by the
+  // component from a `kind`. In worker mode there is no token and nothing expires, so "the intake
+  // runner's token is about to expire" would be a sentence about a thing that does not exist.
+  const worker = intakeMode(env) === "worker";
+  if (r.state === "down") {
+    return { kind: "down", detail: r.detail,
+             headline: worker ? "The book intake is not running." : "The intake runner is not working." };
+  }
+  if (r.state === "attention") {
+    return { kind: "expiring", detail: r.detail,
+             headline: worker ? "The book intake needs attention." : "The intake runner's token is about to expire." };
+  }
   return null;
 }

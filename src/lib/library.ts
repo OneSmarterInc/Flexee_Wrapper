@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { libraryUploads, enrolments, users } from "@/db/schema";
 import { isAdmin } from "@/lib/admin";
@@ -128,6 +128,30 @@ export async function recordUpload(userId: string, u: { bookId: string; blobPath
   const d = await dispatchIntake("check", row.id, u.bookId);
   if (!d.ok) await setStatus(row.id, "failed", { message: d.error });
   return { ok: true, id: row.id };
+}
+
+/**
+ * The intakes waiting to run, oldest first (Spec 28 commit 7).
+ *
+ * This is the queue. `checking` means a check has not run yet and `publishing` means a publish has
+ * not; both are written by the app in the same statement that recorded somebody's click, so no
+ * second table can disagree with them. A dismissed record is not a job even if it was mid-flight
+ * when it was dismissed.
+ *
+ * Here rather than in the worker because /admin/status asks the same question, and two definitions
+ * of "waiting" would eventually mean the status line and the worker disagreeing about whether
+ * anything is stuck.
+ */
+export async function waitingIntakes(): Promise<
+  { id: string; bookId: string; status: string; sizeBytes: number; createdAt: Date }[]
+> {
+  return db().select({
+    id: libraryUploads.id, bookId: libraryUploads.bookId, status: libraryUploads.status,
+    sizeBytes: libraryUploads.sizeBytes, createdAt: libraryUploads.createdAt,
+  }).from(libraryUploads)
+    .where(and(inArray(libraryUploads.status, ["checking", "publishing"]), isNull(libraryUploads.dismissedAt)))
+    .orderBy(asc(libraryUploads.createdAt)) as Promise<
+      { id: string; bookId: string; status: string; sizeBytes: number; createdAt: Date }[]>;
 }
 
 export async function listUploads(limit = 50) {

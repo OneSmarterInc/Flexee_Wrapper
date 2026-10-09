@@ -18,17 +18,17 @@
 //   INTAKE_WORK_DIR     where a book is unpacked and built
 //   INTAKE_POLL_MS      how long to wait when there is nothing to do (default 5000)
 //   INTAKE_MIN_FREE_MB  the free-disk floor (default 1024)
+//
+// It reports itself by writing INTAKE_WORK_DIR/intake-worker.heartbeat.json each time round the
+// loop, which is the only thing /admin/status can read about a systemd unit the app cannot see.
 import { statfsSync, existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import postgres from "postgres";
-import { and, asc, inArray, isNull } from "drizzle-orm";
-import { db, schema } from "@/db";
-import { setStatus } from "@/lib/library";
+import { setStatus, waitingIntakes } from "@/lib/library";
+import { writeHeartbeat } from "@/lib/intake-heartbeat";
 import { contentDir, intakeWorkDir, filesDir } from "@/lib/paths";
 import { runJob, contentOps, type BlobOps, type SyncDb } from "./library-intake.ts";
-
-const { libraryUploads } = schema;
 
 // ---- the per-book lock -----------------------------------------------------------------------
 
@@ -157,17 +157,8 @@ export function diskRefusal(zipBytes: number, env = process.env): string | null 
 
 // ---- one pass --------------------------------------------------------------------------------
 
-export type Claim = { id: string; bookId: string; status: string; sizeBytes: number };
-
-/** The jobs waiting, oldest first. A dismissed record is not a job, even mid-flight. */
-export async function waiting(): Promise<Claim[]> {
-  return db().select({
-    id: libraryUploads.id, bookId: libraryUploads.bookId,
-    status: libraryUploads.status, sizeBytes: libraryUploads.sizeBytes,
-  }).from(libraryUploads)
-    .where(and(inArray(libraryUploads.status, ["checking", "publishing"]), isNull(libraryUploads.dismissedAt)))
-    .orderBy(asc(libraryUploads.createdAt)) as Promise<Claim[]>;
-}
+/** The jobs waiting, oldest first. One definition, in lib/library, which /admin/status also asks. */
+export const waiting = waitingIntakes;
 
 export type PassResult =
   | { did: "nothing" }
@@ -195,7 +186,10 @@ export async function onePass(opts: {
   const env = opts.env ?? process.env;
   const rows = await waiting();
   for (const row of rows) {
-    if (!(await opts.lock.tryLock(row.bookId))) return { did: "locked-elsewhere", bookId: row.bookId };
+    if (!(await opts.lock.tryLock(row.bookId))) {
+      writeHeartbeat({ busy: false }, env);     // alive and looking, which is what the file reports
+      return { did: "locked-elsewhere", bookId: row.bookId };
+    }
     try {
       const action = row.status === "publishing" ? "publish" : "check";
       const refusal = diskRefusal(row.sizeBytes, env);
@@ -206,18 +200,25 @@ export async function onePass(opts: {
         // Stopping it instead would leave the record in a state with no way forward but re-upload.
         await setStatus(row.id, action === "publish" ? "ready" : "stopped", { message: refusal });
         console.error(`intake worker: refused ${row.id} (${row.bookId}): ${refusal}`);
+        writeHeartbeat({ busy: false }, env);
         return { did: "refused", id: row.id, reason: refusal };
       }
       console.log(`intake worker: ${action} ${row.bookId} (${row.id})`);
+      // Spec 28 commit 11: written before the job, because during the job nothing can write it —
+      // the intake runs python through spawnSync, which blocks this process entirely. `busy` is
+      // what lets /admin/status tell a two-minute publish from a worker that died two minutes ago.
+      writeHeartbeat({ busy: true, bookId: row.bookId, uploadId: row.id, action }, env);
       const outcome = await runJob({
         uploadId: row.id, action, blob: opts.ops, prefix: opts.prefix, now: opts.now, syncDb: opts.syncDb,
       });
       console.log(`intake worker: ${action} ${row.bookId} (${row.id}) -> ${outcome}`);
+      writeHeartbeat({ busy: false }, env);
       return { did: "ran", id: row.id, action, outcome };
     } finally {
       await opts.lock.unlock(row.bookId);
     }
   }
+  writeHeartbeat({ busy: false }, env);
   return { did: "nothing" };
 }
 
@@ -270,6 +271,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     });
   }
   console.log(`intake worker: started. store=${kind} content=${contentDir()} files=${filesDir()} work=${intakeWorkDir()}`);
+  writeHeartbeat({ busy: false });            // so /admin/status is right from the first second
   const once = process.argv.includes("--once");
   if (once) {
     const r = await onePass({ lock, ops, prefix });

@@ -403,4 +403,143 @@ await t(".env.example names every setting the worker needs", () => {
   assert.equal(/flexxe/.test(env), false, "the database name was renamed to flexee_wrapper");
 });
 
+console.log("What /admin/status says about a service it cannot see (commit 11)");
+
+const { runnerCheck, runnerWarning, intakeMode } = await import("@/lib/status/checks");
+const { statusCache } = await import("@/lib/status/framework");
+const { heartbeatPath, writeHeartbeat, readHeartbeat, staleAfterMs, BUSY_TOO_LONG_MS } =
+  await import("@/lib/intake-heartbeat");
+const { utimesSync, unlinkSync } = await import("node:fs");
+
+const WENV = { ...process.env, INTAKE_MODE: "worker", INTAKE_WORK_DIR: WORK } as NodeJS.ProcessEnv;
+const runner = () => runnerCheck(WENV).run();
+/** Push the heartbeat into the past, which is the only way to age one in a test. */
+const ageHeartbeat = (ms: number) => {
+  const f = heartbeatPath(WENV); const t = new Date(Date.now() - ms);
+  utimesSync(f, t, t);
+};
+const noHeartbeat = () => { try { unlinkSync(heartbeatPath(WENV)); } catch { /* already gone */ } };
+/** Clear the queue so each check below sees the queue it sets up. */
+const emptyQueue = async () => { for (const r of await waiting()) await setStatus(r.id, "failed", { message: "tidied away" }); };
+
+await t("the line is about the worker, not about a GitHub token, and only in worker mode", () => {
+  assert.equal(intakeMode(WENV), "worker");
+  assert.equal(runnerCheck(WENV).name, "Book intake");
+  assert.equal(runnerCheck({ ...process.env, INTAKE_MODE: undefined } as any).name, "Intake runner",
+    "the GitHub check is untouched where it is still the truth");
+  assert.equal(runnerCheck(WENV).id, "runner", "the id stays, so the page still has its seven lines");
+});
+
+await t("nothing has reported and nothing is waiting: attention, not alarm", async () => {
+  await emptyQueue(); noHeartbeat();
+  const r = await runner();
+  assert.equal(r.state, "attention", r.detail);
+  assert.match(r.detail, /has not reported/);
+  assert.match(r.detail, /nothing is stuck yet/);
+});
+
+await t("nothing has reported and a book is waiting: Down, naming what to start", async () => {
+  await emptyQueue(); noHeartbeat();
+  const id = await uploaded("stuck.zip", new TextEncoder().encode("x"));
+  const r = await runner();
+  assert.equal(r.state, "down", r.detail);
+  assert.match(r.detail, /Nothing is picking books up/);
+  assert.match(r.detail, /flexee-intake\.service/);
+  assert.ok(r.facts?.some((f) => f.label === "Waiting" && f.text === "1 book"), JSON.stringify(r.facts));
+  assert.ok(r.facts?.some((f) => f.label === "Oldest" && f.text.includes("sad")), JSON.stringify(r.facts));
+  await setStatus(id, "failed", { message: "tidied away" });
+});
+
+await t("a fresh report and an empty queue: OK", async () => {
+  await emptyQueue();
+  writeHeartbeat({ busy: false }, WENV);
+  const r = await runner();
+  assert.equal(r.state, "ok", r.detail);
+  assert.match(r.detail, /Watching the queue/);
+  assert.match(r.detail, /Nothing is waiting/);
+});
+
+await t("a book in the intake right now reads as OK, and says which book", async () => {
+  await emptyQueue();
+  writeHeartbeat({ busy: true, bookId: "sad", uploadId: "x", action: "publish" }, WENV);
+  const r = await runner();
+  assert.equal(r.state, "ok", r.detail);
+  assert.match(r.detail, /Adding sad now/);
+  assert.match(r.detail, /publish started/);
+});
+
+await t("a book in the intake for longer than a book takes: attention", async () => {
+  // The case the `busy` flag exists for, the other way round: the worker cannot write a heartbeat
+  // while python builds a book, so a long publish and a dead worker look identical by age alone.
+  await emptyQueue();
+  writeHeartbeat({ busy: true, bookId: "sad", uploadId: "x", action: "publish" }, WENV);
+  ageHeartbeat(BUSY_TOO_LONG_MS + 60_000);
+  const r = await runner();
+  assert.equal(r.state, "attention", r.detail);
+  assert.match(r.detail, /longer than a book takes/);
+  assert.match(r.detail, /interrupted/);
+});
+
+await t("a stale report with a book waiting is Down; stale is six polls, not one", async () => {
+  await emptyQueue();
+  writeHeartbeat({ busy: false }, WENV);
+  ageHeartbeat(staleAfterMs(WENV) - 5_000);
+  const idA = await uploaded("fresh-enough.zip", new TextEncoder().encode("x"));
+  assert.equal((await runner()).state, "ok", "a late poll is not a dead worker");
+  ageHeartbeat(staleAfterMs(WENV) + 5_000);
+  const r = await runner();
+  assert.equal(r.state, "down", r.detail);
+  await setStatus(idA, "failed", { message: "tidied away" });
+});
+
+await t("the facts name the unit and never a path on the server", async () => {
+  writeHeartbeat({ busy: false }, WENV);
+  const r = await runner();
+  const texts = (r.facts ?? []).map((f) => `${f.label}: ${f.text}`).join(" | ");
+  assert.match(texts, /flexee-intake\.service/);
+  assert.equal(texts.includes(WORK), false, `a server path reached the page: ${texts}`);
+  assert.equal(texts.includes(FILES), false, texts);
+  assert.match(r.caveat!, /cannot see a service/, r.caveat!);
+});
+
+await t("the banner says the intake is not running, and never mentions a token", async () => {
+  await emptyQueue(); noHeartbeat();
+  const id = await uploaded("banner.zip", new TextEncoder().encode("x"));
+  statusCache.clear();
+  const w = await runnerWarning(true, WENV);
+  assert.ok(w, "there is a warning");
+  assert.equal(w!.kind, "down");
+  assert.equal(w!.headline, "The book intake is not running.");
+  assert.equal(/token/i.test(w!.headline + w!.detail), false, `${w!.headline} ${w!.detail}`);
+  assert.equal(await runnerWarning(false, WENV), null, "faculty never see it");
+  statusCache.clear();
+  await setStatus(id, "failed", { message: "tidied away" });
+});
+
+await t("a heartbeat the worker never wrote, and one written in the future, are both survivable", () => {
+  noHeartbeat();
+  assert.equal(readHeartbeat(WENV), null, "a missing file is null, not a throw");
+  writeHeartbeat({ busy: false }, WENV);
+  ageHeartbeat(-600_000);                     // a clock an hour fast
+  const hb = readHeartbeat(WENV);
+  assert.equal(hb!.ageMs, 0, "a file from the future reads as just now, not as fresh for ever");
+});
+
+await t("the worker writes a heartbeat while it works and when it is idle", async () => {
+  await emptyQueue(); noHeartbeat();
+  const r = await quiet(() => pass(fakeLock()));
+  assert.deepEqual(r, { did: "nothing" });
+  const idle = readHeartbeat(WENV);
+  assert.ok(idle, "an idle pass still reports");
+  assert.equal(idle!.busy, false);
+
+  const id = await uploaded("hb.zip", new TextEncoder().encode("x"));
+  noHeartbeat();
+  await quiet(() => pass(fakeLock()));
+  const after = readHeartbeat(WENV);
+  assert.ok(after, "and so does a pass that ran a job");
+  assert.equal(after!.busy, false, "the last thing it wrote was that it is watching again");
+  await setStatus(id, "failed", { message: "tidied away" });
+});
+
 console.log(`\n${passed} passed`);

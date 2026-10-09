@@ -267,6 +267,22 @@ at the same time.
    `journalctl -u flexee-intake -f`, and check `/admin/status` afterwards. Send Vikram the
    journal lines for the check and the publish.
 
+On `/admin/status` the line to read is **Book intake**. With `INTAKE_MODE=worker` it stops asking
+GitHub about a token and a workflow neither of which has anything to do with adding a book here,
+and instead reports what the worker last wrote down plus what is waiting in the queue:
+
+| The line says | What it means |
+|---|---|
+| **OK** — "Watching the queue, last 3 seconds ago. Nothing is waiting." | the worker is running |
+| **OK** — "Adding sad now — the publish started a minute ago." | a book is going through |
+| **Down** — "Nothing is picking books up: 1 waiting … Start flexee-intake.service." | the unit is stopped or failed, and somebody is watching a page that will never change |
+| **Needs attention** — "has not reported … nothing is stuck yet" | the unit is not running, but no book is waiting either |
+| **Needs attention** — "working on sad since 20 minutes ago" | a job was interrupted, or something is very slow |
+
+The worker reports itself by writing `intake-worker.heartbeat.json` in `INTAKE_WORK_DIR` each time
+round its loop. Nothing else reads or writes that file, and deleting it is harmless — the worker
+writes a new one within one poll.
+
 ### What to expect, and what to do about it
 
 | What you see | What it means |
