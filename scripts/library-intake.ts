@@ -1,12 +1,16 @@
 // The library intake job, run by .github/workflows/library-intake.yml when someone uploads a book
 // in the app (action "check") or adds a checked book to the library (action "publish").
 //
-//   check:   download the uploaded zip from Blob, find the book's register, run the intake
+//   check:   read the uploaded zip from FILES_DIR, find the book's register, run the intake
 //            (tools/flexee_intake.py with the pinned validator tools/build_questions.py) and write
 //            its report and status (ready | stopped) back to the database.
 //   publish: check again (the same zip, so the same result), approve into a working content tree,
-//            archive the book's current files in Blob (archive/<book>/<time>/), upload the new ones
-//            to live/<book>/, and load chapters and questions into the database.
+//            archive the book's current files (archive/<book>/<time>/), write the new ones to
+//            live/<book>/, and load chapters and questions into the database.
+//
+// Spec 28 commit 6: the zip comes off the disk the app wrote it to, not from Blob. The content
+// store is still reached through BlobOps, so `blob` below means "wherever the published books
+// live" — Vercel Blob, S3 or a directory, as fsOps() provides.
 //
 // Nothing reaches students here: a class's faculty still publish the book to their class.
 import { spawnSync } from "node:child_process";
@@ -14,6 +18,7 @@ import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, exist
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { intakeWorkDir } from "@/lib/paths";
+import { uploadPath } from "@/lib/files";
 import { getUpload, setStatus } from "@/lib/library";
 
 export interface BlobOps {
@@ -54,7 +59,7 @@ export async function vercelBlob(): Promise<BlobOps> {
  * vocabulary identical is what lets `runJob` stay untouched: it builds those strings itself and
  * neither knows nor cares which side of the interface it is talking to.
  *
- * `root` is the mounted data volume. Every pathname is checked with the same rule `safeKey()`
+ * `root` is the content directory. Every pathname is checked with the same rule `safeKey()`
  * applies to reads, because these strings reach here from an upload record and a book id, and a
  * `..` in either would climb out of the volume.
  */
@@ -184,8 +189,9 @@ export const syncDbWithScripts: SyncDb = (contentDir) => {
   }
 };
 
-export async function runJob(opts: { uploadId: string; action: "check" | "publish"; blob: BlobOps; syncDb?: SyncDb; runUrl?: string; prefix?: string; now?: Date }) {
+export async function runJob(opts: { uploadId: string; action: "check" | "publish"; blob: BlobOps; syncDb?: SyncDb; runUrl?: string; prefix?: string; now?: Date; resolveZip?: (key: string) => string | null }) {
   const { uploadId, action, blob } = opts; const prefix = opts.prefix ?? "live/";
+  const resolveZip = opts.resolveZip ?? uploadPath;
   const up = await getUpload(uploadId);
   if (!up) throw new Error(`no such upload: ${uploadId}`);
   if (process.env.INTAKE_BOOK_ID && process.env.INTAKE_BOOK_ID !== up.bookId) throw new Error("The workflow book id does not match the upload.");
@@ -198,10 +204,18 @@ export async function runJob(opts: { uploadId: string; action: "check" | "publis
     // the root disk with little free and a 200 MB zip expands, is rebuilt, and is copied to the
     // archive. Defaults to tmpdir(), which is what this was before, so nothing changes unset.
     work = mkdtempSync(path.join(intakeWorkDir(), "library-"));
-    const zip = path.join(work, "upload.zip");
-    const bytes = await blob.download(up.blobPath);
-    if (bytes.byteLength > 200 * 1024 * 1024) throw new Error("The book zip exceeds 200 MB.");
-    writeFileSync(zip, bytes);
+    // Spec 28 commit 6: the zip is already a file, so it is unzipped where it lies. The Blob
+    // version had to download it into memory and write it into the work directory, which on this
+    // box would be 200 MB of a worker's memory and a second 200 MB on a shared 28 GB disk, to make
+    // a copy of a file that is on that disk already.
+    //
+    // The size is taken from the file rather than from `up.sizeBytes`, which is what the browser
+    // reported. The route counts bytes as it streams and refuses above the cap, and recordUpload
+    // refuses a declared size above it; this is the only one of the three that measures what is
+    // actually there, so it stays.
+    const zip = resolveZip(up.blobPath);
+    if (!zip) throw new Error("The uploaded zip is no longer on disk. Upload the book again.");
+    if (statSync(zip).size > 200 * 1024 * 1024) throw new Error("The book zip exceeds 200 MB.");
     const unz = spawnSync("python3", [path.join(REPO, "tools/safe_unzip.py"), zip, path.join(work, "shelf")], { encoding: "utf8" });
     if (unz.status !== 0) throw new Error(`The upload is not a readable zip file. ${(unz.stderr || "").trim()}`);
     const shelf = findShelf(path.join(work, "shelf"));

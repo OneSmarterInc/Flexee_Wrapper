@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-// Uploads chosen files to /api/files/upload, which streams them to the data volume, then puts the
+// Uploads chosen files to /api/files/upload, which streams them to disk, then puts the
 // list into a hidden form field (JSON: [{ blobPath, fileName, sizeBytes }]) for the form's server
 // action to record.
 //

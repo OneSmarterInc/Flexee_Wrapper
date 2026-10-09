@@ -3,7 +3,7 @@ import { uploadPrefix } from "@/lib/assignments";
 import { saveUpload, UploadTooLarge, MAX_UPLOAD_BYTES } from "@/lib/files";
 
 /**
- * Receives one assignment attachment or submission file and writes it to the data volume
+ * Receives one assignment attachment or submission file and writes it under FILES_DIR
  * (Spec 28 commit 5).
  *
  * This replaced a Vercel Blob token issuer. `handleUpload` from `@vercel/blob/client` minted a

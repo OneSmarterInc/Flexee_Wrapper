@@ -1,9 +1,14 @@
 // Integration test: the book library — upload rules and GitHub dispatch (lib/library), and the
 // intake job (scripts/library-intake.ts) end to end: a real SAD test shelf, zipped as Drive zips a
-// folder, run through the real intake and validator against a simulated Blob store.
+// folder, run through the real intake and validator against a simulated content store.
+//
+// Spec 28 commit 6: the zip now comes off the disk, so `uploaded()` writes the fixture into a
+// throwaway FILES_DIR instead of putting it in the simulated store. That is deliberate rather than
+// an injection point — it means every check below, including the whole publish path, exercises the
+// way the job will actually find a zip on the box.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { db, schema } from "@/db";
@@ -30,7 +35,12 @@ setDispatchFetch((async (url: any, init: any) => {
 }) as any);
 Object.assign(process.env, { GITHUB_DISPATCH_TOKEN: "ghp_test", GITHUB_REPO: "OneSmarterInc/Flexee_Wrapper" });
 
-// Blob, simulated.
+// The upload area, on a throwaway disk: FILES_DIR, where the route writes a book zip and the job
+// reads it. Set before anything imports lib/files, which reads it through filesDir() at call time.
+const VOLUME = mkdtempSync(path.join(tmpdir(), "library-files-"));
+process.env.FILES_DIR = VOLUME;
+
+// The content store, simulated — live/<book>/ and archive/<book>/, which is all `blob` is for now.
 const store = new Map<string, Uint8Array>();
 const blob: BlobOps = {
   async download(p) { const b = store.get(p); if (!b) throw new Error("not found " + p); return b; },
@@ -160,12 +170,15 @@ function shelfZip(name: string, mutate?: (root: string) => void) {
   return readFileSync(zip);
 }
 async function uploaded(name: string, bytes: Uint8Array, who = prof.id) {
-  const p = `uploads/sad/${name}`; store.set(p, new Uint8Array(bytes));
+  const p = `uploads/sad/${name}`;
+  const f = path.join(VOLUME, "uploads", "sad", name);
+  mkdirSync(path.dirname(f), { recursive: true });
+  writeFileSync(f, bytes);
   const r = await recordUpload(who, { bookId: "sad", blobPath: p, fileName: name, sizeBytes: bytes.length });
   return (r as any).id as string;
 }
 
-console.log("The intake job (real intake, real validator, simulated Blob)");
+console.log("The intake job (real intake, real validator, the zip on disk)");
 const good = shelfZip("sad-v1.zip");
 const idGood = await uploaded("sad-v1.zip", good);
 await t("check: a correct book comes back ready, with the intake's report and register version", async () => {
@@ -232,6 +245,19 @@ await t("a file that is not a zip, or a zip with no register, fails with a plain
   assert.match((await getUpload(noReg))!.message!, /no STATE_OF_RECORD\.md/);
   rmSync(dir, { recursive: true, force: true });
 });
+await t("a zip that is no longer on disk fails with a plain message, not a stack", async () => {
+  // Spec 28 commit 6: the only new way this job can fail. The row says where the zip is and the
+  // file is gone — a disk cleared, a FILES_DIR pointed somewhere new, a restore that brought the
+  // database back without the files. The person reading the Library page gets a sentence they can
+  // act on rather than ENOENT and a path.
+  const id = await uploaded("vanishing.zip", shelfZip("vanishing.zip"));
+  rmSync(path.join(VOLUME, "uploads", "sad", "vanishing.zip"), { force: true });
+  assert.equal(await runJob({ uploadId: id, action: "check", blob, syncDb }), "failed");
+  const u = await getUpload(id);
+  assert.match(u!.message!, /no longer on disk/);
+  assert.equal(/[\\/]uploads[\\/]/.test(u!.message!), false, "and it does not print a filesystem path");
+});
+
 await t("the register is found wherever Drive's zip puts the folder", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "find-"));
   execFileSync("mkdir", ["-p", path.join(dir, "a", "FZ1001_v2_CURRENT", "Archive")]);

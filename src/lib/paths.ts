@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 /**
  * Where the three kinds of file live on disk (Spec 28 Addendum D §1).
  *
- * On the AWS box these point at a separate encrypted volume, outside the git checkout. Until
+ * On the AWS box these are directories under /var/lib/flexee, outside the git checkout — on the
+ * root disk, since Addendum F dropped the separate volume. The setting is what matters here, not
+ * the disk: moving them to a volume later changes three environment variables and nothing else.
+ * Until
  * 9 October 2026 `CONTENT_DIR` was `/var/www/Flexee_Wrapper/content` — the git working tree, in
  * which all 148 files under `content/` are tracked — so publishing a book modified tracked files
  * and the deploy's `git pull --ff-only` then refused to overwrite them. `deploy/aws/deploy.sh`

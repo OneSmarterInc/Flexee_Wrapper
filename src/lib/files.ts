@@ -17,11 +17,53 @@ import { filesDir } from "@/lib/paths";
  *
  * The body is streamed rather than buffered. `await req.formData()` would read a whole file into
  * memory before anything is written, which is tolerable for 50 MB and wrong for the 200 MB book zip
- * that arrives in the next commit through the same path.
+ * that commit 6 sends through the same path.
  */
 
 /** The cap the app enforces. nginx's `client_max_body_size` must be set above this, or a person sees its 413 rather than our message. */
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/**
+ * The cap for a book zip (Spec 28 commit 6). Four times the attachment cap and the same number the
+ * intake has always enforced, in `recordUpload` and again in `runJob`; the largest real book today
+ * is 32 MB zipped, so this is headroom rather than a limit anyone meets.
+ *
+ * nginx gets `256m` on `/api/library/upload` and `64m` on `/api/files/upload` — per location, each
+ * above the cap beside it, so an oversized file meets the message below instead of a bare 413.
+ */
+export const MAX_BOOK_BYTES = 200 * 1024 * 1024;
+
+/**
+ * Where a book zip lands: `uploads/<bookId>/<safe name>`.
+ *
+ * Under `FILES_DIR`, deliberately, and not under `CONTENT_DIR`. Vercel Blob held the zips and the
+ * published books in one store, separated by the `live/` prefix; on a filesystem `CONTENT_DIR` *is*
+ * the content root, so an `uploads/` directory inside it would be a sibling of the books — and
+ * `listDirs("")` is how both `listBooks()` and `/admin/status` find books. The status check counts
+ * every directory not starting with `_`, so it would have reported a book that is a folder of zips.
+ *
+ * Not `INTAKE_WORK_DIR` either: that is scratch the intake unpacks into and deletes, and the first
+ * person freeing disk space will empty it. A zip has to survive from upload until the faculty member
+ * approves the book, which can be days.
+ *
+ * The shape matches what `library_uploads.blobPath` already holds and what `recordUpload()` already
+ * enforces — `^uploads/<bookId>/[^/]+\.zip$` — so no row changes meaning.
+ */
+export const bookUploadPrefix = (bookId: string) => `uploads/${bookId}/`;
+
+/**
+ * The absolute path of a stored file, or null if it is not there.
+ *
+ * For the intake, which hands the zip's path to `tools/safe_unzip.py` instead of reading it. A
+ * 200 MB `download()` into a Uint8Array and a `writeFileSync` into the work directory is 200 MB of
+ * memory in a worker with a modest `MemoryMax`, and 200 MB of a shared 28 GB disk, to produce a
+ * second copy of a file that is already on that disk.
+ */
+export function uploadPath(key: string): string | null {
+  let f: string;
+  try { f = fullPath(key); } catch { return null; }
+  return existsSync(f) && statSync(f).isFile() ? f : null;
+}
 
 export class UploadTooLarge extends Error {
   // Declared, not a constructor parameter property: this repository runs TypeScript through

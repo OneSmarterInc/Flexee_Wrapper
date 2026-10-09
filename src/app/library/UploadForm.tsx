@@ -1,14 +1,19 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { upload } from "@vercel/blob/client";
 import { registerUploadAction } from "@/app/library/actions";
 import { displayBookId, looksDoubleZipped } from "@/lib/book-id";
 
 const field = { padding: ".55rem .7rem", border: "1px solid var(--field-border)", borderRadius: "6px", background: "var(--panel)", color: "var(--ink)", font: "inherit" } as const;
 
-// Sends the zip straight from the browser to private Blob storage, then records the upload,
-// which starts the intake. The book id says which library book this is a version of.
+// Sends the zip to /api/library/upload, which streams it to disk, then records the upload, which
+// starts the intake. The book id says which library book this is a version of.
+//
+// Spec 28 commit 6: this used @vercel/blob/client's upload(), which sent the bytes from the browser
+// straight to Blob with a one-time token, so a 32 MB zip never passed through the server. It does
+// now. Two consequences a person can see: the progress line is the browser's own upload again
+// rather than Blob's, and the server names the file — the route returns the key it wrote, which is
+// what goes to registerUploadAction, instead of this form composing `uploads/<id>/<name>` itself.
 export default function UploadForm({ books }: { books: { id: string; title: string }[] }) {
   const router = useRouter();
   const [bookId, setBookId] = useState(books[0]?.id ?? "__new");
@@ -23,11 +28,17 @@ export default function UploadForm({ books }: { books: { id: string; title: stri
     if (!file) return setError("Choose the book's zip file.");
     if (!/\.zip$/i.test(file.name)) return setError("Upload a .zip of the book's CURRENT folder.");
     if (!/^[a-z][a-z0-9]{1,30}$/.test(id)) return setError("Book id: lowercase letters and digits, starting with a letter (e.g. mis4950).");
+    // Checked here as well as in the route, because the route can only answer after the whole body
+    // has arrived — and refusing a 300 MB zip after ten minutes of uploading is a poor way to say it.
+    if (file.size > 200 * 1024 * 1024) return setError(`${file.name} is larger than 200 MB.`);
     try {
       setBusy(`Uploading ${(file.size / 1e6).toFixed(1)} MB…`);
-      const blob = await upload(`uploads/${id}/${file.name}`, file, { access: "private", handleUploadUrl: "/api/library/upload" });
+      const q = new URLSearchParams({ bookId: id, name: file.name });
+      const res = await fetch(`/api/library/upload?${q}`, { method: "POST", body: file });
+      const saved = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(saved.error || `The upload failed (${res.status}).`);
       setBusy("Starting the check…");
-      const r = await registerUploadAction({ bookId: id, blobPath: blob.pathname, fileName: file.name, sizeBytes: file.size });
+      const r = await registerUploadAction({ bookId: id, blobPath: saved.blobPath, fileName: saved.fileName, sizeBytes: saved.sizeBytes });
       if (!r.ok) { setBusy(null); return setError(r.error); }
       router.push(`/library/${r.id}`);
     } catch (err) {
