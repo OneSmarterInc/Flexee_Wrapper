@@ -11,9 +11,9 @@
 // Nothing reaches students here: a class's faculty still publish the book to their class.
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, rmSync, rmdirSync, statSync, copyFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { intakeWorkDir } from "@/lib/paths";
 import { getUpload, setStatus } from "@/lib/library";
 
 export interface BlobOps {
@@ -194,7 +194,10 @@ export async function runJob(opts: { uploadId: string; action: "check" | "publis
   const runUrl = opts.runUrl ?? null;
   let work: string | undefined;
   try {
-    work = mkdtempSync(path.join(tmpdir(), "library-"));
+    // Spec 28 Addendum D §1: the work directory is a setting, because on the AWS box /tmp is on
+    // the root disk with little free and a 200 MB zip expands, is rebuilt, and is copied to the
+    // archive. Defaults to tmpdir(), which is what this was before, so nothing changes unset.
+    work = mkdtempSync(path.join(intakeWorkDir(), "library-"));
     const zip = path.join(work, "upload.zip");
     const bytes = await blob.download(up.blobPath);
     if (bytes.byteLength > 200 * 1024 * 1024) throw new Error("The book zip exceeds 200 MB.");

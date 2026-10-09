@@ -4,6 +4,10 @@ node_modules/
 .env.local
 deploy/aws/.env
 
+# Spec 28: FILES_DIR's local default. Assignment attachments and student submissions, which on a
+# developer's machine land here and are nobody's business but theirs.
+/files/
+
 # intake bookkeeping: history is in git; staging is per-run
 content/_archive/
 content/_staging/
