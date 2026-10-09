@@ -1,0 +1,70 @@
+[Unit]
+# The book intake worker (Spec 28 commit 7). It polls library_uploads for rows in `checking` or
+# `publishing`, takes a per-book Postgres advisory lock, and runs the intake on this box. It
+# replaces .github/workflows/library-intake.yml, which ran on a GitHub runner that cannot reach
+# either the uploaded zip under FILES_DIR or the books under CONTENT_DIR.
+Description=Flexee Wrapper book intake worker (the library_uploads table is the queue)
+Documentation=https://github.com/OneSmarterInc/Flexee_Wrapper/blob/main/docs/specs/28_AWS_Migration.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+# systemd gives up rather than restarting for ever. Without this, a book that makes the worker run
+# out of memory becomes an endless restart loop: killed, restarted, picks the same row up again,
+# killed. Five starts in five minutes and the unit goes `failed`, which is visible, and the row
+# stays `checking`, which is also visible.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+
+# CONFIRM BEFORE INSTALLING: these four must match flexee-wrapper.service, which is the unit that
+# already works on this box. Copy them from it rather than trusting this file —
+#   systemctl cat flexee-wrapper
+# The worker runs the same code, against the same database, in the same checkout, so a difference
+# between the two is a bug in one of them.
+User=REPLACE_WITH_THE_USER_FLEXEE_WRAPPER_RUNS_AS
+Group=REPLACE_WITH_THE_GROUP_FLEXEE_WRAPPER_RUNS_AS
+WorkingDirectory=/var/www/Flexee_Wrapper
+EnvironmentFile=/var/www/Flexee_Wrapper/.env
+
+# CONFIRM: the path to npm, which must be the one flexee-wrapper.service uses. If that unit runs
+# npm from a version manager (nvm, fnm, volta) the absolute path will not be /usr/bin/npm, and
+# systemd does not read a login shell's PATH.
+ExecStart=/usr/bin/npm run intake:worker
+
+# Restart=always, not on-failure: a clean exit is still a worker that is no longer watching the
+# queue, and a book added at that moment would sit in `checking` with nothing to pick it up.
+Restart=always
+RestartSec=5
+
+# A publish must not be cut in half. SIGTERM is what `systemctl restart` sends, and deploy.sh
+# restarts this unit on every deploy; the worker treats it as "finish the job you are on, then
+# stop", so this is the time the longest publish needs. A real book takes a minute or two.
+KillSignal=SIGTERM
+TimeoutStopSec=600
+
+# Modest on purpose: this box also runs flexee-adv-backend, flexee-bpm, flexee-da-backend and
+# flexee-erp-backend, and the Wrapper itself. A book being added must never be the reason another
+# service is slow. The intake spawns python3 with Pillow to build figures, which is where the
+# memory goes; MemoryHigh asks the kernel to reclaim before MemoryMax kills.
+MemoryHigh=700M
+MemoryMax=900M
+CPUQuota=60%
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+# Ordinary hardening. NoNewPrivileges and PrivateTmp are free; ProtectSystem=full leaves /var
+# writable, which the worker needs for /var/lib/flexee and /var/www/Flexee_Wrapper.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=read-only
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flexee-intake
+
+[Install]
+WantedBy=multi-user.target

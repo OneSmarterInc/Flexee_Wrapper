@@ -17,7 +17,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, rmSync, rmdirSync, statSync, copyFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { intakeWorkDir } from "@/lib/paths";
+import { intakeWorkDir, contentDir } from "@/lib/paths";
 import { uploadPath, deleteUpload } from "@/lib/files";
 import { getUpload, setStatus } from "@/lib/library";
 
@@ -178,6 +178,31 @@ function intake(args: string[]) {
     encoding: "utf8", cwd: REPO, env: { ...process.env, PYTHONIOENCODING: "utf-8" },
   });
   return { code: r.status ?? 1, out: (r.stdout || "") + (r.stderr || "") };
+}
+
+/**
+ * The content store the intake publishes to, chosen the same way the app chooses the one it reads
+ * from — `CONTENT_STORE` (Spec 28 commit 7).
+ *
+ * Until now this was always `vercelBlob()` with the `live/` prefix, because the job only ever ran
+ * on a GitHub runner. On the box the books are a directory, so the prefix is empty: `CONTENT_DIR`
+ * *is* the content root, and `FsStore` reads `<book>/ch01/content.md` with no prefix in front of
+ * it. Publishing under `live/` there would put every book in a folder the app never looks in.
+ *
+ * The archive lands at `<CONTENT_DIR>/archive/<book>/<stamp>/`, beside the books rather than under
+ * a prefix of its own. That is why `isBookDir()` exists (commit 7a): without it `/admin/status`
+ * counts the archive as a book.
+ *
+ * s3 is refused rather than half-supported. `S3Store` can read a bucket, but there is no `s3Ops()`
+ * to write one, and a job that published nothing while reporting success would be the worst of the
+ * three outcomes.
+ */
+export async function contentOps(env: Record<string, string | undefined> = process.env):
+  Promise<{ ops: BlobOps; prefix: string; kind: string }> {
+  const kind = (env.CONTENT_STORE || "fs").toLowerCase();
+  if (kind === "fs") return { ops: fsOps(contentDir(env)), prefix: "", kind };
+  if (kind === "blob") return { ops: await vercelBlob(), prefix: env.CONTENT_PREFIX ?? "live/", kind };
+  throw new Error(`The intake cannot publish to CONTENT_STORE=${kind}. Set it to fs or blob.`);
 }
 
 export type SyncDb = (contentDir: string) => void;

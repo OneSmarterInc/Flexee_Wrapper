@@ -94,6 +94,11 @@ npm run build
 #
 # Once flexee-intake.service exists, restarting only flexee-wrapper leaves the old worker running
 # against new code. Guarded, so this script still works before that unit is installed.
+# The two sudo lines below are spelled exactly as the box's own script spells them, without the
+# .service suffix, and must stay that way: sudoers matches the command line as written, so a rule
+# permitting `/usr/bin/systemctl restart flexee-wrapper` does not permit
+# `systemctl restart flexee-wrapper.service`. Whichever spelling the working rule uses is the one
+# this file has to use. The runbook gives the rule for flexee-intake in the same spelling.
 sudo systemctl restart flexee-wrapper
 if systemctl list-unit-files flexee-intake.service >/dev/null 2>&1 \
    && systemctl is-enabled --quiet flexee-intake.service 2>/dev/null; then

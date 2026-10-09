@@ -2,6 +2,22 @@
 
 **For:** Akshay · **From:** Vikram · **Version 1.0 — 26 September 2026**
 
+---
+
+> ## ⚠️ Read this first — most of this document is superseded (9 October 2026)
+>
+> It describes a deployment that was never built: Docker Compose, Caddy, RDS, `/opt/flexee`. **The
+> box runs the app as the systemd unit `flexee-wrapper` (`npm run start`, port 3000) behind nginx,
+> from `/var/www/Flexee_Wrapper`, against a local Postgres**, and it is shared with
+> `flexee-adv-backend`, `flexee-bpm`, `flexee-da-backend` and `flexee-erp-backend` — do not touch
+> those. Spec 28 Addendum F deferred RDS, S3 and a separate data volume.
+>
+> Parts A to H below are kept only as the record of what was planned. **Spec 28 commit 13 rewrites
+> this document.** Until then, the only part of it written against the box as it actually is, and
+> therefore the only part safe to follow, is **Part I**.
+
+---
+
 This puts the Flexee Wrapper online at `https://learn.flexee.org` for the Spring 2027 sections of
 MIS 3000 and MIS 3250. The Wrapper is one Docker image (Next.js) that needs a Postgres database and a
 folder of book content. Nothing else: no email server, no queues, no other services.
@@ -164,6 +180,110 @@ docker compose -f docker-compose.aws.yml up -d
 **New book version:** repeat Part F.
 
 ---
+
+---
+
+## Part I — The book intake worker (`flexee-intake.service`)
+
+**Written against the box as it is. Spec 28 commit 7.**
+
+Adding a book used to run in GitHub Actions: the app dispatched
+`.github/workflows/library-intake.yml` and a GitHub runner did the work. That cannot work any more
+— the uploaded zip is a file under `FILES_DIR` on this box and the books are a directory under
+`CONTENT_DIR`, and a runner can reach neither. A small worker on the box does it instead.
+
+It has no queue of its own. A row in `library_uploads` with status `checking` is a check waiting to
+run and one with `publishing` is a publish waiting to run, both written by the app when somebody
+clicked. The worker polls those two, oldest first, runs **one at a time**, and takes a Postgres
+advisory lock on the book id so that a second worker or a hand-run job cannot work on the same book
+at the same time.
+
+### Install
+
+1. **Create the three directories**, if they are not there already, owned by the same user
+   `flexee-wrapper` runs as (`systemctl show -p User flexee-wrapper` says which):
+   ```bash
+   sudo mkdir -p /var/lib/flexee/content /var/lib/flexee/files /var/lib/flexee/work
+   sudo chown -R <that-user>:<that-group> /var/lib/flexee
+   sudo chmod 750 /var/lib/flexee
+   ```
+2. **Add the settings** to `/var/www/Flexee_Wrapper/.env`, from `deploy/aws/.env.example`:
+   `CONTENT_DIR`, `FILES_DIR`, `INTAKE_WORK_DIR`, `CONTENT_STORE=fs`, `INTAKE_MODE=worker`, and
+   optionally `INTAKE_MIN_FREE_MB` (default 1024). `INTAKE_MODE=worker` is what stops the app
+   dispatching a GitHub workflow it no longer needs.
+3. **Check `python3` and Pillow are present**, since the intake builds figures with them:
+   ```bash
+   python3 -c "import PIL, sys; print(PIL.__version__, sys.version)"
+   ```
+   If that fails: `sudo apt-get install -y python3-pil` (do not pip-install into the system Python
+   on a box four other services share).
+4. **Copy the unit in and fill in its four CONFIRM lines** — `User`, `Group`, `EnvironmentFile`
+   and the path to `npm` — by copying them from the unit that already works:
+   ```bash
+   systemctl cat flexee-wrapper              # take User, Group, EnvironmentFile, and npm's path
+   sudo cp /var/www/Flexee_Wrapper/deploy/aws/flexee-intake.service /etc/systemd/system/
+   sudo nano /etc/systemd/system/flexee-intake.service
+   sudo systemctl daemon-reload
+   ```
+5. **Add the sudoers rule** so `deploy.sh` can restart it. Check how the existing one is written
+   first, and match it exactly — sudoers matches the command line as typed, so a rule for
+   `... restart flexee-intake.service` does **not** permit `systemctl restart flexee-intake`:
+   ```bash
+   sudo grep -rn flexee /etc/sudoers /etc/sudoers.d/
+   ```
+   Then, in a new file so nothing existing is edited (`sudo visudo -f
+   /etc/sudoers.d/flexee-intake`), with `<deploy-user>` the user the GitHub runner and `deploy.sh`
+   run as:
+   ```
+   <deploy-user> ALL=(root) NOPASSWD: /usr/bin/systemctl restart flexee-intake
+   ```
+   `deploy.sh` runs `sudo systemctl restart flexee-intake`, without the `.service` suffix, to match
+   how it already restarts `flexee-wrapper`. If the existing rule for `flexee-wrapper` uses a
+   different path for `systemctl` (`/bin/systemctl` on some images), use that path here too.
+   Check the file parses, which `visudo` does on save, and then that it works:
+   ```bash
+   sudo -n systemctl restart flexee-intake && echo "the rule works"
+   ```
+6. **Start it and watch it come up:**
+   ```bash
+   sudo systemctl enable --now flexee-intake
+   systemctl status flexee-intake --no-pager
+   journalctl -u flexee-intake -n 30 --no-pager
+   ```
+   The first line of the log names the store and the three directories. If it says
+   `DATABASE_URL is not set`, step 2 is incomplete.
+7. **Raise the nginx body limits**, per location and not globally — a book zip is up to 200 MB and
+   nginx's own default is 1 MB, so without this an upload dies at 1 MB with nginx's 413 and not the
+   app's message:
+   ```nginx
+   location /api/library/upload { client_max_body_size 256m; proxy_request_buffering off; proxy_pass http://127.0.0.1:3000; }
+   location /api/files/upload   { client_max_body_size 64m;                                 proxy_pass http://127.0.0.1:3000; }
+   ```
+   Copy the other `proxy_set_header` lines from the existing `location /` block, then
+   `sudo nginx -t && sudo systemctl reload nginx`. 256m and 64m sit above the app's own caps of
+   200 MB and 50 MB deliberately, so an oversized file meets the app's sentence rather than a bare
+   nginx error page.
+8. **Prove it end to end** with a real book: upload one at `/library`, watch
+   `journalctl -u flexee-intake -f`, and check `/admin/status` afterwards. Send Vikram the
+   journal lines for the check and the publish.
+
+### What to expect, and what to do about it
+
+| What you see | What it means |
+|---|---|
+| `intake worker: check sad (<id>) -> ready` | normal; the faculty member now clicks to add it |
+| `intake worker: removed the upload zip … now that sad is published` | normal; a published zip is deleted, the archive keeps the previous version |
+| `intake worker: refused …: There is not enough free space …` | the free-disk floor stopped it before it filled the disk. Free space; the record says the same thing on the Library page |
+| The unit in `failed` state | five restarts in five minutes, most likely the memory cap. `journalctl -u flexee-intake -n 100`, then tell Vikram the book and the last lines |
+| A row stuck in `checking` with the unit stopped | nothing is polling. Start the unit; it picks the row up again |
+
+`systemctl restart flexee-intake` is safe at any time: the worker finishes the job it is on and
+then exits, which is why the unit allows ten minutes to stop. `deploy.sh` restarts it on every
+deploy for that reason.
+
+**Do not run `npm run intake:worker` by hand while the unit is running.** The advisory lock will
+stop the second one touching a book the first is working on, but two pollers is not a state to
+debug in.
 
 ## Handover — send Vikram these when done
 

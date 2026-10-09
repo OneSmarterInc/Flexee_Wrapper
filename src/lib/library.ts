@@ -75,6 +75,14 @@ export async function dispatchIntake(
   env: Record<string, string | undefined> = process.env,
   wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
 ): Promise<Result & { status?: number; retriable?: boolean }> {
+  // Spec 28 commit 7: with the worker on the box there is nothing to dispatch. The row this was
+  // called about is already `checking` or `publishing`, and that is the queue — scripts/
+  // intake-worker.ts polls those two statuses. Returning ok here rather than deleting the call
+  // keeps one shape for all three callers (recordUpload, approveUpload, retryIntake), each of
+  // which turns a failure into a status and a message the person reads; and it keeps the GitHub
+  // path, which is the fallback Addendum D wrote down, one setting away.
+  if ((env.INTAKE_MODE || "github").toLowerCase() === "worker") return { ok: true };
+
   const token = env.GITHUB_DISPATCH_TOKEN, repo = env.GITHUB_REPO;
   if (!token || !repo) return { ok: false, error: "The intake runner is not set up (GITHUB_DISPATCH_TOKEN and GITHUB_REPO are missing). Ask your developer.", retriable: false };
 
