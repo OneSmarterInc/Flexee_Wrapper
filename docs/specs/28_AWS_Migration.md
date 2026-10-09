@@ -625,7 +625,8 @@ Pushes have resumed.
 It lives only at `/var/www/Flexee_Wrapper/deploy.sh` and does: `flock -n` on
 `/tmp/flexee-wrapper-deploy.lock`; `git fetch` and `git pull --ff-only origin main`; `npm ci`;
 **`npm run db:migrate`**; `npm run build`; `sudo systemctl restart flexee-wrapper`; then
-`systemctl is-active --quiet`. A copy goes into the repository (commit 10).
+`systemctl is-active --quiet`. A copy goes into the repository in **the `deploy.sh` commit**, which
+the 9 October reorder moved to third.
 
 **Finding 1 — it should run `db:deploy`, not `db:migrate`.** The two are not equivalent:
 
@@ -790,7 +791,7 @@ the backup is a belief.
 
 ### §3 — `deploy.sh` and git never touch the content
 
-Three changes, in commit 10:
+Three changes, in **the `deploy.sh` commit** (third after the 9 October reorder):
 
 1. **`db:deploy` in place of `db:migrate`** — now urgent, because the fallback has a real server to
    land on (§1).
@@ -832,37 +833,142 @@ Cheaper than the RDS plan by about $15 a month, and that saving is exactly the r
 bought with it. If Multi-AZ is still wanted by 11 January, the RDS line returns along with a
 migration.
 
+## Addendum E (9 October 2026) — the database decision, re-scoped
+
+Addendum B said "RDS single-AZ now, Multi-AZ before 11 January". Addendum D found there is no RDS
+at all: Postgres is local on the shared box. So that decision has to be made again, and this time
+the question is **when**, not whether.
+
+### The `deploy.sh` edit, and why it is more than insurance
+
+```diff
+- npm run db:migrate
++ npm run db:deploy
+```
+
+The two do not read the environment the same way, and that is the point:
+
+| | Reads `.env`? | Without `DATABASE_URL` |
+|---|---|---|
+| `npm run db:migrate` (`drizzle-kit migrate`) | **No.** drizzle-kit 0.31.10 does not depend on dotenv, and `drizzle.config.ts` does not load it | **Silently uses `postgres://localhost/flexee`** — a live server at that address |
+| `npm run db:deploy` (`scripts/migrate.ts`) | **Yes**, via `--env-file-if-exists=.env` | **Refuses**: "Set DATABASE_URL" |
+
+Three possibilities, and the edit is right in all three:
+
+1. **`.env` holds `DATABASE_URL` and `deploy.sh` does not export it.** Then drizzle-kit has been
+   using the localhost fallback while the correct value sat in `.env` unread. **The edit is a
+   repair**, and it may change which database gets migrated.
+2. **`deploy.sh` exports `DATABASE_URL`.** Both work; `db:deploy` additionally refuses if it ever
+   goes missing. The edit is insurance.
+3. **Neither.** drizzle-kit has been migrating the fallback; `db:deploy` will **refuse loudly on the
+   next deploy**. That is the correct outcome, but Akshay should expect it rather than read it as a
+   regression — the fix is a `.env` beside `deploy.sh` containing `DATABASE_URL`, or an `export` in
+   the script.
+
+Before the next publish, worth knowing which: compare what the `flexee-wrapper` unit uses with what
+`psql "$DATABASE_URL" -c "select current_database()"` reports from `deploy.sh`'s own environment.
+
+### Option (a) — stay on local Postgres, with tested backups and a rehearsed restore
+
+**Cost: about $1 a month** — the backup bucket, already in the table.
+**Effort: 1 day** — half for the timer, half for the rehearsal.
+
+What it gives: recoverability. A nightly `pg_dump -Fc` off the box means the database can be rebuilt
+somewhere else.
+
+What it cannot give, at any effort:
+
+- **No failover.** Losing the instance or the zone is an outage until someone rebuilds, and the
+  rebuild is manual.
+- **No point-in-time recovery.** A nightly dump means **up to 24 hours of grades and submissions**
+  gone, and a mistaken `DELETE` at 14:00 is only undoable back to 03:00. WAL archiving would close
+  that, and is more work than either option here.
+- **No isolation.** The database competes for CPU, memory and disk with the app and four other
+  backends, none of them ours. A noisy neighbour is a database outage.
+- **Manual patching**, by whoever remembers.
+- **A disk problem we have not costed.** The Postgres data directory is presumably on the 29 GB
+  root with 9.5 GB free, shared with the OS, `/tmp`, npm caches and five services. Under this
+  option it should move to its own volume, which is more work than the option admits.
+
+### Option (b) — migrate to RDS, with a cutover
+
+**Cost: ~$15 a month** single-AZ (`db.t4g.micro` $12 + 20 GB gp3 $3); **~$28–30** with Multi-AZ.
+
+**Effort depends entirely on when:**
+
+| | Effort | Risk |
+|---|---|---|
+| **Now** | **2–3 hours.** Provision, security group, `db:setup` into an empty database, change `DATABASE_URL` in the unit and `.env`, restart, verify | **None worth naming.** There is no data to lose and no window to book |
+| **In January** | A rehearsed `pg_dump`/`pg_restore`, an announced maintenance window, a verified row-count comparison, and a rollback plan | Real. The data is student grades |
+
+What it gives that (a) cannot: automated backups with 7–35 day retention, **point-in-time recovery
+to the second**, Multi-AZ failover as a checkbox, managed minor-version patching, CloudWatch
+metrics, and a database that no longer shares a CPU with four other backends.
+
+**It introduces no new blocker.** The worker runs on the box inside the VPC, so it reaches a private
+RDS; `flexee-intake.yml`, which would not, is being retired anyway; and `src/db/index.ts` already
+sets `prepare: false` with RDS Proxy named in its comment.
+
+One wrinkle, small: `auto-init.ts`'s pooled/unpooled consistency check is written for Neon's
+`-pooler` hostnames. On RDS `DATABASE_URL_UNPOOLED` is simply unset and the check is skipped, so
+nothing breaks — but that script is Vercel-only anyway and is on its way out.
+
+### Recommendation: (b), and this month
+
+The destination was already decided — Multi-AZ by 11 January. Addendum D only changed what that
+costs, and it changed it a lot: **it is no longer a checkbox but a migration.** So the only real
+question is when to do the migration, and the answer is while the database is empty.
+
+**Do it now, single-AZ, and turn Multi-AZ on at the same time or any time before 11 January.** The
+work is two to three hours today against a day of careful cutover in January with grades at stake,
+and every week of delay moves it from the first column to the second.
+
+**Option (a) is not a cheaper version of (b); it is a different risk posture** — recoverable but not
+redundant, with a 24-hour worst case and a database sharing a disk with four strangers. For a system
+holding one term's grades for a few hundred students, that is defensible only as a temporary state,
+and the temporary state is exactly what we are in now.
+
+**Keep the nightly backup either way.** The content copy is needed regardless — RDS does not back up
+an EBS volume — and a weekly dump beside RDS's own backups costs about a dollar and answers the one
+question RDS cannot: what if the AWS account itself is the problem. So commit 8 stays, with the
+database part becoming belt-and-braces rather than the only line of defence.
+
+**If (b) is taken, the cost table returns to ~$55–62 a month** (single-AZ) or **~$70** (Multi-AZ),
+and the $15 Addendum D removed is bought back as automated backups, PITR and failover.
+
 ## Commit plan
 
-Superseded by Addendum B where the two differ. Each commit stands alone and leaves every suite
-passing. Commit 1 is pushed; everything below is unstarted.
+Reordered 9 October so the two commits that close live faults come first (Addendum D). Superseded by
+the addenda where they differ. Each commit stands alone and leaves every suite passing.
 
 | # | Commit | Code? | Effort |
 |---|---|---|---|
-| 1 | **The spec**, with its addenda and decisions — `8b02cd7`, pushed | — | done |
-| 2 | **`fsOps()` for the intake writer** — the same five-method `BlobOps` against the filesystem, with safeKey's traversal rule applied on the write side. `f53c7b1` | yes | done |
-| 3 | **Local-disk storage for assignment attachments and submissions** — a route that streams the request body to **`FILES_DIR`** and one that streams it back. `uploadPrefix()`, `downloadable()`, the cap and `safeKey()` unchanged; the two client components post multipart instead of calling `upload()`. Books and student work get separate roots (Addendum D §1) | yes | ~1 day |
-| 4 | **The book zip upload on the same route** — one more path, and `runJob` reads the zip from disk instead of `blob.download` | yes | ½ day |
-| 5 | **The intake worker as `flexee-intake.service`** — a systemd unit beside `flexee-wrapper`, polling `library_uploads`, a per-book `pg_advisory_lock`, capped on memory and CPU because the box is shared, an explicit `INTAKE_WORK_DIR` off the root disk, and a **free-disk check that refuses as `stopped` below a threshold** (Addendum C, D §4) | yes | 1–2 days |
-| 6 | **The two Vercel decouplings** — `VERCEL_GIT_COMMIT_SHA` as a build argument, the cron as an external trigger with `CRON_SECRET` | yes | ½ day |
-| 7 | **The Schema line on `/admin/status`** — applied migrations against the journal's count and newest `when`, with the hash caveat printed | yes | ½ day |
-| 8 | **Retire or re-point the intake-runner status line** — with the worker in place it checks a token and workflow the book flow no longer uses | yes | ½ day |
-| 9 | **`deploy.yml` becomes `workflow_dispatch` only**, and **`flexee-intake.yml` is deleted** | yes | 1 hour |
-| 10 | **`deploy.sh` into the repository**, with three corrections: **`db:deploy` in place of `db:migrate`** — urgent now that a real local Postgres exists for the fallback to land on — a restart of `flexee-intake.service`, and a **refusal to run if `CONTENT_DIR` or `FILES_DIR` resolves inside the checkout** (Addenda C and D) | yes | 2 hours |
-| 11a | **The nightly backup** — a systemd timer taking `pg_dump -Fc` and a content copy to a write-only S3 prefix, with Object Lock and a 30-day lifecycle. **The only backup this box has** (Addendum D §2) | yes | ½ day |
-| 11b | **`CONTENT_DIR` and `FILES_DIR` move off the checkout** — `/var/lib/flexee/content` and `/var/lib/flexee/files`, defaults unchanged so every suite and local run keeps working (Addendum D §1) | yes | 2 hours |
-| 11 | **`deploy/aws` rewritten for systemd and nginx** — the two unit files, `client_max_body_size` for the upload routes, the no-redirect rule for `/api/health` and `/api/session-enrolments`, `CONTENT_STORE=fs` and the volume mount, the 6-hourly snapshots, the rehearsed restore, python3 and Pillow on the box, the hand-rebuild checklist, C2-2 §5's order, the `flexee-prod` label, and the stale "Supabase session pooler" comment corrected. **`Caddyfile` and `docker-compose.aws.yml` are superseded and must not be left contradicting it** | docs | 1 day |
-| 12 | **`docs/changes/28_AWS_Migration.md`** | docs | — |
+| 1 | **The spec**, with addenda A–E — pushed | — | done |
+| 2 | **`fsOps()`** — the intake's writer against a local volume, with safeKey's traversal rule on the write side. `f53c7b1` | yes | done |
+| 3 | **`deploy.sh` into the repository**, with three corrections: **`db:deploy` in place of `db:migrate`**, a restart of `flexee-intake.service`, and a **refusal to run if `CONTENT_DIR` or `FILES_DIR` resolves inside the checkout**. *Akshay is making the one-line change on the box today; this commits it* | yes | 2 h |
+| 4 | **`CONTENT_DIR` and `FILES_DIR` move off the checkout** — `/var/lib/flexee/content` and `/var/lib/flexee/files`, plus `INTAKE_WORK_DIR` off the root disk. Defaults unchanged, so every suite and a local run keep working | yes | 2 h |
+| 5 | **Local-disk storage for assignment attachments and submissions** — a route that streams the body to `FILES_DIR` and one that streams it back. `uploadPrefix()`, `downloadable()`, the cap and `safeKey()` unchanged; the two client components post multipart instead of calling `upload()` | yes | ~1 day |
+| 6 | **The book zip on the same route** — one more path, and `runJob` reads the zip from disk instead of `blob.download` | yes | ½ day |
+| 7 | **The intake worker as `flexee-intake.service`** — polling `library_uploads`, a per-book `pg_advisory_lock`, memory and CPU caps because the box is shared, and a **free-disk check that refuses as `stopped`** below the greater of a 2 GB floor and four times the zip's size | yes | 1–2 days |
+| 8 | **The nightly backup** — a timer taking `pg_dump -Fc` and a content copy to a **write-only** S3 prefix with Object Lock and a 30-day lifecycle. Today it is the only backup this box has | yes | ½ day |
+| 9 | **The two Vercel decouplings** — `VERCEL_GIT_COMMIT_SHA` as a build argument, the cron as an external trigger with `CRON_SECRET` | yes | ½ day |
+| 10 | **The Schema line on `/admin/status`** — applied migrations against the journal's count and newest `when`, with the hash caveat printed | yes | ½ day |
+| 11 | **Retire or re-point the intake-runner status line** — with the worker in place it checks a token and workflow the book flow no longer uses | yes | ½ day |
+| 12 | **`deploy.yml` becomes `workflow_dispatch` only**, and **`flexee-intake.yml` is deleted** | yes | 1 h |
+| 13 | **`deploy/aws` rewritten for systemd and nginx** — the two unit files, `client_max_body_size` for the upload routes, the no-redirect rule for `/api/health` and `/api/session-enrolments`, the volume mount, 6-hourly snapshots, the rehearsed restore, python3 and Pillow on the box, the hand-rebuild checklist, C2-2 §5's order, and the `flexee-prod` label. **`Caddyfile` and `docker-compose.aws.yml` are superseded and must not be left contradicting it** | docs | 1 day |
+| 14 | **`docs/changes/28_AWS_Migration.md`** | docs | — |
 
-**Commits 2–11b are code and land before 30 November — 5–7 days.** Commit 2 is done. Commits 10 and
-11b are the two that close live faults rather than adding anything, so they go early: today a book
-publish writes to tracked files inside the git checkout, which breaks the next deploy. Commit 11 is what Akshay works from and is cheap enough to do alongside.
+**Commits 3–12 are code and land before 30 November — 5–7 days.** Commits 3 and 4 go first because
+they close a live fault: today a book publish writes to tracked files inside the git checkout, and
+the next `git pull --ff-only` refuses.
 
-Commits 3 and 4 share one streaming-upload helper and go in that order. Commits 6, 7 and 9 are
-independent of everything else and can be built at any point. **Commit 5 is unblocked** — the box runs systemd (Addendum C).
+Commits 5 and 6 share one streaming-upload helper and go in that order. Commits 9, 10 and 12 are
+independent of everything else. Commit 7 wants commit 4 first, so the worker is never pointed at the
+checkout.
 
-**Not in this plan, and no longer needed:** `s3Ops()`, presigned uploads of any kind, the S3 bucket,
-bucket versioning, the S3 IAM policy and the GitHub OIDC role.
+**Not in this plan, and no longer needed:** `s3Ops()`, presigned uploads, a bucket for serving
+content, the S3 serving IAM policy, and the GitHub OIDC role. **The one S3 use that remains is the
+backup bucket in commit 8**, which is write-only.
 
 ## Rules (tests must prove each)
 
