@@ -55,7 +55,7 @@ contract, the GitHub Actions intake trigger, LTI.
 
 ---
 
-## Stage 1a — Book files to S3
+## Stage 1a — Book files to S3 *(superseded by Addendum B: an EBS volume, not S3)*
 
 **Effort: ½–1 day.** `s3Ops()` implementing `BlobOps` (`download`, `list`, `put`, `copy`, `del`).
 `scripts/it-library.ts` already has a fake `BlobOps`, so the harness exists.
@@ -78,7 +78,7 @@ before the first sync** — had the Blob store had it, last week's loss would ha
 
 **Cost:** under $1 a month.
 
-## Stage 1b — Assignment attachments and student submissions
+## Stage 1b — Assignment attachments and student submissions *(presigning superseded by Addendum B)*
 
 **Effort: 2–3 days.** The largest code item in the migration, and the only one a freeze strands.
 
@@ -196,17 +196,17 @@ in the AWS runbook rather than in anyone's memory.
 
 ## Before the 30 November feature freeze
 
-**Must finish, because they are code:**
+Superseded by Addendum B; the current list is the commit plan below. In summary:
 
-1. **Stage 1b** — student and faculty file uploads (2–3 days), **or** the explicit decision that
-   Spring assignments are text-only.
-2. **Stage 1a's `s3Ops()`** (½–1 day). Without it no S3 deployment can publish a book from the
-   browser-upload path.
-3. **Stage 3's two small decouplings** — `VERCEL_GIT_COMMIT_SHA` and the cron trigger (½ day).
+**Must land, because they are code:** `fsOps()`; local-disk storage for assignment attachments and
+submissions, which are **ON** for Spring; the book zip on the same route; the intake worker; the two
+Vercel decouplings; the Schema line; retiring the stale intake-runner check; `deploy.yml` becoming
+manual; and `deploy.sh` moving into the repository. **4–6 days.**
 
-**Safe after the freeze, because it is operations:** every AWS resource, IAM, SSM, DNS, certificates,
-`db:setup`, the hand-rebuild list, decommissioning Vercel, `output: "standalone"`, RDS Proxy,
-Multi-AZ, SES.
+**Safe afterwards, because it is operations:** the EC2 and RDS resources, the encrypted data volume
+and its snapshot schedule, the rehearsed restore (**which has its own deadline of 11 January**),
+Multi-AZ RDS (**also 11 January**), DNS, certificates, `db:setup`, the hand-rebuild checklist, the
+`flexee-prod` label and the ephemeral runner.
 
 ## Rough monthly cost, a few hundred students
 
@@ -215,15 +215,16 @@ Multi-AZ, SES.
 | EC2 `t3.medium` | $30, or $19 reserved |
 | RDS `db.t4g.micro` + 20 GB + backups | $15 |
 | EBS 30 GB gp3 | $2.40 |
-| S3, 4 GB versioned | <$1 |
+| **EBS data volume, 50 GB gp3 encrypted** (Addendum B) | **$4.00** |
+| **Snapshots, 6-hourly, 30-day retention** | **$2–4** |
 | SSM / Secrets Manager | $0–1 |
 | Data transfer out | $1–5 |
-| **Total** | **~$50–55, or ~$40 reserved** |
+| **Total** | **~$55–62, or ~$45 reserved** |
 
 Multi-AZ RDS adds ~$13. A few hundred students reading markdown is a trivial load. If the AI
 assistant is switched on, the provider's token bill will exceed all of the above.
 
-## Re-publish the three books straight to S3
+## Re-publish the three books — not to Blob *(destination superseded by Addendum B: the volume)*
 
 **Yes, and not to Blob.** The Blob store is at 1.3k of its 2,000 included advanced operations;
 `put` and `copy` each count one, a book publish is hundreds, and Vercel's documentation is explicit
@@ -249,21 +250,26 @@ then `db:sync-content` and `db:sync-questions`. Bucket versioning on before the 
 - **us-east-2 (Ohio)**, which the runbook assumes. Changing it later means moving the bucket.
 - Confirmation that the runbook's **EC2 + Caddy** shape stands, rather than ECS or App Runner.
 
-**S3**
+**Storage — superseded by Addendum B: there is no bucket**
 
-- A bucket name, e.g. `flexee-books-prod`. **Block Public Access on**, encryption on,
-  **versioning on**.
-- `CONTENT_PREFIX=live`, matching what the intake writes.
+- A **separate encrypted gp3 data volume**, 50 GB, attached to the instance and mounted at a fixed
+  path. Not the root volume.
+- The mount path, so `CONTENT_DIR` and the student-file root can be set to match.
+- A **Data Lifecycle Manager** policy: snapshots every 6 hours in term, daily out of term, 30-day
+  retention.
+- A **restore rehearsed and documented before 11 January** — condition 3 of Addendum B.
 
-**IAM — two principals, different rights**
+**IAM**
 
-1. **The app**, as an EC2 instance profile: `s3:GetObject`, `s3:ListBucket` on that bucket only.
-   Read-only; the app never writes book content. Plus `AmazonSSMManagedInstanceCore` for Session
-   Manager, so **no port 22**.
-2. **The intake**, which runs in GitHub Actions *outside* AWS: `s3:GetObject`, `s3:PutObject`,
-   `s3:DeleteObject`, `s3:CopyObject`, `s3:ListBucket`. **Use GitHub's OIDC provider with a role to
-   assume**, not a long-lived access key in a repository secret — that is the one credential this
-   migration can avoid creating.
+- The instance profile needs `AmazonSSMManagedInstanceCore` for Session Manager, so **no port 22**.
+- **No S3 policy, no bucket policy and no GitHub OIDC role** are needed any more.
+- A **`flexee-prod` label on the self-hosted runner**, and the runner run `--ephemeral`, so another
+  repository in the organisation cannot execute on the box.
+
+**What the box uses, which blocks commit 5**
+
+- Whether the app runs under **compose, systemd or pm2**, and the contents of
+  `/var/www/Flexee_Wrapper/deploy.sh`.
 
 **Secrets to place**
 
@@ -452,61 +458,212 @@ runner** line checks exactly that token and workflow, so it becomes a check of s
 used. It should be retired or re-pointed at the worker — a small change, but one that will otherwise
 leave a green line on the status page proving nothing.
 
+## Addendum B (9 October 2026) — EBS instead of S3, and what Akshay had already built
+
+**Where this differs from the body or from Addendum A, this addendum wins.** The body was written
+assuming S3 for both books and student files. That is no longer the plan.
+
+### What was already on the box when this spec was written
+
+Discovered when pushing commit 1: `main` had moved, with two commits nobody had mentioned.
+
+- **`784842f` adds `.github/workflows/deploy.yml`** — `on: push: branches: [main]`,
+  `runs-on: [self-hosted, Linux, X64]`, running `/var/www/Flexee_Wrapper/deploy.sh`. So **every
+  push to `main` deploys production**, and pushing commit 1 deployed it.
+- **`610b366`** was committed by `Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>` — on the box
+  itself, in a `172.31.x.x` default-VPC subnet.
+
+Three things follow.
+
+**Addendum A's option (a) is not hypothetical; it is live.** A self-hosted runner already exists
+inside the VPC. That makes the fallback cheaper than priced, and it is why the worker (option d)
+remains the choice on its merits rather than on effort alone: it removes the cross-cloud credential
+pair, which the runner's existence does not.
+
+**The deployment deviates from the runbook**: `/var/www/Flexee_Wrapper`, not `/opt/flexee`, and
+nothing in the workflow mentions Docker or compose. **`deploy.sh` is not in the repository**, so
+what it does — including whether it runs migrations — cannot be read from here.
+
+**`flexee-intake.yml` cannot work against a private RDS.** It runs `db:setup` from a
+GitHub-**hosted** runner against `secrets.DATABASE_URL_DIRECT`. That is blocker 2 again, and
+`db:setup` from CI against a production database is not something to keep even if it could connect.
+
+### Decision: books and student files on an encrypted EBS volume, not S3
+
+Approved with all four conditions. What changes:
+
+| | Body of this spec | Now |
+|---|---|---|
+| Book content | `CONTENT_STORE=s3` | **`CONTENT_STORE=fs`**, already built and tested, reading the mounted volume |
+| Intake writes | `s3Ops()` | **`fsOps()`** — the same five-method `BlobOps`, against the filesystem. Smaller, and `it-library.ts`'s existing fake is already close to it |
+| Student and faculty files | presigned S3 PUT and GET | **a route that streams the body to the volume, and one that streams it back**. `uploadPrefix()`, `downloadable()`, the 50 MB cap and `safeKey()` are unchanged |
+| Book zip upload | presigned S3 POST | the same streaming route, one more path |
+| S3 credentials | instance profile, OIDC role, bucket policy, versioning | **none of it** |
+
+**Why**, in one line: it recovers 2–3 days of code seven weeks before a freeze, on the two items
+most likely to overrun, and it removes a duplication rather than substituting a backend — the worker
+needs the built tree on local disk anyway, so S3 would have meant one copy on disk and another in a
+bucket with a sync step between.
+
+**The four conditions, which are part of the decision and not advice:**
+
+1. **A separate encrypted gp3 data volume**, not the root, so it survives instance replacement and
+   is snapshotted independently.
+2. **Snapshots every 6 hours in term, daily out of term**, via Data Lifecycle Manager. This is what
+   turns "up to 24 hours of submissions lost" into "up to 6".
+3. **A restore rehearsed and written into the runbook, done before 11 January.** An unrehearsed
+   restore is not a backup, and this condition is what makes the choice defensible.
+4. **`S3Store` stays in the codebase and stays tested.** `test:storage`'s three-way comparison keeps
+   running, so moving to S3 later is one environment variable rather than a project. `blobPath`
+   likewise keeps its name and holds filesystem keys.
+
+**What is knowingly accepted:** books and every student submission depend on one instance and one
+volume; gp3 carries roughly a 0.1–0.2% annual failure rate against S3's eleven nines; restore is a
+procedure rather than a command; and a second app instance is foreclosed without EFS or S3 later.
+Books are regenerable from Drive in minutes. Submissions are not regenerable at all, which is what
+condition 2 is for, and `submission_files` rows survive in RDS, so a loss is recoverable by asking
+named students rather than silently.
+
+**The asymmetry is deliberate and should stay visible:** Multi-AZ RDS before 11 January gives the
+database cross-zone redundancy while the files sit in one zone on one volume. Grades are in the
+database; submissions can be re-collected.
+
+**Cost:** 50 GB gp3 **$4.00/month**, snapshots at 6-hourly with 30-day retention **$2–4/month**,
+DLM itself free. Against S3 at under $1. **EBS is marginally the more expensive option**, by roughly
+$60 a year; cost was not the deciding factor in either direction.
+
+### Decision: auto-deploy stays for now, and becomes manual before the freeze
+
+There is no live data and no users, so deploying on every push to `main` is acceptable today and
+convenient. **Before 30 November, `deploy.yml` becomes `workflow_dispatch` only** — the same change
+the freeze implies for everything else, and it must land before students exist.
+
+Pushing resumes only after the two schema checks below have been read.
+
+### Decision: a Schema line on `/admin/status`
+
+The question "is 0027 applied on the box?" could not be answered from anywhere, which is itself the
+finding. A seventh check — **Schema** — compares what the database has applied against what the
+image shipped:
+
+- **applied**: `count(*)` and `max(created_at)` from `drizzle.__drizzle_migrations`. `created_at`
+  holds the journal's `when`, because the migrator inserts `migration.folderMillis` there
+  (`drizzle-orm/pg-core/dialect.js`), so the newest row maps to a tag without guessing.
+- **expected**: the entry count and last `when` from `drizzle/meta/_journal.json`, which ships in
+  the image.
+- **ok** when they agree; **attention** when applied is behind, naming the missing tags, because
+  that is the state where a reader meets `42703 column … does not exist`; **attention** when applied
+  is ahead, which means the code was rolled back under the schema; **down** when the table is
+  absent, which means nothing has ever migrated.
+- **The caveat it must print**, in the manner Spec 24 established: this compares counts and
+  timestamps, **not hashes**. drizzle never re-compares a migration's recorded hash, so this cannot
+  prove that what ran was what the file now says — only that something with that timestamp ran.
+
+### Decision: the worker matches how the box actually runs the app
+
+Addendum A specified the worker as "a second service in `docker-compose.aws.yml`". That assumed
+compose, and `deploy.yml` suggests the box may not use it. **The worker will be designed once the
+box's process manager is known** — compose, systemd or pm2 — because the trigger, the restart
+policy and the memory limit differ in each. The parts that do not change whichever it is: polling
+`library_uploads` for `checking` and `publishing`, a per-book `pg_advisory_lock`, Python 3.12 with
+Pillow available, and reporting through the existing status machine.
+
+### Also decided
+
+- **`deploy.sh` moves into the repository** once pasted, so what deploys is reviewable and
+  versioned. Today it exists only at `/var/www/Flexee_Wrapper/deploy.sh`.
+- **`flexee-intake.yml` is retired.** It cannot reach a private RDS, and running `db:setup` from CI
+  against production is not wanted even where it can.
+- **A `flexee-prod` runner label and an `--ephemeral` runner** are a DevOps task, not a code change.
+  `runs-on: [self-hosted, Linux, X64]` carries no repository-specific label today, so any other
+  repository in the organisation that can reach that runner pool can execute on the box.
+
+### The two checks to run before pushing resumes
+
+Read-only, against the AWS database:
+
+```sql
+SELECT column_name FROM information_schema.columns
+ WHERE table_name = 'sim_previews' AND column_name IN ('expires_at','reset_at','reset_by');
+
+SELECT count(*) AS applied, max(created_at) AS newest FROM drizzle.__drizzle_migrations;
+```
+
+`applied` should be **28** (`0000`–`0027`) and `newest` **1791911616249**. Lower means `deploy.sh`
+does not run migrations and the schema is behind the code — in which case the release gate from
+Spec 27 is live against a table without `released_at`, and a student launch would meet
+`42703 column "released_at" does not exist`.
+
 ## Commit plan
 
-Each commit stands alone and leaves every suite passing.
+Superseded by Addendum B where the two differ. Each commit stands alone and leaves every suite
+passing. Commit 1 is pushed; everything below is unstarted.
 
-| # | Commit | Effort |
-|---|---|---|
-| 1 | **This spec**, with its Decisions section | — |
-| 2 | **`s3Ops()` for the intake writer** — `BlobOps` against `@aws-sdk/client-s3`, chosen by `CONTENT_STORE`, with tests built on `it-library.ts`'s existing fake | ½–1 day |
-| 3 | **Presigned S3 for assignment and submission files** — the upload-token route, the download route, and the two client components. Authorisation logic unchanged | 2–3 days |
-| 4 | **Presigned S3 for the book zip upload** — the same mechanics, one more route and `UploadForm.tsx` | ½ day |
-| 5 | **The intake worker** (Addendum A, option d) — Python 3.12 and Pillow in the image, a worker service in `docker-compose.aws.yml` polling `library_uploads` for `checking` and `publishing`, a per-book `pg_advisory_lock`, and a memory limit. `runJob` itself is unchanged; only its trigger and its `BlobOps` are | 1–2 days |
-| 6 | **The two Vercel decouplings** — `VERCEL_GIT_COMMIT_SHA` as a build argument, and the cron as a documented external trigger with `CRON_SECRET` | ½ day |
-| 7 | **Retire or re-point the status page's intake-runner line** — with the worker in place, Spec 24's check tests a token and a workflow the book flow no longer uses, so it would report green about nothing | ½ day |
-| 8 | **`deploy/aws` brought up to date** — `CONTENT_STORE=s3` and the `CONTENT_*` variables in `.env.example` and the compose file, the worker service, the hand-rebuild checklist as a new runbook part, the switch-over order from C2-2 §5, and the stale "Supabase session pooler" comment in `library-intake.yml` corrected to Neon | ½ day |
-| 9 | **`docs/changes/28_AWS_Migration.md`** | — |
+| # | Commit | Code? | Effort |
+|---|---|---|---|
+| 1 | **The spec**, with its addenda and decisions — `8b02cd7`, pushed | — | done |
+| 2 | **`fsOps()` for the intake writer** — the same five-method `BlobOps` against the filesystem, chosen by `CONTENT_STORE`, tested on `it-library.ts`'s existing fake. Replaces the `s3Ops()` the body called for | yes | ½ day |
+| 3 | **Local-disk storage for assignment attachments and submissions** — a route that streams the request body to the data volume and one that streams it back. `uploadPrefix()`, `downloadable()`, the 50 MB cap and `safeKey()` unchanged; the two client components post multipart instead of calling `upload()` | yes | ~1 day |
+| 4 | **The book zip upload on the same route** — one more path, and `runJob` reads the zip from disk instead of `blob.download` | yes | ½ day |
+| 5 | **The intake worker** — polling `library_uploads`, a per-book `pg_advisory_lock`, Python 3.12 with Pillow, reporting through the existing status machine. **Shape pending the box's process manager** (Addendum B) | yes | 1–2 days |
+| 6 | **The two Vercel decouplings** — `VERCEL_GIT_COMMIT_SHA` as a build argument, the cron as an external trigger with `CRON_SECRET` | yes | ½ day |
+| 7 | **The Schema line on `/admin/status`** — applied migrations against the journal's count and newest `when`, with the hash caveat printed | yes | ½ day |
+| 8 | **Retire or re-point the intake-runner status line** — with the worker in place it checks a token and workflow the book flow no longer uses | yes | ½ day |
+| 9 | **`deploy.yml` becomes `workflow_dispatch` only**, and **`flexee-intake.yml` is deleted** | yes | 1 hour |
+| 10 | **`deploy.sh` into the repository**, once pasted, so what deploys is reviewable | yes | 1 hour |
+| 11 | **`deploy/aws` brought up to date** — `CONTENT_STORE=fs` and the volume mount, the 6-hourly snapshot schedule, the rehearsed-restore procedure, the hand-rebuild checklist, C2-2 §5's switch-over order, the `flexee-prod` label and ephemeral runner as DevOps tasks, and the stale "Supabase session pooler" comment corrected to Neon | docs | ½ day |
+| 12 | **`docs/changes/28_AWS_Migration.md`** | docs | — |
 
-**Commits 2–7 are code and belong before 30 November — 5–7 days of work.** Commit 8 is documentation
-and could follow, but it is cheap and Akshay needs it to work from.
+**Commits 2–10 are code and land before 30 November — 4–6 days**, which is 1–2 days less than the
+S3 plan. Commit 11 is what Akshay works from and is cheap enough to do alongside.
 
-Commits 3 and 4 share one presigning helper and are built in that order, since 3 establishes the
-pattern and 4 reuses it. Commits 5 and 6 can be built in parallel with either, because `runJob` is
-untouched by them.
+Commits 3 and 4 share one streaming-upload helper and go in that order. Commits 6, 7 and 9 are
+independent of everything else and can be built at any point. **Commit 5 is blocked** until the box's
+process manager is known.
+
+**Not in this plan, and no longer needed:** `s3Ops()`, presigned uploads of any kind, the S3 bucket,
+bucket versioning, the S3 IAM policy and the GitHub OIDC role.
 
 ## Rules (tests must prove each)
 
-1. `s3Ops()` round-trips a book: put, list, copy, download, del, against a mocked S3, with the same
-   assertions `it-library.ts` already makes of the Blob fake.
-2. A publish to S3 archives the previous version under `archive/<book>/<stamp>/` and deletes only
-   files absent from the new version — the same scoping the Blob path has, proved the same way.
-3. `CONTENT_STORE` selects the writer, and a half-configured S3 is refused with a message naming the
-   missing setting.
-4. A presigned upload URL is issued only for a path the signed-in person is entitled to, and a
-   request for anyone else's prefix is refused — the existing `uploadPrefix` tests, re-pointed.
-5. A download streams only to someone `downloadable()` allows, and the storage address never reaches
+1. `fsOps()` round-trips a book — put, list, copy, download, del — with the same assertions
+   `it-library.ts` already makes of its fake, and refuses a key that would climb out of the content
+   root, which `safeKey()` already enforces for reads.
+2. A publish archives the previous version and deletes only files absent from the new version, with
+   the same scoping the Blob path has, proved the same way.
+3. `CONTENT_STORE` selects the writer, and a misconfigured store is refused with a message naming
+   the missing setting.
+4. An upload is accepted only for a path the signed-in person is entitled to, and a request for
+   anyone else's prefix is refused — the existing `uploadPrefix` tests, re-pointed at the disk route.
+5. A download streams only to someone `downloadable()` allows, and the storage path never reaches
    the browser.
-6. `/api/health` still reports the running commit when `VERCEL_GIT_COMMIT_SHA` is absent and the
+6. An upload larger than the cap is refused **while streaming**, not after the whole body has been
+   written to the volume.
+7. `/api/health` still reports the running commit when `VERCEL_GIT_COMMIT_SHA` is absent and the
    build argument is present.
-7. The cron route still refuses a request without `CRON_SECRET`, whatever triggers it.
-8. The worker claims one book at a time: two workers started on the same `checking` row produce one
-   run, not two, and a per-book lock is proved by holding it and watching the second attempt wait
-   rather than proceed.
-9. The worker reports through the same status machine: a stopped intake leaves `stopped` and nothing
-   published, a failure leaves `failed` with a message, and neither needs a `run_url`.
-10. A presigned book-zip upload refuses a path outside `uploads/<uploadId>.zip`, and refuses an
-   upload from someone `canUpload` denies.
-11. Every existing suite passes, including `test:storage`'s three-way comparison and
-   `test:library`'s drive of `runJob` through its fakes, which must keep working untouched.
+8. The cron route still refuses a request without `CRON_SECRET`, whatever triggers it.
+9. The worker claims one book at a time: two workers started on the same `checking` row produce one
+   run, not two, proved by holding the advisory lock and watching the second attempt wait.
+10. The worker reports through the same status machine — a stopped intake leaves `stopped` and
+   nothing published, a failure leaves `failed` with a message, and neither needs a `run_url`.
+11. The Schema line reads **ok** when applied matches the journal, **attention** naming the missing
+   tags when it is behind, **attention** when it is ahead, and **down** when
+   `drizzle.__drizzle_migrations` is absent — each driven by a fixture rather than the real database.
+12. Every existing suite passes, including `test:storage`'s three-way comparison, which keeps
+   `S3Store` honest under condition 4 of Addendum B, and `test:library`'s drive of `runJob` through
+   its fakes.
 
 ## Not in scope
 
-- Any migration of old data. There is none, and the Blob store and Neon database are abandoned.
-- SES. Resend works from AWS unchanged.
-- `output: "standalone"`, RDS Proxy, Multi-AZ, autoscaling, a second environment for previews.
-- Retiring `rapidsims.flexee.org`, which is Spec 27's business and waits on the sims being
-  repointed.
+- Any migration of old data. There is none; the Blob store and the Neon database are abandoned.
+- **S3 for books or student files** (Addendum B). `S3Store` nonetheless stays in the codebase and
+  stays tested, so it remains one environment variable away.
+- SES. Resend works from AWS unchanged, and `setMailTransport` is a one-function seam.
+- `output: "standalone"`, RDS Proxy, autoscaling, a second environment for previews. **Multi-AZ RDS
+  is in scope but has its own deadline of 11 January**, not 30 November.
+- Retiring `rapidsims.flexee.org`, which stays a 302-redirect-only domain through Spring 2027 and is
+  reviewed in summer.
+- A second app instance, which the single data volume forecloses until EFS or S3 is revisited.
 
 ## Decisions (8 October 2026)
 
