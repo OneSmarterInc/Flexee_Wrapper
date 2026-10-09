@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { libraryUploads, enrolments, users } from "@/db/schema";
 import { isAdmin } from "@/lib/admin";
 import { isRetired } from "@/lib/retire";
+import { NOT_BOOK_DIRS } from "@/lib/storage";
 
 // Books enter the library by upload. Faculty or admins upload a book folder as a zip (downloaded
 // from Drive); the intake runs in GitHub Actions (.github/workflows/library-intake.yml), using the
@@ -23,8 +24,19 @@ export async function canUpload(userId: string) {
   return r.length > 0;
 }
 
-/** A book id: lowercase letters and digits, as used in content/<book>/ and question ids (e.g. sad, mis3000). */
-export function validBookId(id: string) { return /^[a-z][a-z0-9]{1,30}$/.test(id); }
+/**
+ * A book id: lowercase letters and digits, as used in content/<book>/ and question ids (e.g. sad,
+ * mis3000).
+ *
+ * Spec 28 commit 7: the names the intake uses for its own directories in the content root are
+ * refused as well. `archive` and `uploads` match the pattern, and a book called `archive` would be
+ * published into the directory the previous versions are kept in — and then hidden from the Library
+ * by the rule that stops an archive being counted as a book. Refusing the name costs nothing;
+ * untangling a book published over an archive costs an afternoon.
+ */
+export function validBookId(id: string) {
+  return /^[a-z][a-z0-9]{1,30}$/.test(id) && !NOT_BOOK_DIRS.includes(id);
+}
 
 // ---- starting the intake in GitHub Actions -------------------------------------------------------
 // Settings: GITHUB_DISPATCH_TOKEN (fine-grained token with Actions: write on the repository),

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { contentStore } from "@/lib/storage";
+import { contentStore, isBookDir } from "@/lib/storage";
 
 // The content tree produced by the intake tools. Books are read through the content store
 // (src/lib/storage.ts), which is either this folder or an S3 bucket, set by CONTENT_STORE.
@@ -59,7 +59,10 @@ async function readJson<T>(key: string): Promise<T> {
 export async function listBooks(): Promise<BookManifest[]> {
   const books: BookManifest[] = [];
   for (const d of await contentStore().listDirs("")) {
-    if (d.startsWith("_")) continue; // _archive, _staging and reports are intake bookkeeping
+    // _archive, _staging and reports are intake bookkeeping, and so are archive/ and uploads/ —
+    // see NOT_BOOK_DIRS. The manifest read below would skip them anyway; this skips them by name,
+    // so the reason is stated in one place and /admin/status can apply the same rule.
+    if (!isBookDir(d)) continue;
     try {
       books.push(await readJson<BookManifest>(`${d}/book.manifest.json`));
     } catch {

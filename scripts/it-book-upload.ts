@@ -101,7 +101,8 @@ console.log("What the route accepts");
 
 await t("a book id that is not a book id is refused, including one trying to climb out", async () => {
   await signedInAs(prof.id);
-  for (const bookId of ["Bad Id", "../etc", "a", "9lives", "", "sad/../x"]) {
+  // archive, uploads and live name the intake's own directories (Spec 28 commit 7).
+  for (const bookId of ["Bad Id", "../etc", "a", "9lives", "", "sad/../x", "archive", "uploads", "live"]) {
     const { res, body } = await post({ bookId, name: "x.zip" }, "PK");
     assert.equal(res.status, 400, `refused: ${JSON.stringify(bookId)}`);
     assert.match(body.error, /Book id/);

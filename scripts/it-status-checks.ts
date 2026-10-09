@@ -233,6 +233,34 @@ await t("the storage check lists the store itself, not the cache in front of it"
   } finally { setContentStore(null); }
 });
 
+await t("the intake's own directories are not counted as books", async () => {
+  // Spec 28 commit 7. On a filesystem content store, runJob writes archive/<book>/<stamp>/ beside
+  // the books, so without this an empty store reports "1 book folder" and reads as healthy. The
+  // state matters as much as the number: attention, not ok.
+  setContentStore({
+    kind: "fs", readText: async () => "", readBytes: async () => new Uint8Array(),
+    listDirs: async () => ["archive", "uploads", "_staging"],
+  });
+  try {
+    const r = await runCheck(storageCheck({ ...BASE, CONTENT_STORE: "fs" }));
+    assert.equal(r.state, "attention", r.detail);
+    assert.match(r.detail, /holds no books yet/, r.detail);
+    assert.ok(r.facts?.some((f) => f.label === "Books" && f.text === "0"), JSON.stringify(r.facts));
+  } finally { setContentStore(null); }
+});
+
+await t("a real book beside an archive is still counted, and counted once", async () => {
+  setContentStore({
+    kind: "fs", readText: async () => "", readBytes: async () => new Uint8Array(),
+    listDirs: async () => ["archive", "mis3000", "sad", "uploads"],
+  });
+  try {
+    const r = await runCheck(storageCheck({ ...BASE, CONTENT_STORE: "fs" }));
+    assert.equal(r.state, "ok", r.detail);
+    assert.match(r.detail, /2 book folders/, r.detail);
+  } finally { setContentStore(null); }
+});
+
 await t("a Blob store with no token reads as Down, before anything is called", async () => {
   // Decision 4. BLOB_READ_WRITE_TOKEN appears nowhere in the Wrapper's own code — the Vercel
   // client reads it — so a check built from the variables the Wrapper names would miss it.

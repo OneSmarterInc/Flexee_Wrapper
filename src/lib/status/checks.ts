@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { contentStore, CachedStore } from "@/lib/storage";
+import { contentStore, CachedStore, isBookDir } from "@/lib/storage";
 import { aiEnabled, aiConfigured, aiAvailable } from "@/lib/ai";
 import { mailConfigured, replyTo } from "@/lib/mail";
 import type { Check, Result } from "@/lib/status/framework";
@@ -85,7 +85,9 @@ export function storageCheck(env: Env = process.env): Check {
       const started = Date.now();
       const dirs = await direct.listDirs("");
       const ms = Date.now() - started;
-      const books = dirs.filter((d) => !d.startsWith("_"));
+      // Spec 28 commit 7: the intake writes archive/ beside the books once the content store is
+      // a directory, and an archive counted as a book makes an empty store read as a healthy one.
+      const books = dirs.filter(isBookDir);
       return {
         state: books.length ? "ok" : "attention",
         detail: books.length

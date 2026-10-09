@@ -30,6 +30,36 @@ export class NotFoundError extends Error {
   constructor(key: string) { super(`content not found: ${key}`); this.name = "NotFoundError"; }
 }
 
+/**
+ * Directories inside the content root that are not books (Spec 28 commit 7).
+ *
+ * `listDirs("")` is how a book is found — `listBooks()` reads a manifest out of each name it
+ * returns, and `/admin/status` counts them. In Vercel Blob the published books sat under the
+ * `live/` prefix, so the intake's own directories were never among them. On a filesystem
+ * `CONTENT_DIR` *is* the content root, and `runJob` writes `archive/<book>/<stamp>/` beside the
+ * books, so the archive would be counted as a book — `/admin/status` would report "1 book folder"
+ * on a store holding none, which is worse than reporting none, because it reads as healthy.
+ *
+ * `listBooks()` was already safe by accident: it tries to read `book.manifest.json` and skips a
+ * directory that has none. The status check deliberately does not read manifests — it makes one
+ * listing call and times it — so it needs this list.
+ *
+ * The leading underscore is the older convention for the same thing (`_staging`, and `_archive`,
+ * which is what `content.ts` has always expected the archive to be called). Both rules are kept:
+ * the underscore for anything the intake tools write, these names for what `runJob` writes.
+ *
+ * `uploads` is here for a different reason — nothing should ever put it in the content root, since
+ * book zips live under `FILES_DIR`. It is listed so that a `CONTENT_DIR` and `FILES_DIR` pointed at
+ * the same directory by mistake does not invent a book, and `live` in case a store root is ever
+ * used as a content root.
+ */
+export const NOT_BOOK_DIRS: readonly string[] = ["archive", "uploads", "live"];
+
+/** Is this a directory name that could be a book? Used wherever `listDirs("")` is turned into books. */
+export function isBookDir(name: string): boolean {
+  return !name.startsWith("_") && !NOT_BOOK_DIRS.includes(name.toLowerCase());
+}
+
 /** Keys come from URLs and manifests; refuse anything that could climb out of the content root. */
 export function safeKey(key: string): string {
   const parts = key.split("/").filter((p) => p !== "" && p !== ".");

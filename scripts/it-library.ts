@@ -258,6 +258,19 @@ await t("a zip that is no longer on disk fails with a plain message, not a stack
   assert.equal(/[\\/]uploads[\\/]/.test(u!.message!), false, "and it does not print a filesystem path");
 });
 
+await t("a book cannot be called archive, uploads or live", async () => {
+  // Spec 28 commit 7: these name the intake's own directories in the content root. A book called
+  // archive would publish into the directory the previous versions live in, and then be hidden
+  // from the Library by the rule that stops an archive being counted as a book.
+  for (const id of ["archive", "uploads", "live"]) {
+    assert.equal(validBookId(id), false, id);
+    const r = await recordUpload(prof.id, { bookId: id, blobPath: `uploads/${id}/x.zip`, fileName: "x.zip", sizeBytes: 10 });
+    assert.equal(r.ok, false, `recordUpload refuses ${id}`);
+  }
+  assert.equal(validBookId("archives"), true, "only the exact names, not anything resembling them");
+  assert.equal(validBookId("sad"), true);
+});
+
 await t("the register is found wherever Drive's zip puts the folder", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "find-"));
   execFileSync("mkdir", ["-p", path.join(dir, "a", "FZ1001_v2_CURRENT", "Archive")]);
