@@ -87,7 +87,8 @@
     "test:health": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-health.ts",
     "test:preview-paths": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-preview-paths.ts",
     "test:fs-ops": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-fs-ops.ts",
-    "test:paths": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-paths.ts"
+    "test:paths": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-paths.ts",
+    "test:files": "node --import ./scripts/test-support/register-tsx.mjs --experimental-strip-types scripts/it-files.ts"
   },
   "keywords": [],
   "author": "",

@@ -78,7 +78,7 @@ export default async function AssignmentPage({ params, searchParams }: { params:
       </ul>
       <form action={addFilesAction} className="ui" style={{ display: "grid", gap: ".5rem", maxWidth: "36rem" }}>
         <input type="hidden" name="sectionId" value={section} /><input type="hidden" name="id" value={a.id} />
-        <FilePicker name="files" purpose="assignment" assignmentId={a.id} prefix={`assignments/${a.id}/`} label="Add files (each up to 50 MB)" />
+        <FilePicker name="files" purpose="assignment" assignmentId={a.id} label="Add files (each up to 50 MB)" />
         <button className="nav-button secondary" type="submit">Attach</button>
       </form>
 

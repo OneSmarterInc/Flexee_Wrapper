@@ -57,7 +57,7 @@ export default async function MyAssignment({ params, searchParams }: { params: P
           <h2 style={{ color: "var(--navy)", margin: 0 }}>{s ? "Replace your submission" : "Submit"}</h2>
           <input type="hidden" name="book" value={book} /><input type="hidden" name="assignmentId" value={a.id} />
           <textarea name="text" rows={8} placeholder="Your answer (optional if you attach files)" defaultValue={s?.text ?? ""} style={field} />
-          <FilePicker name="files" purpose="submission" assignmentId={a.id} prefix={`submissions/${a.id}/${user!.id}/`} label="Attach files (each up to 50 MB)" />
+          <FilePicker name="files" purpose="submission" assignmentId={a.id} label="Attach files (each up to 50 MB)" />
           {s && <span style={{ color: "var(--muted)" }}>Submitting again replaces your text and files.</span>}
           <button className="nav-button primary" type="submit">{s ? "Resubmit" : "Submit"}</button>
         </form>
