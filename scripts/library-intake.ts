@@ -10,7 +10,7 @@
 //
 // Nothing reaches students here: a class's faculty still publish the book to their class.
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, existsSync, rmSync, rmdirSync, statSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -43,6 +43,99 @@ export async function vercelBlob(): Promise<BlobOps> {
     },
     async copy(from, to) { await b.copy(from, to, { access: "private", addRandomSuffix: false, allowOverwrite: true }); },
     async del(ps) { for (let i = 0; i < ps.length; i += 100) await b.del(ps.slice(i, i + 100)); },
+  };
+}
+
+/**
+ * The same five operations against a local directory, for the AWS deployment (Spec 28 Addendum B).
+ *
+ * Pathnames are the same strings the Blob implementation uses — `live/<book>/ch01/content.md`,
+ * `archive/<book>/<stamp>/…`, `uploads/<id>.zip` — and they become paths under `root`. Keeping the
+ * vocabulary identical is what lets `runJob` stay untouched: it builds those strings itself and
+ * neither knows nor cares which side of the interface it is talking to.
+ *
+ * `root` is the mounted data volume. Every pathname is checked with the same rule `safeKey()`
+ * applies to reads, because these strings reach here from an upload record and a book id, and a
+ * `..` in either would climb out of the volume.
+ */
+export function fsOps(root: string): BlobOps {
+  const full = (pathname: string) => {
+    const parts = String(pathname).split("/").filter((x) => x !== "" && x !== ".");
+    if (parts.some((x) => x === ".." || x.includes("\0") || x.includes("\\"))) {
+      throw new Error(`unsafe content path: ${pathname}`);
+    }
+    const f = path.join(root, ...parts);
+    // Belt and braces: the parts check should make this unreachable, and a symlink inside the
+    // volume is the case it would not catch.
+    if (!path.resolve(f).startsWith(path.resolve(root))) throw new Error(`unsafe content path: ${pathname}`);
+    return f;
+  };
+  return {
+    async download(pathname) {
+      try { return new Uint8Array(readFileSync(full(pathname))); }
+      catch (e: any) {
+        if (e?.code === "ENOENT") throw new Error(`upload not found on disk: ${pathname}`);
+        throw e;
+      }
+    },
+    /**
+     * Every file at or below the prefix, as pathnames, sorted — the same shape the Blob list
+     * returns, which `runJob` compares against the names it is about to write.
+     *
+     * A missing directory is an empty list, not an error: that is a book's first publish, and the
+     * Blob implementation answers the same way because nothing has been written under the prefix.
+     */
+    async list(prefix) {
+      const p = String(prefix);
+      const base = full(p);
+      const out: string[] = [];
+      const walkInto = (dir: string, rel: string) => {
+        let entries;
+        try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const d of entries) {
+          const r = rel ? `${rel}/${d.name}` : d.name;
+          if (d.isDirectory()) walkInto(path.join(dir, d.name), r);
+          else if (d.isFile()) out.push(r);
+        }
+      };
+      if (existsSync(base) && statSync(base).isDirectory()) {
+        // A prefix ending in "/" names a directory; one that does not may name a single file.
+        walkInto(base, p.replace(/\/+$/, ""));
+      } else if (existsSync(base)) {
+        out.push(p);
+      }
+      return out.sort();
+    },
+    async put(pathname, bytes) {
+      const f = full(pathname);
+      mkdirSync(path.dirname(f), { recursive: true });
+      // contentType is deliberately ignored: a filesystem has no place to keep it, and the only
+      // reader is the Wrapper's own asset route, which derives the type from the extension.
+      writeFileSync(f, bytes);
+    },
+    async copy(from, to) {
+      const dest = full(to);
+      mkdirSync(path.dirname(dest), { recursive: true });
+      copyFileSync(full(from), dest);
+    },
+    async del(pathnames) {
+      for (const p of pathnames) {
+        try { rmSync(full(p)); } catch (e: any) { if (e?.code !== "ENOENT") throw e; }
+      }
+      // Directories left empty by a delete are pruned, because `list` walks directories and an
+      // empty tree would otherwise accumulate for every chapter a book ever dropped.
+      const roots = new Set(pathnames.map((p) => path.dirname(full(p))));
+      for (const d of roots) {
+        let dir = d;
+        while (dir.startsWith(path.resolve(root)) && dir !== path.resolve(root)) {
+          // rmdirSync, not rmSync: rmSync without `recursive` throws EISDIR on a directory, and
+          // the catch below would have swallowed it, so nothing would ever have been pruned. The
+          // suite caught that; the comment is here so it is not reintroduced.
+          try { if (readdirSync(dir).length) break; rmdirSync(dir); } catch { break; }
+          dir = path.dirname(dir);
+        }
+      }
+    },
   };
 }
 
