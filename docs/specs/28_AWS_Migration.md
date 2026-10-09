@@ -913,6 +913,17 @@ One wrinkle, small: `auto-init.ts`'s pooled/unpooled consistency check is writte
 `-pooler` hostnames. On RDS `DATABASE_URL_UNPOOLED` is simply unset and the check is skipped, so
 nothing breaks — but that script is Vercel-only anyway and is on its way out.
 
+### Decision (9 October): **(b) is taken** — RDS now, single-AZ, Multi-AZ before 11 January
+
+Accepted as recommended. **The RDS steps go into commit 13's runbook rewrite, not a further
+addendum**, because they are Akshay's work rather than code: provision `db.t4g.micro` single-AZ in
+the Flexee account, a security group that admits only the instance, `db:setup` into the empty
+database, `DATABASE_URL` changed in the `flexee-wrapper` unit and in the `.env` beside `deploy.sh`,
+restart, verify, and Multi-AZ switched on at any point before 11 January. **The nightly backup in
+commit 8 stays regardless.**
+
+The reasoning that led there:
+
 ### Recommendation: (b), and this month
 
 The destination was already decided — Multi-AZ by 11 January. Addendum D only changed what that
