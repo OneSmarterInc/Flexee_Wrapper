@@ -594,6 +594,96 @@ does not run migrations and the schema is behind the code — in which case the 
 Spec 27 is live against a table without `released_at`, and a student launch would meet
 `42703 column "released_at" does not exist`.
 
+## Addendum C (9 October 2026) — what the box actually is
+
+**Where this differs from the body or from Addendum A or B, this addendum wins.** Addendum A and B
+assumed Docker Compose, because `deploy/aws/docker-compose.aws.yml` is in the repository. **The box
+does not use Docker at all.**
+
+### The facts
+
+| | |
+|---|---|
+| The app | systemd unit **`flexee-wrapper`**, `npm run start` → `next start`, port 3000 |
+| In front of it | **nginx** — not Caddy, which is what `deploy/aws/Caddyfile` assumes |
+| Containers | **none.** No Docker, no pm2 |
+| The box is **shared** | also runs `flexee-adv-backend`, `flexee-bpm`, `flexee-da-backend`, `flexee-erp-backend`. **None of those are ours to touch** |
+| Runners | three; ours is **`OneSmarterInc-Flexee_Wrapper`**. One (`adv-backend`) is failed and is not ours |
+| Postgres client | psql 16.15 on the box |
+| Deployed commit | `8b02cd7` |
+| Path | `/var/www/Flexee_Wrapper` |
+
+**The migration check passed: 28 applied, newest `1791911616249` (0027).** So the schema is level
+with the code, Spec 27's release gate has the columns it needs, and the `42703` risk is closed.
+Pushes have resumed.
+
+### `deploy.sh`, and two findings in it
+
+It lives only at `/var/www/Flexee_Wrapper/deploy.sh` and does: `flock -n` on
+`/tmp/flexee-wrapper-deploy.lock`; `git fetch` and `git pull --ff-only origin main`; `npm ci`;
+**`npm run db:migrate`**; `npm run build`; `sudo systemctl restart flexee-wrapper`; then
+`systemctl is-active --quiet`. A copy goes into the repository (commit 10).
+
+**Finding 1 — it should run `db:deploy`, not `db:migrate`.** The two are not equivalent:
+
+- `db:migrate` is `drizzle-kit migrate`, which reads `drizzle.config.ts`, where
+  `dbCredentials.url` is `process.env.DATABASE_URL || "postgres://localhost/flexee"`. **With
+  `DATABASE_URL` unset it silently falls back to a local database** — and on a box shared with four
+  other backends, a local Postgres may well exist, so the failure mode is not "no connection" but
+  "migrated the wrong database".
+- `db:deploy` is `scripts/migrate.ts`, which **refuses** without `DATABASE_URL` and whose own first
+  line reads "production-safe; no drizzle-kit". That is exactly what it was written for.
+- `drizzle-kit` is a **devDependency**, so any future `npm ci --omit=dev` removes it and the
+  migration step fails. Noisily, which is better than silently, but it is one fragility more than
+  the alternative has.
+
+Migrations have clearly been running, so `DATABASE_URL` is set today. The change is cheap insurance,
+not a repair.
+
+**Finding 2 — it must restart the worker too.** Once `flexee-intake.service` exists, a deploy that
+restarts only `flexee-wrapper` leaves the old worker running against new code.
+
+### Commit 5 — the worker as a systemd unit
+
+`flexee-intake.service`, alongside `flexee-wrapper`, running the same `runJob` the GitHub workflow
+runs today. **Because the box is shared with four other services, the unit is capped**, and those
+caps are part of the design rather than tuning:
+
+- `MemoryMax=` and `MemoryHigh=`, because Pillow resizing an oversized figure is the memory peak —
+  `flexee_intake.py:494` loads each image and may resample it.
+- `CPUQuota=` and a positive `Nice=`, so an intake never starves the four backends or the web app.
+- `Restart=on-failure` with a backoff, and **not** `Restart=always`, so a job that fails
+  deterministically does not spin.
+- `After=network-online.target`, and no dependency on the other services.
+
+Unchanged from Addendum A: polling `library_uploads` for `checking` and `publishing`, a per-book
+`pg_advisory_lock`, and reporting through the existing status machine. **Python 3.12 with Pillow must
+be installed on the box** rather than baked into an image, which moves to the runbook.
+
+### nginx, which changes two things
+
+**The upload commits need a body-size limit raised.** nginx defaults `client_max_body_size` to
+**1 MB**. The book zip is up to 200 MB and student files up to 50 MB, so commits 3 and 4 would fail
+at nginx before reaching the app. The runbook must set it per location, not globally, and
+`proxy_request_buffering off` is worth considering so a 200 MB body is not written to nginx's temp
+directory before the app sees it.
+
+**The C2-2 no-redirect requirement now applies to nginx.** Addendum A wrote it against Caddy. nginx
+must not redirect or canonicalise **`/api/session-enrolments`** or **`/api/health`** — no trailing-slash
+rewrite, no `www` host rewrite on those paths. The sims call the roster with `redirect: 'error'`,
+so a 301 ends the call rather than following it, and C2-2 v1.1 §5 step 1 requires `/api/health` to
+answer with no redirect before any sim is repointed.
+
+`deploy/aws/Caddyfile` and `deploy/aws/docker-compose.aws.yml` now describe a deployment that does
+not exist. Commit 11 either replaces them with the nginx and systemd equivalents or marks them as
+superseded; it must not leave two contradictory sets of instructions in `deploy/aws/`.
+
+### What this does not change
+
+The EBS decision and its four conditions, the worker over a self-hosted runner, the Schema line,
+`deploy.yml` becoming manual before 30 November, retiring `flexee-intake.yml`, and the `flexee-prod`
+label. All of Addendum B stands; only the mechanism changes from containers to units.
+
 ## Commit plan
 
 Superseded by Addendum B where the two differ. Each commit stands alone and leaves every suite
@@ -605,21 +695,20 @@ passing. Commit 1 is pushed; everything below is unstarted.
 | 2 | **`fsOps()` for the intake writer** — the same five-method `BlobOps` against the filesystem, chosen by `CONTENT_STORE`, tested on `it-library.ts`'s existing fake. Replaces the `s3Ops()` the body called for | yes | ½ day |
 | 3 | **Local-disk storage for assignment attachments and submissions** — a route that streams the request body to the data volume and one that streams it back. `uploadPrefix()`, `downloadable()`, the 50 MB cap and `safeKey()` unchanged; the two client components post multipart instead of calling `upload()` | yes | ~1 day |
 | 4 | **The book zip upload on the same route** — one more path, and `runJob` reads the zip from disk instead of `blob.download` | yes | ½ day |
-| 5 | **The intake worker** — polling `library_uploads`, a per-book `pg_advisory_lock`, Python 3.12 with Pillow, reporting through the existing status machine. **Shape pending the box's process manager** (Addendum B) | yes | 1–2 days |
+| 5 | **The intake worker as `flexee-intake.service`** — a systemd unit beside `flexee-wrapper`, polling `library_uploads`, a per-book `pg_advisory_lock`, reporting through the existing status machine, and **capped on memory and CPU because the box is shared** (Addendum C) | yes | 1–2 days |
 | 6 | **The two Vercel decouplings** — `VERCEL_GIT_COMMIT_SHA` as a build argument, the cron as an external trigger with `CRON_SECRET` | yes | ½ day |
 | 7 | **The Schema line on `/admin/status`** — applied migrations against the journal's count and newest `when`, with the hash caveat printed | yes | ½ day |
 | 8 | **Retire or re-point the intake-runner status line** — with the worker in place it checks a token and workflow the book flow no longer uses | yes | ½ day |
 | 9 | **`deploy.yml` becomes `workflow_dispatch` only**, and **`flexee-intake.yml` is deleted** | yes | 1 hour |
-| 10 | **`deploy.sh` into the repository**, once pasted, so what deploys is reviewable | yes | 1 hour |
-| 11 | **`deploy/aws` brought up to date** — `CONTENT_STORE=fs` and the volume mount, the 6-hourly snapshot schedule, the rehearsed-restore procedure, the hand-rebuild checklist, C2-2 §5's switch-over order, the `flexee-prod` label and ephemeral runner as DevOps tasks, and the stale "Supabase session pooler" comment corrected to Neon | docs | ½ day |
+| 10 | **`deploy.sh` into the repository**, with two corrections: `db:deploy` in place of `db:migrate`, which refuses rather than falling back to a local database, and a restart of `flexee-intake.service` as well as `flexee-wrapper` (Addendum C) | yes | 1 hour |
+| 11 | **`deploy/aws` rewritten for systemd and nginx** — the two unit files, `client_max_body_size` for the upload routes, the no-redirect rule for `/api/health` and `/api/session-enrolments`, `CONTENT_STORE=fs` and the volume mount, the 6-hourly snapshots, the rehearsed restore, python3 and Pillow on the box, the hand-rebuild checklist, C2-2 §5's order, the `flexee-prod` label, and the stale "Supabase session pooler" comment corrected. **`Caddyfile` and `docker-compose.aws.yml` are superseded and must not be left contradicting it** | docs | 1 day |
 | 12 | **`docs/changes/28_AWS_Migration.md`** | docs | — |
 
 **Commits 2–10 are code and land before 30 November — 4–6 days**, which is 1–2 days less than the
 S3 plan. Commit 11 is what Akshay works from and is cheap enough to do alongside.
 
 Commits 3 and 4 share one streaming-upload helper and go in that order. Commits 6, 7 and 9 are
-independent of everything else and can be built at any point. **Commit 5 is blocked** until the box's
-process manager is known.
+independent of everything else and can be built at any point. **Commit 5 is unblocked** — the box runs systemd (Addendum C).
 
 **Not in this plan, and no longer needed:** `s3Ops()`, presigned uploads of any kind, the S3 bucket,
 bucket versioning, the S3 IAM policy and the GitHub OIDC role.
@@ -638,7 +727,8 @@ bucket versioning, the S3 IAM policy and the GitHub OIDC role.
 5. A download streams only to someone `downloadable()` allows, and the storage path never reaches
    the browser.
 6. An upload larger than the cap is refused **while streaming**, not after the whole body has been
-   written to the volume.
+   written to the volume — and the cap the app enforces is below whatever `client_max_body_size`
+   nginx is given, so the app's message is what a person sees rather than nginx's 413.
 7. `/api/health` still reports the running commit when `VERCEL_GIT_COMMIT_SHA` is absent and the
    build argument is present.
 8. The cron route still refuses a request without `CRON_SECRET`, whatever triggers it.
