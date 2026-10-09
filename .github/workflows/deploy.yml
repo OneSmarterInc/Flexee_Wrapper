@@ -1,0 +1,23 @@
+
+name: Deploy Flexee Wrapper
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flexee-wrapper-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64]
+
+    steps:
+      - name: Deploy application
+        run: /var/www/Flexee_Wrapper/deploy.sh
