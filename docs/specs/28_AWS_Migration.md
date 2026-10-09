@@ -210,19 +210,22 @@ Multi-AZ RDS (**also 11 January**), DNS, certificates, `db:setup`, the hand-rebu
 
 ## Rough monthly cost, a few hundred students
 
+Superseded by Addendum D: there is no RDS, and a backup bucket joins the list.
+
 | | |
 |---|---|
-| EC2 `t3.medium` | $30, or $19 reserved |
-| RDS `db.t4g.micro` + 20 GB + backups | $15 |
-| EBS 30 GB gp3 | $2.40 |
-| **EBS data volume, 50 GB gp3 encrypted** (Addendum B) | **$4.00** |
-| **Snapshots, 6-hourly, 30-day retention** | **$2–4** |
-| SSM / Secrets Manager | $0–1 |
+| EC2 `t3.medium`, shared with four other services | $30, or $19 reserved |
+| EBS root, 29 GB gp3 | $2.40 |
+| EBS data volume, 50 GB gp3 encrypted | $4.00 |
+| Snapshots, 6-hourly, 30-day retention | $2–4 |
+| S3 backup bucket, versioned, 30-day lifecycle | ~$1 |
 | Data transfer out | $1–5 |
-| **Total** | **~$55–62, or ~$45 reserved** |
+| ~~RDS `db.t4g.micro` + storage + backups~~ | **removed: Postgres is local** |
+| **Total** | **~$40–47, or ~$30 reserved** |
 
-Multi-AZ RDS adds ~$13. A few hundred students reading markdown is a trivial load. If the AI
-assistant is switched on, the provider's token bill will exceed all of the above.
+About $15 a month less than the RDS plan — and that saving is precisely the redundancy it bought.
+If Multi-AZ is still wanted by 11 January, the RDS line returns **and brings a migration with it**,
+which is no longer a setting.
 
 ## Re-publish the three books — not to Blob *(destination superseded by Addendum B: the volume)*
 
@@ -684,6 +687,151 @@ The EBS decision and its four conditions, the worker over a self-hosted runner, 
 `deploy.yml` becoming manual before 30 November, retiring `flexee-intake.yml`, and the `flexee-prod`
 label. All of Addendum B stands; only the mechanism changes from containers to units.
 
+## Addendum D (9 October 2026) — local Postgres, and content inside the git checkout
+
+**Where this differs from the body or from Addendum A, B or C, this addendum wins.**
+
+Two facts arrived that change more than the four requests they came with.
+
+### 1. There is no RDS. Postgres is local on the box
+
+`127.0.0.1:5432`, v16.15, on the same shared instance as the app and four other backends. So:
+
+- **Stage 2 of this spec is wrong.** There is no managed database, no `db.t4g.micro`, and none of
+  its $15 a month. The cost table below is corrected.
+- **There are no automated backups at all.** RDS would have given 14 days of them by default; a
+  local Postgres gives none. Until the nightly dump in §3 exists, **the system has no backup of
+  anything** — not the database, not the books, not student work.
+- **"Multi-AZ before 11 January" is no longer a checkbox.** It now means *migrating to RDS*, which
+  is a project with a cutover, not a setting. It must be re-scoped or re-decided; it cannot be done
+  in an afternoon in January.
+- **`drizzle.config.ts`'s fallback is now live-dangerous, not hypothetical.** Addendum C flagged
+  `process.env.DATABASE_URL || "postgres://localhost/flexee"` on the grounds that a local Postgres
+  "may well exist". It does, at exactly that address. With `DATABASE_URL` unset,
+  `npm run db:migrate` connects to a real local server and migrates whatever `flexee` resolves to.
+  **Finding 1 of Addendum C is upgraded from insurance to a fix that should land first**, and
+  `deploy.sh` should use `db:deploy`, which refuses without `DATABASE_URL`.
+- The single point of failure is now total: app, database, books and student work on one instance
+  and one root disk. That is the context for everything below.
+
+### 2. `CONTENT_DIR` is inside the git checkout, and the content is tracked
+
+`CONTENT_DIR=/var/www/Flexee_Wrapper/content` — the git working tree. And **all 148 files under
+`content/` are tracked**, `content/sad/` and `content/mis3000/` among them; `.gitignore` excludes
+only `content/_archive/` and `content/_staging/`.
+
+**This is an active fault, not a tidiness problem.** A publish of `sad` or `mis3000` modifies *tracked*
+files. `deploy.sh` then runs `git pull --ff-only origin main`, and git refuses to overwrite modified
+tracked files — so **the first deploy after a book publish fails**, and if anyone resolves it by
+discarding local changes, the published book is replaced by the repository's committed copy.
+
+On the narrow question asked: **no, `git clean` is not run.** From the contents given, `deploy.sh` is
+`flock`, `git fetch`, `git pull --ff-only`, `npm ci`, `db:migrate`, `npm run build`,
+`systemctl restart`, `systemctl is-active`. There is no `git clean`, so untracked new books —
+`content/fz1001/`, say — would survive a deploy. The hazard is the tracked ones, and it is live.
+
+**`content/` must stay tracked.** It is a test fixture, not just seed data: `it-storage.ts` reads
+`path.join(process.cwd(), "content")` and compares it byte-for-byte across disk, S3 and Blob, and
+the accessibility fixture uses it too. Gitignoring it would delete that comparison. So the fix is
+not to untrack the content — it is to move the live directory out of the checkout, which is what
+was asked for.
+
+### §1 — `CONTENT_DIR` moves to its own volume
+
+**`/var/lib/flexee/content`**, on the separate encrypted EBS volume from Addendum B, owned by the
+service user, outside every git path.
+
+The reader needs no change: `storage.ts`'s `FsStore` already takes `CONTENT_DIR || ./content`, so
+the default keeps working for local development and for every suite. Ten files read `CONTENT_DIR`
+today and all of them honour it.
+
+What does need deciding and writing down:
+
+- **A second setting for student files**, `FILES_DIR`, defaulting to `<CONTENT_DIR>/../files` or an
+  explicit `/var/lib/flexee/files`. Books and student work should not share a directory: they have
+  different retention, different sensitivity and different restore urgency. Commit 3 introduces it.
+- **The worker's temp space.** `library-intake.ts:197` builds in `mkdtempSync(tmpdir())`, which is
+  `/tmp` on the **root** disk — so moving `CONTENT_DIR` does not move the unpacking. An explicit
+  `INTAKE_WORK_DIR`, defaulting to the data volume, keeps a 200 MB zip and its expansion off a root
+  disk with 9.5 GB free.
+- **`deploy.sh` asserts the separation**: refuse to run if `CONTENT_DIR` or `FILES_DIR` resolves
+  inside the checkout. That is three lines, and it is what stops this fault returning the next time
+  someone sets a path by hand.
+- **The tracked `content/` tree stays as a fixture and a seed.** On a fresh box `db:setup` still
+  loads it, which is how the hand-rebuild list expects to work.
+
+### §2 — A nightly backup, kept off the box
+
+There is none today, and the box holds everything. One timer, two artefacts:
+
+- **`pg_dump -Fc`** of the database. Custom format, so `pg_restore` can be selective.
+- **A content copy**: `/var/lib/flexee/content` and `/var/lib/flexee/files`, as a tar, or `aws s3
+  sync` for the incremental version.
+
+**Destination: an S3 bucket the instance role may write to.** This reintroduces S3 — deliberately,
+and it does not reopen Addendum B. That decision was about *serving* books and student files, where
+EBS won on effort. Backups are a different purpose, and the argument for S3 there is the one
+argument EBS cannot answer: **a backup on the same instance as the thing it backs up is not a
+backup.**
+
+- The instance role gets `s3:PutObject` on **that bucket and that prefix only** — not `GetObject`,
+  not `DeleteObject`, so a compromised box cannot read or destroy its own history.
+- **Object Lock or a deny-delete bucket policy**, so the backups survive the box being wrong about
+  them.
+- **Lifecycle**: 30 days of dailies, then expire. Versioning on.
+- A short-lived assumed role is the alternative if a bucket is unwanted, but the bucket is simpler
+  and the write-only instance role is the stronger control.
+
+**The restore rehearsal is a gate before 11 January, not a task.** Addendum B made it condition 3
+of the EBS decision; with the database now local and unbacked, it covers both. The gate is: a dump
+and a content copy, taken from the box, restored onto *something that is not the box*, with the
+Wrapper opening a chapter and a gradebook against the restored data. Until that has been done once,
+the backup is a belief.
+
+### §3 — `deploy.sh` and git never touch the content
+
+Three changes, in commit 10:
+
+1. **`db:deploy` in place of `db:migrate`** — now urgent, because the fallback has a real server to
+   land on (§1).
+2. **Restart `flexee-intake.service`** as well as `flexee-wrapper`.
+3. **Refuse to run if `CONTENT_DIR` or `FILES_DIR` is inside the checkout**, and never `git clean`.
+   The absence of `git clean` is confirmed today; the assertion is what keeps it absent.
+
+### §4 — The worker refuses to unpack without disk headroom
+
+Before `safe_unzip`, and before anything is written:
+
+- Read free space on **the work directory's filesystem** and on **`CONTENT_DIR`'s**. They may be
+  different volumes now, and the work directory is the one on the 9.5 GB root today.
+- Refuse when free space is below the greater of a floor (`INTAKE_MIN_FREE_BYTES`, default **2 GB**)
+  and a multiple of the zip's own size. A book zip expands to a tree, which is then copied again to
+  `archive/<book>/<stamp>/`, so **four times the zip** is the honest estimate, not one.
+- The refusal is a **`stopped`**, not a `failed`: nothing was attempted, the upload can be retried
+  once space exists, and the message says how much was free and how much was wanted. It must not
+  read as a defect in the book.
+- The check is also the right place to report the number into the status page later, so "the box is
+  nearly full" is visible before it is a failed publish.
+
+### Corrected cost
+
+RDS is gone; the data volume and the backup bucket arrive.
+
+| | |
+|---|---|
+| EC2 `t3.medium` (shared with four other services) | $30, or $19 reserved |
+| EBS root, 29 GB gp3 | $2.40 |
+| **EBS data volume, 50 GB gp3 encrypted** | $4.00 |
+| **Snapshots, 6-hourly, 30-day retention** | $2–4 |
+| **S3 backup bucket, versioned, ~20 GB with 30-day lifecycle** | **~$1** |
+| Data transfer out | $1–5 |
+| **~RDS `db.t4g.micro`~** | **removed: Postgres is local** |
+| **Total** | **~$40–47, or ~$30 reserved** |
+
+Cheaper than the RDS plan by about $15 a month, and that saving is exactly the redundancy that was
+bought with it. If Multi-AZ is still wanted by 11 January, the RDS line returns along with a
+migration.
+
 ## Commit plan
 
 Superseded by Addendum B where the two differ. Each commit stands alone and leaves every suite
@@ -692,20 +840,23 @@ passing. Commit 1 is pushed; everything below is unstarted.
 | # | Commit | Code? | Effort |
 |---|---|---|---|
 | 1 | **The spec**, with its addenda and decisions — `8b02cd7`, pushed | — | done |
-| 2 | **`fsOps()` for the intake writer** — the same five-method `BlobOps` against the filesystem, chosen by `CONTENT_STORE`, tested on `it-library.ts`'s existing fake. Replaces the `s3Ops()` the body called for | yes | ½ day |
-| 3 | **Local-disk storage for assignment attachments and submissions** — a route that streams the request body to the data volume and one that streams it back. `uploadPrefix()`, `downloadable()`, the 50 MB cap and `safeKey()` unchanged; the two client components post multipart instead of calling `upload()` | yes | ~1 day |
+| 2 | **`fsOps()` for the intake writer** — the same five-method `BlobOps` against the filesystem, with safeKey's traversal rule applied on the write side. `f53c7b1` | yes | done |
+| 3 | **Local-disk storage for assignment attachments and submissions** — a route that streams the request body to **`FILES_DIR`** and one that streams it back. `uploadPrefix()`, `downloadable()`, the cap and `safeKey()` unchanged; the two client components post multipart instead of calling `upload()`. Books and student work get separate roots (Addendum D §1) | yes | ~1 day |
 | 4 | **The book zip upload on the same route** — one more path, and `runJob` reads the zip from disk instead of `blob.download` | yes | ½ day |
-| 5 | **The intake worker as `flexee-intake.service`** — a systemd unit beside `flexee-wrapper`, polling `library_uploads`, a per-book `pg_advisory_lock`, reporting through the existing status machine, and **capped on memory and CPU because the box is shared** (Addendum C) | yes | 1–2 days |
+| 5 | **The intake worker as `flexee-intake.service`** — a systemd unit beside `flexee-wrapper`, polling `library_uploads`, a per-book `pg_advisory_lock`, capped on memory and CPU because the box is shared, an explicit `INTAKE_WORK_DIR` off the root disk, and a **free-disk check that refuses as `stopped` below a threshold** (Addendum C, D §4) | yes | 1–2 days |
 | 6 | **The two Vercel decouplings** — `VERCEL_GIT_COMMIT_SHA` as a build argument, the cron as an external trigger with `CRON_SECRET` | yes | ½ day |
 | 7 | **The Schema line on `/admin/status`** — applied migrations against the journal's count and newest `when`, with the hash caveat printed | yes | ½ day |
 | 8 | **Retire or re-point the intake-runner status line** — with the worker in place it checks a token and workflow the book flow no longer uses | yes | ½ day |
 | 9 | **`deploy.yml` becomes `workflow_dispatch` only**, and **`flexee-intake.yml` is deleted** | yes | 1 hour |
-| 10 | **`deploy.sh` into the repository**, with two corrections: `db:deploy` in place of `db:migrate`, which refuses rather than falling back to a local database, and a restart of `flexee-intake.service` as well as `flexee-wrapper` (Addendum C) | yes | 1 hour |
+| 10 | **`deploy.sh` into the repository**, with three corrections: **`db:deploy` in place of `db:migrate`** — urgent now that a real local Postgres exists for the fallback to land on — a restart of `flexee-intake.service`, and a **refusal to run if `CONTENT_DIR` or `FILES_DIR` resolves inside the checkout** (Addenda C and D) | yes | 2 hours |
+| 11a | **The nightly backup** — a systemd timer taking `pg_dump -Fc` and a content copy to a write-only S3 prefix, with Object Lock and a 30-day lifecycle. **The only backup this box has** (Addendum D §2) | yes | ½ day |
+| 11b | **`CONTENT_DIR` and `FILES_DIR` move off the checkout** — `/var/lib/flexee/content` and `/var/lib/flexee/files`, defaults unchanged so every suite and local run keeps working (Addendum D §1) | yes | 2 hours |
 | 11 | **`deploy/aws` rewritten for systemd and nginx** — the two unit files, `client_max_body_size` for the upload routes, the no-redirect rule for `/api/health` and `/api/session-enrolments`, `CONTENT_STORE=fs` and the volume mount, the 6-hourly snapshots, the rehearsed restore, python3 and Pillow on the box, the hand-rebuild checklist, C2-2 §5's order, the `flexee-prod` label, and the stale "Supabase session pooler" comment corrected. **`Caddyfile` and `docker-compose.aws.yml` are superseded and must not be left contradicting it** | docs | 1 day |
 | 12 | **`docs/changes/28_AWS_Migration.md`** | docs | — |
 
-**Commits 2–10 are code and land before 30 November — 4–6 days**, which is 1–2 days less than the
-S3 plan. Commit 11 is what Akshay works from and is cheap enough to do alongside.
+**Commits 2–11b are code and land before 30 November — 5–7 days.** Commit 2 is done. Commits 10 and
+11b are the two that close live faults rather than adding anything, so they go early: today a book
+publish writes to tracked files inside the git checkout, which breaks the next deploy. Commit 11 is what Akshay works from and is cheap enough to do alongside.
 
 Commits 3 and 4 share one streaming-upload helper and go in that order. Commits 6, 7 and 9 are
 independent of everything else and can be built at any point. **Commit 5 is unblocked** — the box runs systemd (Addendum C).
@@ -739,7 +890,16 @@ bucket versioning, the S3 IAM policy and the GitHub OIDC role.
 11. The Schema line reads **ok** when applied matches the journal, **attention** naming the missing
    tags when it is behind, **attention** when it is ahead, and **down** when
    `drizzle.__drizzle_migrations` is absent — each driven by a fixture rather than the real database.
-12. Every existing suite passes, including `test:storage`'s three-way comparison, which keeps
+12. The worker refuses to unpack when free space on the work filesystem or on `CONTENT_DIR`'s is
+   below the floor or below four times the zip's size, leaves the upload `stopped` rather than
+   `failed`, and says how much was free and how much was wanted — driven by a fake that reports a
+   small number, not by filling a disk.
+13. `CONTENT_DIR` and `FILES_DIR` default to what they default to today, so every suite and a local
+   run are unchanged, and a path resolving inside the git checkout is refused by `deploy.sh`.
+14. The backup timer's dump restores: a round trip through `pg_dump -Fc` and `pg_restore` into an
+   empty database leaves the same row counts — proved against PGlite or a scratch database, never
+   the box's own.
+15. Every existing suite passes, including `test:storage`'s three-way comparison, which keeps
    `S3Store` honest under condition 4 of Addendum B, and `test:library`'s drive of `runJob` through
    its fakes.
 
