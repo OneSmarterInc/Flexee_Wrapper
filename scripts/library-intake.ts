@@ -18,7 +18,7 @@ import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, exist
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { intakeWorkDir } from "@/lib/paths";
-import { uploadPath } from "@/lib/files";
+import { uploadPath, deleteUpload } from "@/lib/files";
 import { getUpload, setStatus } from "@/lib/library";
 
 export interface BlobOps {
@@ -289,6 +289,26 @@ export async function runJob(opts: { uploadId: string; action: "check" | "publis
     }
     await setStatus(uploadId, "published", { report, registerVersion: regV, runUrl, publishedAt: new Date(),
       message: `In the library. ${current.length ? `The previous version is archived under archive/${up.bookId}/${stamp}/.` : ""}` });
+
+    // Spec 28 commit 7b: the zip is removed once, and only once, the book is published.
+    //
+    // Nothing deleted these from Blob either, which is why that store's average was 23 MB of zips
+    // nobody could use. On the box they would accumulate on a shared 28 GB disk at about 32 MB a
+    // book. A published zip is the one that is safe to remove: the book is in the content store and
+    // the previous version is under archive/<book>/<stamp>/, so rollback does not need it. A zip
+    // whose record is ready, stopped or failed is kept — ready still has an approval to come, and
+    // failed can be started again from the Library page.
+    //
+    // After setStatus, deliberately. The book is published whether or not this works, and a delete
+    // that throws must not be able to report the publish as a failure.
+    try {
+      const freed = deleteUpload(up.blobPath);
+      console.log(freed === null
+        ? `Library intake: the upload zip ${up.blobPath} was already gone; nothing removed.`
+        : `Library intake: removed the upload zip ${up.blobPath} (${(freed / 1e6).toFixed(1)} MB) now that ${up.bookId} is published.`);
+    } catch (e: any) {
+      console.error(`Library intake: could not remove the upload zip ${up.blobPath}: ${String(e?.code ?? e?.message ?? e).slice(0, 120)}`);
+    }
     return "published";
   } catch (e: any) {
     console.error(`Library intake failed: ${String(e?.message ?? e).slice(0, 600)}`);

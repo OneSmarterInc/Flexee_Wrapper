@@ -12,7 +12,7 @@ import { db, schema } from "@/db";
 import { setAdminByEmail } from "@/lib/admin";
 import { createSection, enrolAs } from "@/lib/roster";
 import { setDispatchFetch, recordUpload, getUpload } from "@/lib/library";
-import { MAX_BOOK_BYTES, MAX_UPLOAD_BYTES, bookUploadPrefix, uploadPath, saveUpload } from "@/lib/files";
+import { MAX_BOOK_BYTES, MAX_UPLOAD_BYTES, bookUploadPrefix, uploadPath, saveUpload, deleteUpload } from "@/lib/files";
 
 const { users, identities } = schema;
 
@@ -210,6 +210,41 @@ await t("the resolver's root is FILES_DIR itself, and it reaches nothing above i
   writeFileSync(f, "x");
   assert.equal(uploadPath("stray.zip"), f);
   assert.equal(uploadPath("/etc/hosts"), null);
+});
+
+console.log("Removing a zip once its book is published (Spec 28 commit 7b)");
+
+await t("it frees the file and reports the bytes, and the file is gone", async () => {
+  await signedInAs(prof.id);
+  const { body } = await post({ bookId: "mis3000", name: "done.zip" }, "0123456789");
+  const f = path.join(VOLUME, ...body.blobPath.split("/"));
+  assert.equal(deleteUpload(body.blobPath), 10, "the bytes freed, for the log line");
+  assert.equal(existsSync(f), false);
+  assert.equal(uploadPath(body.blobPath), null);
+});
+
+await t("the book's directory is pruned when it empties, but never while a zip is still in it", async () => {
+  await signedInAs(prof.id);
+  // Its own book id: the directory has to be genuinely empty for the prune to be the thing proved,
+  // and mis4950 still holds the zip an earlier check wrote.
+  const a = (await post({ bookId: "prunebook", name: "one.zip" }, "aaa")).body;
+  const b = (await post({ bookId: "prunebook", name: "two.zip" }, "bbb")).body;
+  deleteUpload(a.blobPath);
+  assert.equal(existsSync(path.join(VOLUME, "uploads", "prunebook")), true, "two.zip is still there");
+  deleteUpload(b.blobPath);
+  assert.equal(existsSync(path.join(VOLUME, "uploads", "prunebook")), false, "now it is empty, so it goes");
+  assert.equal(existsSync(path.join(VOLUME, "uploads")), true, "and uploads/ itself is never removed");
+});
+
+await t("it answers null rather than throwing, for anything that is not a file it may remove", async () => {
+  // It runs after the book is published. A delete that throws must not be able to report a
+  // successful publish as a failure, so every refusal is a null and never an exception.
+  assert.equal(deleteUpload("uploads/sad/never-there.zip"), null, "already gone");
+  assert.equal(deleteUpload("../../../etc/passwd"), null, "outside FILES_DIR");
+  assert.equal(deleteUpload(""), null, "no key at all");
+  mkdirSync(path.join(VOLUME, "uploads", "adir"), { recursive: true });
+  assert.equal(deleteUpload("uploads/adir"), null, "a directory is not a stored file");
+  assert.equal(existsSync(path.join(VOLUME, "uploads", "adir")), true, "and it is still there");
 });
 
 console.log(`\n${passed} passed`);

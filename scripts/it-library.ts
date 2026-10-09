@@ -178,6 +178,16 @@ async function uploaded(name: string, bytes: Uint8Array, who = prof.id) {
   return (r as any).id as string;
 }
 
+/** Is the upload's zip still on the disk the route wrote it to? */
+const zipOnDisk = (name: string) => existsSync(path.join(VOLUME, "uploads", "sad", name));
+
+/** Run something with console.log captured, and return the lines. */
+async function withLog<T>(fn: () => Promise<T>): Promise<{ value: T; lines: string[] }> {
+  const lines: string[] = []; const real = console.log;
+  console.log = (...a: unknown[]) => { lines.push(a.map(String).join(" ")); };
+  try { return { value: await fn(), lines }; } finally { console.log = real; }
+}
+
 console.log("The intake job (real intake, real validator, the zip on disk)");
 const good = shelfZip("sad-v1.zip");
 const idGood = await uploaded("sad-v1.zip", good);
@@ -186,6 +196,7 @@ await t("check: a correct book comes back ready, with the intake's report and re
   const u = await getUpload(idGood);
   assert.equal(u!.status, "ready"); assert.match(u!.report!, /READY TO APPROVE/); assert.equal(u!.registerVersion, "6.17");
   assert.equal(u!.runUrl, "https://github.com/run/1");
+  assert.equal(zipOnDisk("sad-v1.zip"), true, "a ready record keeps its zip: the approval is still to come");
   assert.equal([...store.keys()].filter((k) => k.startsWith("live/")).length, 0, "a check publishes nothing");
 });
 await t("only the uploader or an admin may add it to the library, and only once", async () => {
@@ -197,7 +208,16 @@ await t("only the uploader or an admin may add it to the library, and only once"
   assert.equal((await approveUpload(admin.id, idGood)).ok, false, "a second click does nothing");
 });
 await t("publish: the book goes to live/sad/ in Blob, without the answer key, and is loaded", async () => {
-  assert.equal(await runJob({ uploadId: idGood, action: "publish", blob, syncDb }), "published");
+  // Spec 28 commit 7b: the publish is also where the zip is removed, so it is run with the log
+  // captured and both facts are checked at once.
+  const { value, lines } = await withLog(() => runJob({ uploadId: idGood, action: "publish", blob, syncDb }));
+  assert.equal(value, "published");
+  assert.equal(zipOnDisk("sad-v1.zip"), false, "the published zip is removed: the book and its archive replace it");
+  const note = lines.find((l) => l.includes("removed the upload zip"));
+  assert.ok(note, `a deletion is logged, got: ${lines.join(" | ")}`);
+  assert.match(note!, /uploads\/sad\/sad-v1\.zip/, note);
+  assert.match(note!, /sad is published/, note);
+  assert.equal((await getUpload(idGood))!.blobPath, "uploads/sad/sad-v1.zip", "the record keeps the key as its receipt");
   const live = [...store.keys()].filter((k) => k.startsWith("live/sad/"));
   assert.ok(live.includes("live/sad/book.manifest.json"));
   assert.ok(live.some((k) => /live\/sad\/ch01\/figures\/.+\.png$/.test(k)), "figures uploaded");
@@ -233,11 +253,13 @@ await t("a book with a defect is stopped with the intake's reason, and nothing i
   assert.equal(u!.status, "stopped"); assert.match(u!.report!, /All\.zip/); assert.match(u!.report!, /STOPPED/);
   assert.equal((await approveUpload(admin.id, id)).ok, false, "a stopped book cannot be added");
   assert.equal([...store.keys()].filter((k) => k.startsWith("live/")).length, liveBefore);
+  assert.equal(zipOnDisk("sad-bad.zip"), true, "a stopped record keeps its zip, so the report can be read against it");
 });
 await t("a file that is not a zip, or a zip with no register, fails with a plain explanation", async () => {
   const notZip = await uploaded("junk.zip", new TextEncoder().encode("not a zip"));
   assert.equal(await runJob({ uploadId: notZip, action: "check", blob, syncDb }), "failed");
   assert.match((await getUpload(notZip))!.message!, /not a readable zip/);
+  assert.equal(zipOnDisk("junk.zip"), true, "a failed record keeps its zip: the Library page offers to start it again");
   const dir = mkdtempSync(path.join(tmpdir(), "noreg-")); writeFileSync(path.join(dir, "readme.txt"), "hello");
   execFileSync("python3", ["-c", ZIP_ONE], { env: { ...process.env, ZIP_IN: path.join(dir, "readme.txt"), ZIP_OUT: path.join(dir, "n.zip") } });
   const noReg = await uploaded("noreg.zip", readFileSync(path.join(dir, "n.zip")));

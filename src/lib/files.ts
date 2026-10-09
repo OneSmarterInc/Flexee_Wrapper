@@ -1,5 +1,5 @@
 import "server-only";
-import { createWriteStream, createReadStream, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { createWriteStream, createReadStream, existsSync, mkdirSync, rmSync, rmdirSync, statSync } from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { randomBytes } from "node:crypto";
@@ -171,6 +171,33 @@ export function openUpload(key: string): { stream: ReadableStream<Uint8Array>; s
     stream: Readable.toWeb(createReadStream(f)) as ReadableStream<Uint8Array>,
     sizeBytes: statSync(f).size,
   };
+}
+
+/**
+ * Remove a stored file, returning the bytes it freed, or null if it was not there.
+ *
+ * Used for one thing only (Spec 28 commit 7b): a book zip whose book has been published. It never
+ * throws for an absent or unsafe key — a caller deleting a file after the work is done must not be
+ * able to undo the work by failing.
+ *
+ * The book's own directory is removed when it empties, which keeps uploads/ from filling with
+ * empty directories, one per book per version. rmdir refuses a directory that is not empty, so a
+ * second upload of the same book in flight is never affected.
+ */
+export function deleteUpload(key: string): number | null {
+  let f: string;
+  try { f = fullPath(key); } catch { return null; }
+  let freed: number;
+  try {
+    const st = statSync(f);
+    if (!st.isFile()) return null;
+    freed = st.size;
+    rmSync(f, { force: true });
+  } catch { return null; }
+  // rmdirSync, not rmSync: rmSync on a directory without recursive throws EISDIR, and a caught
+  // EISDIR that silently does nothing is how the first draft of fsOps left husks behind.
+  try { rmdirSync(path.dirname(f)); } catch { /* not empty, or gone: either is fine */ }
+  return freed;
 }
 
 /** Whether a stored file is still on the volume, without opening it. For diagnostics. */
