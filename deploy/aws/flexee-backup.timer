@@ -1,0 +1,16 @@
+[Unit]
+Description=Nightly stopgap copy of the Flexee Wrapper's database and files
+Documentation=https://github.com/OneSmarterInc/Flexee_Wrapper/blob/main/deploy/aws/AWS_Deployment_Runbook.md
+
+[Timer]
+# 03:12 UTC: after midnight anywhere that matters and well clear of a class. The odd minute is so
+# this does not start in the same second as every other cron job on the box.
+OnCalendar=*-*-* 03:12:00
+# A spread, because the same reasoning applies to the other services' timers.
+RandomizedDelaySec=600
+# If the instance was off at 03:12, run when it comes back rather than skipping the night.
+Persistent=true
+Unit=flexee-backup.service
+
+[Install]
+WantedBy=timers.target

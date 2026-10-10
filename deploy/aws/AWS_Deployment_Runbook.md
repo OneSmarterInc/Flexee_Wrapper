@@ -13,8 +13,8 @@
 > those. Spec 28 Addendum F deferred RDS, S3 and a separate data volume.
 >
 > Parts A to H below are kept only as the record of what was planned. **Spec 28 commit 13 rewrites
-> this document.** Until then, the only part of it written against the box as it actually is, and
-> therefore the only part safe to follow, is **Part I**.
+> this document.** Until then, the only parts of it written against the box as it actually is, and
+> therefore the only parts safe to follow, are **Part I** and **Part J**.
 
 ---
 
@@ -300,6 +300,125 @@ deploy for that reason.
 **Do not run `npm run intake:worker` by hand while the unit is running.** The advisory lock will
 stop the second one touching a book the first is working on, but two pollers is not a state to
 debug in.
+
+---
+
+## Part J — The nightly stopgap (`flexee-backup.timer`)
+
+**Written against the box as it is. Spec 28 commit 8.**
+
+> **This is a stopgap, not a backup, and it is called that everywhere on purpose.** It writes to the
+> same disk as the data it copies. It will get back a table somebody emptied, a migration that went
+> wrong, a book published over the wrong id, or a student's file deleted by accident. It will get
+> back nothing at all if this disk, this instance or this AWS account is lost — which is what the
+> word "backup" is normally taken to promise.
+>
+> The real thing (an S3 bucket, write-only, with Object Lock) is **deferred, not cancelled**: Spec 28
+> Addendum F brings it back when real student data lands on this box, or on 30 November, whichever
+> comes first. Until then, this is what there is, and anybody relying on it should know which half
+> of the job it does.
+
+Nightly at 03:12 UTC it writes two files to `/var/backups/flexee` and keeps seven of each:
+
+| | |
+|---|---|
+| `db-<time>.dump` | `pg_dump -Fc` of `flexee_wrapper` |
+| `files-<time>.tar.gz` | `CONTENT_DIR` and `FILES_DIR` — the books and the student files |
+
+### Install
+
+1. **Create the directory**, owned by the same user the units run as:
+   ```bash
+   sudo mkdir -p /var/backups/flexee
+   sudo chown <that-user>:<that-group> /var/backups/flexee
+   sudo chmod 700 /var/backups/flexee
+   ```
+2. **Install the unit and the timer**, filling in the two CONFIRM lines (`User`, `Group`) from
+   `systemctl cat flexee-wrapper`:
+   ```bash
+   sudo cp /var/www/Flexee_Wrapper/deploy/aws/flexee-backup.service /etc/systemd/system/
+   sudo cp /var/www/Flexee_Wrapper/deploy/aws/flexee-backup.timer   /etc/systemd/system/
+   sudo nano /etc/systemd/system/flexee-backup.service
+   sudo systemctl daemon-reload
+   ```
+   The script itself stays in the checkout at
+   `/var/www/Flexee_Wrapper/deploy/aws/flexee-backup.sh`, so a deploy updates it. No sudoers rule
+   is needed: nothing here restarts a service.
+3. **Run it once by hand** and read what it says:
+   ```bash
+   sudo systemctl start flexee-backup.service
+   journalctl -u flexee-backup -n 30 --no-pager
+   ls -lh /var/backups/flexee
+   ```
+   The last line of a good run names both files and the free space left. `cat
+   /var/backups/flexee/last-run.txt` says the same thing without the journal.
+4. **Start the timer:**
+   ```bash
+   sudo systemctl enable --now flexee-backup.timer
+   systemctl list-timers flexee-backup --no-pager
+   ```
+5. **Rehearse a restore**, which is the half of a backup people skip and then regret — a dump that
+   cannot be restored is not a copy of anything, and the only way to know is to restore it:
+   ```bash
+   cd /var/www/Flexee_Wrapper
+   deploy/aws/restore-rehearsal.sh            # prints the server and stops
+   deploy/aws/restore-rehearsal.sh --yes --compare-live
+   ```
+   It restores the newest dump into a scratch database called
+   `flexee_restore_check_<timestamp>` that it creates for the run and drops at the end, prints a
+   row count per table, and — with `--compare-live` — the live count beside it. **It never writes
+   to the live database:** the only statement it sends there is `select count(*)`. A live count
+   higher than the restored one is ordinary (rows written since the dump was taken); a restored
+   count higher than live has no innocent explanation and wants looking at.
+   Send Vikram that table the first time. Worth repeating whenever the schema changes
+   substantially, and once more before the 30 November freeze.
+6. **Settings**, if the defaults are wrong for the box. All read from the same `.env`:
+   `BACKUP_DIR` (default `/var/backups/flexee`), `BACKUP_KEEP` (7), `BACKUP_MIN_FREE_MB` (2048).
+
+### What to expect
+
+| What you see | What it means |
+|---|---|
+| `flexee-backup: done: db-… (3 MB), files-… (31 MB); 7400 MB free.` | normal |
+| `flexee-backup: SKIPPED: this would need about … and /var/backups/flexee has …` | **it declined on purpose and the unit is not failed.** Free space. Nothing was written and nothing already there was removed |
+| `flexee-backup: removing db-… (keeping 7)` | retention, working |
+| The unit in `failed` state | a real fault: `pg_dump` could not connect, or `tar` failed. `journalctl -u flexee-backup -n 50` |
+| `another run holds /tmp/flexee-backup.lock` | a previous night's run is still going, or somebody started one by hand. Not a fault |
+
+A refusal for want of space exits 0 by design. A unit left in `failed` for a deliberate decision
+teaches people to ignore a failed unit, and this one being failed should mean something.
+
+### How much space this actually takes
+
+Worth being exact about, because two different numbers get confused. **A book's 37 MB is the Drive
+shelf** — the decks, the studio packs, the compiled HTML and DOCX, the batch zips — and that is
+what gets uploaded. **`CONTENT_DIR` holds the published tree**, which is markdown, manifests,
+question JSON and figure PNGs and nothing else. Measured on the two book trees in the repository, a
+published book is **1–3 MB**, and a tarball of both is 2.4 MB (the PNGs dominate and do not
+compress).
+
+So with three books and no student files yet, a night is roughly:
+
+| | |
+|---|---|
+| `files-<time>.tar.gz` | about 5–10 MB |
+| `db-<time>.dump` | a few MB — the chapter text and question banks are in the database too |
+| **seven nights** | **under 100 MB** |
+
+Against about 9.5 GB free (28 GB at 66%, as reported on 9 October) that is under 1% of the space,
+so **retention is what limits the history here, not the disk**: at this size the floor would only
+refuse a run once free space fell under about 2.1 GB — the `trees_mb` being copied plus the
+2048 MB floor. Student files are the number that will grow, not the books.
+
+Two commands give the real figures rather than these estimates:
+
+```bash
+du -sm /var/lib/flexee/content /var/lib/flexee/files /var/backups/flexee
+df -h /var/backups
+```
+
+If `files` ever approaches a gigabyte, revisit `BACKUP_KEEP` before the floor does it for you — a
+refused run is safe but it is still a night without a copy.
 
 ## Handover — send Vikram these when done
 

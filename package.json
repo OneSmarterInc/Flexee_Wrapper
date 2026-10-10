@@ -35,6 +35,7 @@
     "test:library": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-library.ts",
     "test:book-upload": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-book-upload.ts",
     "test:intake-worker": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-intake-worker.ts",
+    "test:backup": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-backup.ts",
     "test:assignments": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-assignments.ts",
     "test:gradebook": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-gradebook.ts",
     "test:gb-starter": "node --import ./scripts/test-support/register.mjs --experimental-strip-types scripts/it-gb-starter.ts",

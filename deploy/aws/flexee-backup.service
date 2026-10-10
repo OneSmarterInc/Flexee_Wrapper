@@ -1,0 +1,42 @@
+[Unit]
+# The nightly stopgap (Spec 28 commit 8). Deliberately not called a backup: it writes to the same
+# disk as the data it copies, so it survives a mistaken DELETE or a bad migration and does not
+# survive the disk, the instance or the account. Spec 28 Addendum F defers the off-box copy (S3,
+# write-only, Object Lock) until real student data is here or 30 November, whichever is first.
+Description=Flexee Wrapper nightly stopgap copy (same-disk; NOT an off-box backup)
+Documentation=https://github.com/OneSmarterInc/Flexee_Wrapper/blob/main/deploy/aws/AWS_Deployment_Runbook.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+# CONFIRM BEFORE INSTALLING: these must match flexee-wrapper.service — `systemctl cat
+# flexee-wrapper` — except that this one may need a user who can both read /var/lib/flexee and
+# write /var/backups/flexee. The simplest correct answer on this box is the same user, with
+# /var/backups/flexee owned by it.
+User=REPLACE_WITH_THE_USER_FLEXEE_WRAPPER_RUNS_AS
+Group=REPLACE_WITH_THE_GROUP_FLEXEE_WRAPPER_RUNS_AS
+EnvironmentFile=/var/www/Flexee_Wrapper/.env
+
+ExecStart=/var/www/Flexee_Wrapper/deploy/aws/flexee-backup.sh
+
+# No Restart=: a oneshot that failed should stay failed until somebody looks. Retrying a copy that
+# failed for want of space, or because pg_dump is broken, just fills the journal.
+TimeoutStartSec=3600
+
+# Nice and idle IO because this box runs five other services and a 37 MB tarball at 03:00 should
+# never be the reason one of them is slow.
+Nice=15
+IOSchedulingClass=idle
+MemoryMax=512M
+
+NoNewPrivileges=yes
+PrivateTmp=no
+ProtectSystem=full
+ProtectHome=read-only
+# /var/backups must be writable; ProtectSystem=full leaves /var alone, so nothing more is needed.
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flexee-backup
